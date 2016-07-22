@@ -29,8 +29,8 @@
 		if( substr( $dir, strlen( $dir )-1, 1 ) == _DS ) $dir= substr( $dir, 0, -1 );
 	$root_dir= $root . $dir;
 	
-	$ww= @file_get_contents( "http://fndelta.gavrishkin.ru/__password__002.php?host=". $host ."&w=". $_GET[ 'w' ] );
-	if( ! $ww || $_GET[ 'w' ] == '' || $_GET[ 'w' ] != $ww ){ print '[[FAIL]]'; exit(); }
+	//$ww= @file_get_contents( "http://fndelta.gavrishkin.ru/__password__002.php?host=". $host ."&w=". $_GET[ 'w' ] );
+	//if( ! $ww || $_GET[ 'w' ] == '' || $_GET[ 'w' ] != $ww ){ print '[[FAIL]]'; exit(); }
 //====================================================================================================
 
 	$c_starttime= microtime( 1 );
@@ -141,20 +141,20 @@ if( $act == 'antivirus' )
 			$WW= '<wrapper>
 				<files>
 					<!--div class="folder_name">Корень</div-->
-					<div class="folder_files"><span>&nbsp;</span>[[/]]<div class="clr"></div></div>
+					<div class="folder_files"><span>&nbsp;</span>[['._DS.']]<div class="clr"></div></div>
 				</files>
-				<subm>{{/}}</sub>
+				<subm>{{'._DS.'}}</sub>
 				<div class="clr"></div>
 			</wrapper>';
 			if( $fileslist )
 			{
 				foreach( $fileslist AS $key => $row )
 				{
-					if( strpos( $fileslist[ '/' ][ 'folders' ][ 'str' ], '|'.$key ) === false ) continue;
+					if( strpos( $fileslist[ _DS ][ 'folders' ][ 'str' ], '|'.$key ) === false ) continue;
 					
 					$key2= substr( $key, 0, -1 );
-					$parent= substr( $key2, 0, strrpos( $key2, "/" )+1 );
-					$folder_name= substr( $key2, strrpos( $key2, "/" )+1 );
+					$parent= substr( $key2, 0, strrpos( $key2, _DS )+1 );
+					$folder_name= substr( $key2, strrpos( $key2, _DS )+1 );
 					
 					$tmp= '<wrapper>
 						<files>
@@ -659,10 +659,10 @@ function buran( $folder, &$fileslist )
 								$tpl_item_type= mysql_result( $r_kws, $kk, 'id' ) .'. '. mysql_result( $r_kws, $kk, 'name' );
 								if( $tmp2 == 'yea' )
 								{
-									if( ! $fileslist[ '/' ][ 'folders' ][ $folder ] )
+									if( ! $fileslist[ _DS ][ 'folders' ][ $folder ] )
 									{
-										$fileslist[ '/' ][ 'folders' ][ $folder ]= true;
-										$fileslist[ '/' ][ 'folders' ][ 'str' ] .= '|'. $folder .'|';
+										$fileslist[ _DS ][ 'folders' ][ $folder ]= true;
+										$fileslist[ _DS ][ 'folders' ][ 'str' ] .= '|'. $folder .'|';
 									}
 									if( mysql_result( $r_kws, $kk, 'type' ) == 'simple' )
 										$fileslist[ $folder ][ 'files' ][ $file ][ 'id' ] .= ( ! empty( $fileslist[ $folder ][ 'files' ][ $file ][ 'id' ] ) ? ', ' : '' ) . mysql_result( $r_kws, $kk, 'id' );
