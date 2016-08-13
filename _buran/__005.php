@@ -254,7 +254,7 @@ function MysqlDump( $dumpFile, $resConn )
 					$first= true;
 					foreach( $roww AS $key => $val )
 					{
-						$val= addslashes( $val );
+						$val= mysql_real_escape_string( $val );
 						$output .= ( $first ? "" : "," ) ."`{$key}`='{$val}'";
 						$first= false;
 					}
