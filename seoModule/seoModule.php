@@ -1,13 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.17
- * 23.12.2016
+ * @version 1.19
+ * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
  */
 
-// error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'on');
 include_once('seoModule_config.php');
@@ -67,8 +66,6 @@ if(
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false
 )
 {
-	// if(isset($_GET['scorn'])) print'<pre>'.print_r($GLOBALS,1).'</pre>';
-
 	if(substr($pageurl,(-1)*strlen($config['s_page_suffix']))==$config['s_page_suffix']) $pageurl_without_suffix= substr($pageurl,0,(-1)*strlen($config['s_page_suffix']));
 
 	if(isset($seopages[$website_num][$requesturi]) || substr($seopages[$website_num][$pageurl_without_suffix],0,2)=='S:')
@@ -106,28 +103,36 @@ if(
 			if($config['get_content_method']=='curl')
 			{
 				$curlheaders= array();
-				$getallheaders= getallheaders();
+				$getallheaders= my_getallheaders();
 				if(is_array($getallheaders) && count($getallheaders))
 				{
 					foreach($getallheaders AS $key=>$row)
 					{
-						if($key=='Accept-Encoding') continue;
+						// if($key=='Accept-Encoding') continue;
+						if($key=='Accept-Encoding') $row= 'deflate';
+						if($key=='X-Forwarded-For') continue;
+						if($key=='X-Real-Ip') continue;
+						if($key=='Connection') $row= 'keep-alive';
 						$header= $key.': '.$row;
 						if($key=='User-Agent') $header .= ' /buran_seo_module';
 						$curlheaders[]= $header;
 					}
 				}
+
 				$curloptions= array(
 					CURLOPT_URL               => $donor,
 					CURLOPT_HTTPHEADER        => $curlheaders,
 					CURLOPT_HEADER            => true,
 					CURLOPT_RETURNTRANSFER    => true,
+					// CURLINFO_HEADER_OUT    => true,
+					// CURLOPT_COOKIESESSION  => true,
 					// CURLOPT_FOLLOWLOCATION => true,
-					CURLOPT_FRESH_CONNECT     => true,
+					// CURLOPT_FRESH_CONNECT  => true,
 					CURLOPT_CONNECTTIMEOUT    => 10,
 					CURLOPT_TIMEOUT           => 10,
 					CURLOPT_MAXREDIRS         => 5,
 				);
+
 				$curl= curl_init();
 				curl_setopt_array($curl, $curloptions);
 				$template= curl_exec($curl);
@@ -138,8 +143,6 @@ if(
 					// print'<pre>'.print_r($template,1).'</pre>';
 					$template= false;
 				}else{
-					if($request_info['content_type']) header('Content-Type: '.$request_info['content_type']);
-					// print'<pre>'.print_r($request_info,1).'</pre>';exit();
 					$template= trim($template);
 					if($headers)
 					{
@@ -157,10 +160,9 @@ if(
 				}
 				curl_close($curl);
 
-
 			}elseif($config['get_content_method']=='file_get_contents'){
 				$template= false;
-				header('Content-Type: text/html; charset='.$config['toencoding']);
+				// header('Content-Type: text/html; charset='.$config['toencoding']);
 			}else tolog('[error_02]','errors');
 
 			if($template)
@@ -183,8 +185,6 @@ if(
 				$seoimages_cc= count($seoimages);
 				$seoimages_cc_half= false;
 				if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
-				
-				// print'<pre>'.print_r($seoimages,1).'</pre>';
 
 				$body= $seo_text_styles;
 				$body .= '<div class="sssmodulebox"><div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
@@ -204,7 +204,7 @@ if(
 						style="'.($seoimages_cc_half?'':'margin:0;padding:0;width:auto;height:auto;').'" />';
 				if($seoimages_cc_half) $body .= '</div>';
 				$body .= '</div>';
-				$body .= '<div class="yasharebox">'.$config['share_code'].'</div></div>';
+				if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div></div>';
 
 				if(is_array($content_finish) && count($content_finish))
 				{
@@ -344,13 +344,11 @@ if(
 						if(preg_last_error()) tolog('[error_21]','errors');
 					}
 				}
-
 				if($seotype=='S')
 				{
 					header('Status: 200 OK');
 					header('HTTP/1.0 200 OK');
 				}
-
 				print $template;
 				exit();
 			}else tolog('[error_03]','errors');
@@ -431,51 +429,46 @@ function seoHash($droot, $config)
 	$hash .= md5_file($droot.'/_buran/seoModule_config.php') ."\n";
 	$files= glob($droot.$config['tx_path']._.'*.php');
 	if(is_array($files) & count($files))
-	{
-		foreach($files AS $file)
-		{
-			$hash .= md5_file($file) ."\n";
-		}
-	}
+		foreach($files AS $file) $hash .= md5_file($file) ."\n";
 	$hash= md5($hash);
 	return $hash;
 }
 
 function checkCharset($text = '')
 {
-    if (empty($text)) {    return; }
-    $utflower  = 7;
-    $utfupper  = 5;
-    $lowercase = 3;
-    $uppercase = 1;
-    $last_simb = 0;
-    $charsets = array('utf-8' => 0,    'cp1251' => 0, 'koi8-R' => 0, 'ibm866' => 0, 'iso-8859-5' => 0,    'mac' => 0);
-    for ($a = 0; $a < strlen($text); $a++) {
-        $char = ord($text[$a]);
-        // non-russian characters
-        if ($char < 128 || $char > 256)    continue;
-        // utf-8
-        if (($last_simb==208) && (($char>143 && $char<176) || $char==129)) $charsets['utf-8'] += ($utfupper * 2);
-        if ((($last_simb==208) && (($char>175 && $char<192) || $char==145))    || ($last_simb==209 && $char>127 && $char<144))    $charsets['utf-8'] += ($utflower * 2);
-        // cp1251
-        if (($char>223 && $char<256) || $char==184)    $charsets['cp1251'] += $lowercase;
-        if (($char>191 && $char<224) || $char==168)    $charsets['cp1251'] += $uppercase;
-        // koi8-R
-        if (($char>191 && $char<224) || $char==163)    $charsets['koi8-R'] += $lowercase;
-        if (($char>222 && $char<256) || $char==179)    $charsets['koi8-R'] += $uppercase;
-        // ibm866
-        if (($char>159 && $char<176) || ($char>223 && $char<241)) $charsets['ibm866'] += $lowercase;
-        if (($char>127 && $char<160) || $char==241)    $charsets['ibm866'] += $uppercase;
-        // iso-8859-5
-        if (($char>207 && $char<240) || $char==161)    $charsets['iso-8859-5'] += $lowercase;
-        if (($char>175 && $char<208) || $char==241)    $charsets['iso-8859-5'] += $uppercase;
-        // mac
-        if ($char>221 && $char<255)    $charsets['mac'] += $lowercase;
-        if ($char>127 && $char<160)    $charsets['mac'] += $uppercase;
-        $last_simb = $char;
-    }
-    arsort($charsets);
-    return key($charsets);
+	if (empty($text)) {    return; }
+	$utflower  = 7;
+	$utfupper  = 5;
+	$lowercase = 3;
+	$uppercase = 1;
+	$last_simb = 0;
+	$charsets = array('utf-8' => 0,    'cp1251' => 0, 'koi8-R' => 0, 'ibm866' => 0, 'iso-8859-5' => 0,    'mac' => 0);
+	for ($a = 0; $a < strlen($text); $a++) {
+		$char = ord($text[$a]);
+		// non-russian characters
+		if ($char < 128 || $char > 256)    continue;
+		// utf-8
+		if (($last_simb==208) && (($char>143 && $char<176) || $char==129)) $charsets['utf-8'] += ($utfupper * 2);
+		if ((($last_simb==208) && (($char>175 && $char<192) || $char==145))    || ($last_simb==209 && $char>127 && $char<144))    $charsets['utf-8'] += ($utflower * 2);
+		// cp1251
+		if (($char>223 && $char<256) || $char==184)    $charsets['cp1251'] += $lowercase;
+		if (($char>191 && $char<224) || $char==168)    $charsets['cp1251'] += $uppercase;
+		// koi8-R
+		if (($char>191 && $char<224) || $char==163)    $charsets['koi8-R'] += $lowercase;
+		if (($char>222 && $char<256) || $char==179)    $charsets['koi8-R'] += $uppercase;
+		// ibm866
+		if (($char>159 && $char<176) || ($char>223 && $char<241)) $charsets['ibm866'] += $lowercase;
+		if (($char>127 && $char<160) || $char==241)    $charsets['ibm866'] += $uppercase;
+		// iso-8859-5
+		if (($char>207 && $char<240) || $char==161)    $charsets['iso-8859-5'] += $lowercase;
+		if (($char>175 && $char<208) || $char==241)    $charsets['iso-8859-5'] += $uppercase;
+		// mac
+		if ($char>221 && $char<255)    $charsets['mac'] += $lowercase;
+		if ($char>127 && $char<160)    $charsets['mac'] += $uppercase;
+		$last_simb = $char;
+	}
+	arsort($charsets);
+	return key($charsets);
 }
 function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
 {
@@ -784,4 +777,45 @@ function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
 		imagedestroy($img2);
 	} //if($refresh)
 	return $newimg_path_return;
+}
+
+
+/**
+ * https://github.com/ralouphie/getallheaders
+ * 23.12.2016
+ *
+ * Get all HTTP header key/values as an associative array for the current request.
+ *
+ * @return string[string] The HTTP header key/value pairs.
+ */
+function my_getallheaders()
+{
+	$headers = array();
+	$copy_server = array(
+		'CONTENT_TYPE'   => 'Content-Type',
+		'CONTENT_LENGTH' => 'Content-Length',
+		'CONTENT_MD5'    => 'Content-Md5',
+	);
+	foreach ($_SERVER as $key => $value) {
+		if (substr($key, 0, 5) === 'HTTP_') {
+			$key = substr($key, 5);
+			if (!isset($copy_server[$key]) || !isset($_SERVER[$key])) {
+				$key = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', $key))));
+				$headers[$key] = $value;
+			}
+		} elseif (isset($copy_server[$key])) {
+			$headers[$copy_server[$key]] = $value;
+		}
+	}
+	if (!isset($headers['Authorization'])) {
+		if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+			$headers['Authorization'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+		} elseif (isset($_SERVER['PHP_AUTH_USER'])) {
+			$basic_pass = isset($_SERVER['PHP_AUTH_PW']) ? $_SERVER['PHP_AUTH_PW'] : '';
+			$headers['Authorization'] = 'Basic ' . base64_encode($_SERVER['PHP_AUTH_USER'] . ':' . $basic_pass);
+		} elseif (isset($_SERVER['PHP_AUTH_DIGEST'])) {
+			$headers['Authorization'] = $_SERVER['PHP_AUTH_DIGEST'];
+		}
+	}
+	return $headers;
 }
