@@ -103,7 +103,7 @@ if(
 			if($config['get_content_method']=='curl')
 			{
 				$curlheaders= array();
-				$getallheaders= my_getallheaders();
+				$getallheaders= (function_exists('getallheaders') ? getallheaders() : my_getallheaders());
 				if(is_array($getallheaders) && count($getallheaders))
 				{
 					foreach($getallheaders AS $key=>$row)
