@@ -226,7 +226,7 @@ if(
 
 				if($seotype=='A')
 				{
-					$template= preg_replace("/<h1 (.*)>(.*)<\/h1>/", '<h2 ${1}>${2}</h2>', $template);
+					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/", '<h2 ${1}>${2}</h2>', $template);
 					if(preg_last_error()) tolog('[error_09]','errors');
 					if($cf_cc===1)
 					{
