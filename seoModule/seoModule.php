@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.20
+ * @version 1.21
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -132,6 +132,11 @@ if(
 					CURLOPT_TIMEOUT           => 10,
 					CURLOPT_MAXREDIRS         => 5,
 				);
+				if($http=='https' && $config['https_test'])
+				{
+					$curloptions[CURLOPT_SSL_VERIFYHOST]= false;
+					$curloptions[CURLOPT_SSL_VERIFYPEER]= true;
+				}
 
 				$curl= curl_init();
 				curl_setopt_array($curl, $curloptions);
@@ -140,7 +145,7 @@ if(
 				list($headers, $template)= explode("\n\r", $template, 2);
 				if(curl_errno($curl) || $request_info['http_code']!=200)
 				{
-					// print'<pre>'.print_r($template,1).'</pre>';
+					// print'<pre>'.print_r($request_info,1).'</pre>';
 					$template= false;
 				}else{
 					$template= trim($template);
@@ -193,7 +198,7 @@ if(
 				if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 				for($i=0; $i<($seoimages_cc_half?$seoimages_cc_half:1); $i++)
 					$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
-						style="'.($seoimages_cc_half?'':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
+						style="'.($seoimages_cc_half?'padding:0 10px;':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
 				if($seoimages_cc_half) $body .= '</div>';
 
 				$body .= $s_text;
@@ -201,7 +206,7 @@ if(
 				if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 				for($i=($seoimages_cc_half?$seoimages_cc_half:1); $i<$seoimages_cc; $i++)
 					$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
-						style="'.($seoimages_cc_half?'':'margin:0;padding:0;width:auto;height:auto;').'" />';
+						style="'.($seoimages_cc_half?'padding:0 10px;':'margin:0;padding:0;width:auto;height:auto;').'" />';
 				if($seoimages_cc_half) $body .= '</div>';
 				$body .= '</div>';
 				if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div></div>';
