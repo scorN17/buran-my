@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.19
+ * @version 1.20
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -221,7 +221,6 @@ if(
 						if($cf_cc===1) break;
 					}
 				}else tolog('[error_04]','errors');
-
 				if($cf_cc!==1) tolog('[error_06]','errors');
 
 				if($seotype=='A')
@@ -254,8 +253,9 @@ if(
 									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
 									if(preg_last_error()) tolog('[error_11]','errors');
 									break;
-								}else tolog('[error_08]','errors');
+								}
 							}
+							if($cs_cc!==1) tolog('[error_08]','errors');
 						}else tolog('[error_07]','errors');
 					}
 				}else tolog('[error_05]','errors');
@@ -272,14 +272,15 @@ if(
 						$row2= str_replace("\n", '\n', $row2);
 						$row2= str_replace("\r", '', $row2);
 						$row2= str_replace("\t", '\t', $row2);
-						$cf_cc= preg_match("/".$row2."/s", $template);
-						if($cf_cc===1)
+						$al_cc= preg_match("/".$row2."/s", $template);
+						if($al_cc===1)
 						{
 							$template= preg_replace("/".$row2."/s", ($rowtype=='#'?$row:'').$link.($rowtype=='%'?$row:''), $template,1);
 							if(preg_last_error()) tolog('[error_12]','errors');
 							break;
 						}
 					}
+					if($al_cc!==1) tolog('[error_22]','errors');
 				}
 
 				// meta
