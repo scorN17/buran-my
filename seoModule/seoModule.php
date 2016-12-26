@@ -1,17 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 1.22
+ * @version 1.53
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
  */
 
-error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'on');
 include_once('seoModule_config.php');
 
-$config['toencoding']= strtolower($config['toencoding']);
+error_reporting($configs['global']['error_reporting']);
+ini_set('display_errors', $configs['global']['error_reporting']);
 
 define('_', DIRECTORY_SEPARATOR);
 $website_num= false;
@@ -31,6 +30,30 @@ else{
 }
 $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
 $logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
+// ------------------------------------------------------------------
+
+$website_num= 1;
+foreach($websites AS $key => $ws) if(strpos($ws[0].'/', '/'.$domain.'/')!==false) $website_num= $key;
+if($website_num)
+{
+	$config= $configs['global'];
+	if(isset($configs[$website_num])) $config= array_merge($config, $configs[$website_num]);
+	$config['toencoding']= strtolower($config['toencoding']);
+
+	$website= $websites[$website_num];
+
+	$redirect= $redirects['global'];
+	if(isset($redirects[$website_num])) $redirect= array_merge($redirect, $redirects[$website_num]);
+
+	if($http.'://'.$www.$domain !== $website[0]) $redirect_to= $requesturi;
+	if($redirect[$requesturi]) $redirect_to= $redirect[$requesturi];
+
+	if($redirect_to)
+	{
+		header('Location: '.$website[0].$redirect_to, true, 301);
+		exit();
+	}
+}
 if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
 {
 	$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
@@ -39,24 +62,8 @@ if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/
 }
 // ------------------------------------------------------------------
 
-$website_num= 1;
-foreach($websites AS $key => $ws) if(strpos($ws[0].'/', '/'.$domain.'/')!==false) $website_num= $key;
-if($website_num)
-{
-	$website= $websites[$website_num];
-
-	if($http.'://'.$www.$domain !== $website[0]) $redirect_to= $requesturi;
-	if($redirects[$website_num][$requesturi]) $redirect_to= $redirects[$website_num][$requesturi];
-
-	if($redirect_to)
-	{
-		header('Location: '.$website[0].$redirect_to, true, 301);
-		exit();
-	}
-}
-// ------------------------------------------------------------------
-
 if(
+	$website_num &&
 	basename($pageurl)!='seoModule.php' &&
 	(
 		$config['module_enabled']===true ||
@@ -66,15 +73,18 @@ if(
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false
 )
 {
+	$seopage= $seopages['global'];
+	if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
+
 	if(substr($pageurl,(-1)*strlen($config['s_page_suffix']))==$config['s_page_suffix']) $pageurl_without_suffix= substr($pageurl,0,(-1)*strlen($config['s_page_suffix']));
 
-	if(isset($seopages[$website_num][$requesturi]) || substr($seopages[$website_num][$pageurl_without_suffix],0,2)=='S:')
+	if(isset($seopage[$requesturi]) || substr($seopage[$pageurl_without_suffix],0,2)=='S:')
 	{
-		if(isset($seopages[$website_num][$requesturi]))
+		if(isset($seopage[$requesturi]))
 		{
-			$seoalias= trim($seopages[$website_num][$requesturi]);
+			$seoalias= trim($seopage[$requesturi]);
 		}else{
-			$seoalias= trim($seopages[$website_num][$pageurl_without_suffix]);
+			$seoalias= trim($seopage[$pageurl_without_suffix]);
 		}
 		$seoalias= explode(':', $seoalias);
 		$seotype= ($seoalias[0]=='A'?'A':'S');
@@ -144,7 +154,6 @@ if(
 				list($headers, $template)= explode("\n\r", $template, 2);
 				if(curl_errno($curl) || $request_info['http_code']!=200)
 				{
-					// print'<pre>'.print_r($request_info,1).'</pre>';
 					$template= false;
 				}else{
 					$template= trim($template);
@@ -191,7 +200,7 @@ if(
 				$seoimages_cc_half= false;
 				if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
 
-				$body= $seo_text_styles;
+				$body= $config['styles'];
 				$body .= '<div class="sssmodulebox"><div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
 					<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
 				$body .= '<div class="sssmb_stext">';
@@ -211,9 +220,11 @@ if(
 				$body .= '</div>';
 				if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div></div>';
 
-				if(is_array($content_finish) && count($content_finish))
+				$content_finish_my= $content_finish['global'];
+				if(isset($content_finish[$website_num])) $content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
+				if(is_array($content_finish_my) && count($content_finish_my))
 				{
-					foreach($content_finish AS $cf)
+					foreach($content_finish_my AS $cf)
 					{
 						$cftype= substr($cf,0,1);
 						if($cftype!=='@' && $cftype!=='#' && $cftype!=='%') $cftype= '%';
@@ -241,9 +252,11 @@ if(
 				}elseif($seotype=='S'){
 					if($cf_cc===1)
 					{
-						if(is_array($content_start) && count($content_start))
+						$content_start_my= $content_start['global'];
+						if(isset($content_start[$website_num])) $content_start_my= array_merge($content_start_my, $content_start[$website_num]);
+						if(is_array($content_start_my) && count($content_start_my))
 						{
-							foreach($content_start AS $cs)
+							foreach($content_start_my AS $cs)
 							{
 								$cstype= substr($cs,0,1);
 								if($cstype!=='@' && $cstype!=='#' && $cstype!=='%') $cstype= '%';
@@ -265,10 +278,12 @@ if(
 					}
 				}else tolog('[error_05]','errors');
 
-				if(is_array($articles_link) && count($articles_link))
+				$articles_link_my= $articles_link['global'];
+				if(isset($articles_link[$website_num])) $articles_link_my= array_merge($articles_link_my, $articles_link[$website_num]);
+				if(is_array($articles_link_my) && count($articles_link_my))
 				{
 					$link= '<a href="'.$website[3].'">Статьи</a>';
-					foreach($articles_link AS $row)
+					foreach($articles_link_my AS $row)
 					{
 						$rowtype= substr($row,0,1);
 						if($rowtype!=='@' && $rowtype!=='#' && $rowtype!=='%') $rowtype= '%';
@@ -353,7 +368,7 @@ if(
 				if($seotype=='S')
 				{
 					header('Status: 200 OK');
-					header('HTTP/1.0 200 OK');
+					header('HTTP/1.1 200 OK');
 				}
 				print $template;
 				exit();
@@ -365,12 +380,6 @@ if(
 
 if(basename($pageurl)=='seoModule.php')
 {
-	if($_GET['a']=='hash')
-	{
-		print '['.seoHash($droot, $config).']';
-		exit();
-	}
-
 	if($_GET['a']=='list')
 	{
 		header('Content-type: text/html; charset=utf-8');
@@ -408,6 +417,54 @@ if(basename($pageurl)=='seoModule.php')
 			print '<br />';
 			print "<pre>\t=array(\n".$printarray_A.$printarray_S."\t);</pre>";
 		}
+	}
+
+	if($_GET['a']=='info')
+	{
+		$seopage= $seopages['global'];
+		if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
+
+		print '[seohash_'.seoHash($droot, $config).']'."\n";
+		print '[droot_'.$droot.']'."\n";
+		print '[website_'.$website[0].']'."\n";
+		print '[mainpage_'.$website[1].']'."\n";
+		print '[donor_'.$website[2].']'."\n";
+		print '[articlespage_'.$website[3].']'."\n";
+		print '[pages_]'."\n";
+		foreach($seopage AS $key => $row)
+		{
+			print $key .(substr($row,0,2)=='S:'?$config['s_page_suffix']:'') ."\n";
+		}
+		print '[_pages]'."\n";
+		print '[config_]'."\n";
+		foreach($config AS $key => $row)
+		{
+			if(strpos($row,"\n")!==false) continue;
+			print $key.'|'.$row."\n";
+		}
+		print '[_config]'."\n";
+
+		print '[seohash_s_]'."\n";
+		$fo= fopen('seoModule_hash','r');
+		if($fo)
+		{
+			$content= '';
+			while( ! feof($fo)) $content .= fread($fo, 1024*8);
+			fclose($fo);
+			print $content;
+		}
+		print '[_seohash_s]'."\n";
+
+		print '[errors_]'."\n";
+		$fo= fopen('seoModule_errors','r');
+		if($fo)
+		{
+			$content= '';
+			while( ! feof($fo)) $content .= fread($fo, 1024*8);
+			fclose($fo);
+			print $content;
+		}
+		print '[_errors]'."\n";
 	}
 }
 
