@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.53
+ * @version 1.55
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -277,31 +277,6 @@ if(
 						}else tolog('[error_07]','errors');
 					}
 				}else tolog('[error_05]','errors');
-
-				$articles_link_my= $articles_link['global'];
-				if(isset($articles_link[$website_num])) $articles_link_my= array_merge($articles_link_my, $articles_link[$website_num]);
-				if(is_array($articles_link_my) && count($articles_link_my))
-				{
-					$link= '<a href="'.$website[3].'">Статьи</a>';
-					foreach($articles_link_my AS $row)
-					{
-						$rowtype= substr($row,0,1);
-						if($rowtype!=='@' && $rowtype!=='#' && $rowtype!=='%') $rowtype= '%';
-						$row= substr($row,1);
-						$row2= preg_quote($row,"/");
-						$row2= str_replace("\n", '\n', $row2);
-						$row2= str_replace("\r", '', $row2);
-						$row2= str_replace("\t", '\t', $row2);
-						$al_cc= preg_match("/".$row2."/s", $template);
-						if($al_cc===1)
-						{
-							$template= preg_replace("/".$row2."/s", ($rowtype=='#'?$row:'').$link.($rowtype=='%'?$row:''), $template,1);
-							if(preg_last_error()) tolog('[error_12]','errors');
-							break;
-						}
-					}
-					if($al_cc!==1) tolog('[error_22]','errors');
-				}
 
 				// meta
 				if($config['meta']=='replace_or_add' || $config['meta']=='replace_if_exists' || $config['meta']=='delete')
