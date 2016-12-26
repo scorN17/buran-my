@@ -102,7 +102,3 @@ $content_start['global'][]= '#<!--content_start-->';
 $content_finish['global'][]= '%<!--content_end-->';
 
 // --------------------
-
-// $articles_link['global'][]= '#';
-
-// --------------------
