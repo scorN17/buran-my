@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.55
+ * @version 1.56
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -19,7 +19,7 @@ $domain= (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NA
 $www= (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname= (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
-$requesturi= $_SERVER['REQUEST_URI'];
+$requesturi= urlencode($_SERVER['REQUEST_URI']);
 $pageurl= parse_url($requesturi, PHP_URL_PATH);
 $querystring= $_SERVER['QUERY_STRING'];
 if($_SERVER['DOCUMENT_ROOT']) $droot= $_SERVER['DOCUMENT_ROOT'];
