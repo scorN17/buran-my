@@ -12,10 +12,10 @@
 	+ тэг куда вставить ссылку на страницу статьи
 - скрытая оптимизация
 - города - мега модуль
-- robots.txt
+	-- robots.txt
 	+ WordPress - при залогине в админке - не рабит сайт
-- Expires в Netcat
-- на S страницах заменять H1
+	-- Expires в Netcat
+	-- на S страницах заменять H1
 */
 
 
@@ -52,7 +52,7 @@ $seopages= array(
 $config= array(
 	'module_enabled'     => true, // Активность модуля ... можно указать IP-адрес 80.80.109.182
 	's_page_suffix'      => '/', // суффикс S статей с точкой в начале
-	'get_content_method' => 'curl', // curl // file_get_contents
+	'get_content_method' => 'curl', // curl // file_get_contents // socket
 	'tx_path'            => '/tx', // путь к папке со статьями      '/tx'
 	'img_path'           => '/tx/img', // путь к папке с картинками '/tx/img'
 	'use_share'          => true, // блок поделиться
@@ -64,7 +64,7 @@ $config= array(
 	'canonical'          => 'replace_or_add', // replace_or_add // replace_if_exists // delete // false
 	'meta'               => 'replace_or_add', // replace_or_add // replace_if_exists // delete // false
 	'requets_methods'    => '/GET/HEAD/',
-	'https_test'         => true, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
+	'https_test'         => false, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
 );
 
 $config['share_code']= '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,moimir,twitter,viber,whatsapp,skype,telegram" data-counter=""></div>';
@@ -91,21 +91,11 @@ $seo_text_styles= '<style>
  * 		# - добавить ПОСЛЕ
  */
 
-$content_start[]= '#<!-- Article -->
-	<article>
-		<div class="row">';
-$content_start[]= '#<section class="article-content clearfix">';
+$content_start[]= '#<!--content_start-->';
 
 // --------------------
 
-$content_finish[]= '%</div>
-	</article>
-	<!-- //Article -->';
-	
-$content_finish[]= '%</section>';
-
-
-
+$content_finish[]= '%<!--content_end-->';
 
 // --------------------
 
