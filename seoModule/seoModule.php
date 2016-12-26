@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.21
+ * @version 1.22
  * 26.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -31,7 +31,7 @@ else{
 }
 $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
 $logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
-if(filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
+if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
 {
 	$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
 	$seoHash= seoHash($droot, $config);
@@ -108,8 +108,7 @@ if(
 				{
 					foreach($getallheaders AS $key=>$row)
 					{
-						// if($key=='Accept-Encoding') continue;
-						if($key=='Accept-Encoding') $row= 'deflate';
+						if($key=='Accept-Encoding') continue;
 						if($key=='X-Forwarded-For') continue;
 						if($key=='X-Real-Ip') continue;
 						if($key=='Connection') $row= 'keep-alive';
@@ -167,7 +166,8 @@ if(
 
 			}elseif($config['get_content_method']=='file_get_contents'){
 				$template= false;
-				// header('Content-Type: text/html; charset='.$config['toencoding']);
+			}elseif($config['get_content_method']=='socket'){
+				$template= false;
 			}else tolog('[error_02]','errors');
 
 			if($template)
@@ -357,6 +357,7 @@ if(
 				}
 				print $template;
 				exit();
+
 			}else tolog('[error_03]','errors');
 		}else tolog('[error_01]','errors');
 	}
@@ -440,42 +441,6 @@ function seoHash($droot, $config)
 	return $hash;
 }
 
-function checkCharset($text = '')
-{
-	if (empty($text)) {    return; }
-	$utflower  = 7;
-	$utfupper  = 5;
-	$lowercase = 3;
-	$uppercase = 1;
-	$last_simb = 0;
-	$charsets = array('utf-8' => 0,    'cp1251' => 0, 'koi8-R' => 0, 'ibm866' => 0, 'iso-8859-5' => 0,    'mac' => 0);
-	for ($a = 0; $a < strlen($text); $a++) {
-		$char = ord($text[$a]);
-		// non-russian characters
-		if ($char < 128 || $char > 256)    continue;
-		// utf-8
-		if (($last_simb==208) && (($char>143 && $char<176) || $char==129)) $charsets['utf-8'] += ($utfupper * 2);
-		if ((($last_simb==208) && (($char>175 && $char<192) || $char==145))    || ($last_simb==209 && $char>127 && $char<144))    $charsets['utf-8'] += ($utflower * 2);
-		// cp1251
-		if (($char>223 && $char<256) || $char==184)    $charsets['cp1251'] += $lowercase;
-		if (($char>191 && $char<224) || $char==168)    $charsets['cp1251'] += $uppercase;
-		// koi8-R
-		if (($char>191 && $char<224) || $char==163)    $charsets['koi8-R'] += $lowercase;
-		if (($char>222 && $char<256) || $char==179)    $charsets['koi8-R'] += $uppercase;
-		// ibm866
-		if (($char>159 && $char<176) || ($char>223 && $char<241)) $charsets['ibm866'] += $lowercase;
-		if (($char>127 && $char<160) || $char==241)    $charsets['ibm866'] += $uppercase;
-		// iso-8859-5
-		if (($char>207 && $char<240) || $char==161)    $charsets['iso-8859-5'] += $lowercase;
-		if (($char>175 && $char<208) || $char==241)    $charsets['iso-8859-5'] += $uppercase;
-		// mac
-		if ($char>221 && $char<255)    $charsets['mac'] += $lowercase;
-		if ($char>127 && $char<160)    $charsets['mac'] += $uppercase;
-		$last_simb = $char;
-	}
-	arsort($charsets);
-	return key($charsets);
-}
 function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
 {
 	// v7.2
