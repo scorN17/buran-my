@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 1.56
- * 26.12.2016
+ * @version 1.57
+ * 27.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
  */
@@ -19,7 +19,7 @@ $domain= (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NA
 $www= (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname= (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
-$requesturi= urlencode($_SERVER['REQUEST_URI']);
+$requesturi= $_SERVER['REQUEST_URI'];
 $pageurl= parse_url($requesturi, PHP_URL_PATH);
 $querystring= $_SERVER['QUERY_STRING'];
 if($_SERVER['DOCUMENT_ROOT']) $droot= $_SERVER['DOCUMENT_ROOT'];
@@ -139,7 +139,6 @@ if(
 					// CURLOPT_FRESH_CONNECT  => true,
 					CURLOPT_CONNECTTIMEOUT    => 10,
 					CURLOPT_TIMEOUT           => 10,
-					CURLOPT_MAXREDIRS         => 5,
 				);
 				if($http=='https' && $config['https_test'])
 				{
@@ -786,9 +785,7 @@ function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
 /**
  * https://github.com/ralouphie/getallheaders
  * 23.12.2016
- *
  * Get all HTTP header key/values as an associative array for the current request.
- *
  * @return string[string] The HTTP header key/value pairs.
  */
 function my_getallheaders()
