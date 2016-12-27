@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 1.57
+ * @version 1.58
  * 27.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -13,7 +13,6 @@ error_reporting($configs['global']['error_reporting']);
 ini_set('display_errors', $configs['global']['error_reporting']);
 
 define('_', DIRECTORY_SEPARATOR);
-$website_num= false;
 $http= ($_SERVER['SERVER_PORT']=='443' || (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https' : 'http');
 $domain= (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
 $www= (strpos($domain,'www.')===0?'www.':'');
