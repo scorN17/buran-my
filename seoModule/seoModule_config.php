@@ -15,6 +15,8 @@
  * Собственной функции определения кодировки пока нет. Когда понадобится - добавим.
  *
  * Получение контента донора пока только через CURL. Другие методы добавим по мере надобности.
+ *
+ * В CURL не настроены ручные редиректы.
  */
 
 // Redirects --------------------------------------------------------
@@ -46,7 +48,6 @@ $seopages= array(
 
 $configs= array(
 	'global' => array(
-		'debug'              => false, // влючать только на время тестирования
 		'module_enabled'     => true, // активность модуля ... можно указать IP-адрес '80.80.109.182'
 		's_page_suffix'      => '.html', // суффикс S статей
 		'get_content_method' => 'curl', // curl // file_get_contents // socket
@@ -64,6 +65,7 @@ $configs= array(
 		'https_test'         => false, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
 		'display_errors'     => 'on', // 'on' | 'off' - ini_set('display_errors');
 		'error_reporting'    => E_ALL & ~E_NOTICE, // error_reporting();
+		'debug'              => false, // влючать только на время тестирования
 	),
 );
 
