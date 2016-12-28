@@ -289,11 +289,11 @@ if(
 						$meta_description= '';
 						$meta_keywords= '';
 					}
-					$template= preg_replace("/<meta (.*)name=('|\")description('|\")(.*)>/isU", $meta_description, $template,1);
+					$template= preg_replace("/<meta (.*)name=('|\")description('|\")(.*)>/iU", $meta_description, $template,1);
 					if(preg_last_error()) tolog('[error_13]','errors');
-					$template= preg_replace("/<meta (.*)name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template,1);
+					$template= preg_replace("/<meta (.*)name=('|\")keywords('|\")(.*)>/iU", $meta_keywords, $template,1);
 					if(preg_last_error()) tolog('[error_14]','errors');
-					$template= preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template,1);
+					$template= preg_replace("/<title>(.*)<\/title>/iU", $meta_title, $template,1);
 					if(preg_last_error()) tolog('[error_15]','errors');
 				}
 
