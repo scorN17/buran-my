@@ -4,8 +4,6 @@
 - robots.txt
 */
 
-
-
 /**
  * include_once('_buran/seoModule.php'); - в начало скрипта-обработчика путей (смотреть .htaccess)
  *
@@ -63,9 +61,6 @@ $configs= array(
 		'meta'               => 'replace_or_add', // replace_or_add // replace_if_exists // delete // false
 		'requets_methods'    => '/GET/HEAD/',
 		'https_test'         => false, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
-		'display_errors'     => 'on', // 'on' | 'off' - ini_set('display_errors');
-		'error_reporting'    => E_ALL & ~E_NOTICE, // error_reporting();
-		'debug'              => false, // влючать только на время тестирования
 	),
 );
 
