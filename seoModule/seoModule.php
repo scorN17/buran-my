@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 1.6
+ * @version 1.7
  * 28.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
  */
 
-include_once('seoModule_config.php');
+error_reporting(E_ALL & ~E_NOTICE);
+ini_set('display_errors', 'on');
 
-error_reporting($configs['global']['error_reporting']);
-ini_set('display_errors', $configs['global']['error_reporting']);
+include_once('seoModule_config.php');
 
 define('_', DIRECTORY_SEPARATOR);
 $http= ($_SERVER['SERVER_PORT']=='443' || (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https' : 'http');
