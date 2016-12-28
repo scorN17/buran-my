@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 1.58
- * 27.12.2016
+ * @version 1.6
+ * 28.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
  */
@@ -239,7 +239,7 @@ if(
 
 				if($seotype=='A')
 				{
-					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/", '<h2 ${1}>${2}</h2>', $template);
+					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/iU", '<h2 ${1}>${2}</h2>', $template);
 					if(preg_last_error()) tolog('[error_09]','errors');
 					if($cf_cc===1)
 					{
@@ -289,11 +289,11 @@ if(
 						$meta_description= '';
 						$meta_keywords= '';
 					}
-					$template= preg_replace("/<meta (.*)name=('|\")description('|\")(.*)>/i", $meta_description, $template,1);
+					$template= preg_replace("/<meta (.*)name=('|\")description('|\")(.*)>/iU", $meta_description, $template,1);
 					if(preg_last_error()) tolog('[error_13]','errors');
-					$template= preg_replace("/<meta (.*)name=('|\")keywords('|\")(.*)>/i", $meta_keywords, $template,1);
+					$template= preg_replace("/<meta (.*)name=('|\")keywords('|\")(.*)>/iU", $meta_keywords, $template,1);
 					if(preg_last_error()) tolog('[error_14]','errors');
-					$template= preg_replace("/<title>(.*)<\/title>/i", $meta_title, $template,1);
+					$template= preg_replace("/<title>(.*)<\/title>/iU", $meta_title, $template,1);
 					if(preg_last_error()) tolog('[error_15]','errors');
 				}
 
@@ -303,7 +303,7 @@ if(
 					$base= '<base href="'.$website[0].'/" />';
 					if($config['base']=='replace_or_add' || $config['base']=='delete')
 					{
-						$template= preg_replace("/<base (.*)>/i", '', $template,1);
+						$template= preg_replace("/<base (.*)>/iU", '', $template,1);
 						if(preg_last_error()) tolog('[error_16]','errors');
 					}
 					if($config['base']=='replace_or_add')
@@ -313,7 +313,7 @@ if(
 					}
 					if($config['base']=='replace_if_exists')
 					{
-						$template= preg_replace("/<base (.*)>/i", $base, $template,1);
+						$template= preg_replace("/<base (.*)>/iU", $base, $template,1);
 						if(preg_last_error()) tolog('[error_18]','errors');
 					}
 				}
@@ -324,7 +324,7 @@ if(
 					$canonical= '<link rel="canonical" href="'.$website[0].$requesturi.'" />';
 					if($config['canonical']=='replace_or_add' || $config['canonical']=='delete')
 					{
-						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/i", '', $template,1);
+						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
 						if(preg_last_error()) tolog('[error_19]','errors');
 					}
 					if($config['canonical']=='replace_or_add')
@@ -334,7 +334,7 @@ if(
 					}
 					if($config['canonical']=='replace_if_exists')
 					{
-						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/i", $canonical, $template,1);
+						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
 						if(preg_last_error()) tolog('[error_21]','errors');
 					}
 				}
