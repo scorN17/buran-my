@@ -1,7 +1,7 @@
 <?php
 /**
  * Buran_011 - Sitemap
- * @version 1.31
+ * @version 1.33
  * 29.12.2016
  * DELTA
  * sergey.it@delta-ltd.ru
@@ -58,7 +58,8 @@ if(strpos($_SERVER['HTTP_USER_AGENT'], 'buran_sm_sitemap_')===false && (true || 
 		CURLOPT_RETURNTRANSFER => true,
 		CURLOPT_FRESH_CONNECT  => true,
 		CURLOPT_CONNECTTIMEOUT => 1,
-		CURLOPT_TIMEOUT_MS     => 100,
+		CURLOPT_TIMEOUT_MS     => 800,
+		CURLOPT_NOSIGNAL       => true,
 	);
 	$curl= curl_init();
 	curl_setopt_array($curl, $curloptions);
