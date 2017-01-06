@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 1.7
- * 28.12.2016
+ * @version 1.71
+ * 07.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
@@ -27,8 +27,6 @@ else{
 	$droot= str_replace($scriptname,'',$droot);
 	if(substr($droot,strlen($droot)-1,1)==_) $droot= substr($root,0,-1);
 }
-$logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
-$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
 // ------------------------------------------------------------------
 
 $website_num= 1;
@@ -53,12 +51,6 @@ if($website_num)
 		exit();
 	}
 }
-if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
-{
-	$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
-	$seoHash= seoHash($droot, $config);
-	tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
-}
 // ------------------------------------------------------------------
 
 if(
@@ -79,6 +71,15 @@ if(
 
 	if(isset($seopage[$requesturi]) || substr($seopage[$pageurl_without_suffix],0,2)=='S:')
 	{
+		$logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
+		$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
+		if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
+		{
+			$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
+			$seoHash= seoHash($droot, $config);
+			tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
+		}
+		
 		if(isset($seopage[$requesturi]))
 		{
 			$seoalias= trim($seopage[$requesturi]);
