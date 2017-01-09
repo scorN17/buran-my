@@ -8,7 +8,7 @@
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'off');
+ini_set('display_errors', 'on');
 
 include_once('seoModule_config.php');
 
