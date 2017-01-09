@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 1.71
- * 07.01.2017
+ * @version 1.75
+ * 09.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'on');
+ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
@@ -61,6 +61,7 @@ if(
 		$_SERVER['REMOTE_ADDR']===$config['module_enabled']
 	) &&
 	strpos($config['requets_methods'], '/'.$_SERVER['REQUEST_METHOD'].'/')!==false &&
+	$_SERVER['HTTP_USER_AGENT'] &&
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false
 )
 {
@@ -79,7 +80,7 @@ if(
 			$seoHash= seoHash($droot, $config);
 			tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
 		}
-		
+
 		if(isset($seopage[$requesturi]))
 		{
 			$seoalias= trim($seopage[$requesturi]);
@@ -112,22 +113,26 @@ if(
 
 			if($config['get_content_method']=='curl')
 			{
+				$useragent_flag= false;
 				$curlheaders= array();
 				$getallheaders= (function_exists('getallheaders') ? getallheaders() : my_getallheaders());
 				if(is_array($getallheaders) && count($getallheaders))
 				{
 					foreach($getallheaders AS $key=>$row)
 					{
-						if($key=='Accept-Encoding') continue;
-						if($key=='X-Forwarded-For') continue;
-						if($key=='X-Real-Ip') continue;
-						if($key=='Connection') $row= 'keep-alive';
+						if(preg_match("/accept-encoding/i", $key)===1) continue;
+						if(preg_match("/x-forwarded-for/i", $key)===1) continue;
+						if(preg_match("/x-real-ip/i", $key)===1) continue;
+						if(preg_match("/connection/i", $key)===1) $row= 'keep-alive';
 						$header= $key.': '.$row;
-						if($key=='User-Agent') $header .= ' /buran_seo_module';
+						if(preg_match("/user-agent/i", $key)===1)
+						{
+							$useragent_flag= true;
+							$header .= ' /buran_seo_module';
+						}
 						$curlheaders[]= $header;
 					}
 				}
-
 				$curloptions= array(
 					CURLOPT_URL               => $donor,
 					CURLOPT_HTTPHEADER        => $curlheaders,
@@ -145,6 +150,7 @@ if(
 					$curloptions[CURLOPT_SSL_VERIFYHOST]= false;
 					$curloptions[CURLOPT_SSL_VERIFYPEER]= true;
 				}
+				if( ! $useragent_flag) $curloptions[CURLOPT_USERAGENT]= ' /buran_seo_module';
 
 				$curl= curl_init();
 				curl_setopt_array($curl, $curloptions);
