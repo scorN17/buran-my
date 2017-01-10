@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 1.75
- * 09.01.2017
+ * @version 1.76
+ * 10.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'on');
+ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
@@ -61,7 +61,6 @@ if(
 		$_SERVER['REMOTE_ADDR']===$config['module_enabled']
 	) &&
 	strpos($config['requets_methods'], '/'.$_SERVER['REQUEST_METHOD'].'/')!==false &&
-	$_SERVER['HTTP_USER_AGENT'] &&
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false
 )
 {
@@ -120,12 +119,12 @@ if(
 				{
 					foreach($getallheaders AS $key=>$row)
 					{
-						if(preg_match("/accept-encoding/i", $key)===1) continue;
-						if(preg_match("/x-forwarded-for/i", $key)===1) continue;
-						if(preg_match("/x-real-ip/i", $key)===1) continue;
-						if(preg_match("/connection/i", $key)===1) $row= 'keep-alive';
+						if(stripos($key, 'accept-encoding')!==false) continue;
+						if(stripos($key, 'x-forwarded-for')!==false) continue;
+						if(stripos($key, 'x-real-ip')!==false) continue;
+						if(stripos($key, 'connection')!==false) $row= 'keep-alive';
 						$header= $key.': '.$row;
-						if(preg_match("/user-agent/i", $key)===1)
+						if(stripos($key, 'user-agent')!==false)
 						{
 							$useragent_flag= true;
 							$header .= ' /buran_seo_module';
@@ -138,10 +137,6 @@ if(
 					CURLOPT_HTTPHEADER        => $curlheaders,
 					CURLOPT_HEADER            => true,
 					CURLOPT_RETURNTRANSFER    => true,
-					// CURLINFO_HEADER_OUT    => true,
-					// CURLOPT_COOKIESESSION  => true,
-					// CURLOPT_FOLLOWLOCATION => true,
-					// CURLOPT_FRESH_CONNECT  => true,
 					CURLOPT_CONNECTTIMEOUT    => 10,
 					CURLOPT_TIMEOUT           => 10,
 				);
@@ -170,7 +165,7 @@ if(
 						{
 							foreach($headers AS $key => $header)
 							{
-								if(strpos($header, 'Transfer-Encoding')!==false) continue; //Transfer-Encoding: chunked
+								if(stripos($header, 'transfer-encoding')!==false) continue; //Transfer-Encoding: chunked
 								header($header);
 							}
 						}
@@ -825,3 +820,6 @@ function my_getallheaders()
 	}
 	return $headers;
 }
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------
