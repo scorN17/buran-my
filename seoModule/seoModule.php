@@ -1,17 +1,17 @@
 <?php
 /**
  * seoModule
- * @version 1.76
+ * @version 1.77
  * 10.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
+$seomoduleversion= '1.77';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
-
 define('_', DIRECTORY_SEPARATOR);
 $http= ($_SERVER['SERVER_PORT']=='443' || (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https' : 'http');
 $domain= (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
@@ -28,7 +28,6 @@ else{
 	if(substr($droot,strlen($droot)-1,1)==_) $droot= substr($root,0,-1);
 }
 // ------------------------------------------------------------------
-
 $website_num= 1;
 foreach($websites AS $key => $ws) if(strpos($ws[0].'/', '/'.$domain.'/')!==false) $website_num= $key;
 if($website_num)
@@ -52,7 +51,6 @@ if($website_num)
 	}
 }
 // ------------------------------------------------------------------
-
 if(
 	$website_num &&
 	basename($pageurl)!='seoModule.php' &&
@@ -399,6 +397,7 @@ if(basename($pageurl)=='seoModule.php')
 		$seopage= $seopages['global'];
 		if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
 
+		print '[seomoduleversion_'.$seomoduleversion.']'."\n";
 		print '[seohash_'.seoHash($droot, $config).']'."\n";
 		print '[droot_'.$droot.']'."\n";
 		print '[website_'.$website[0].']'."\n";
@@ -444,11 +443,6 @@ if(basename($pageurl)=='seoModule.php')
 }
 
 /*
- *
- *
- *
- *
- *
  *
  *
  *
@@ -821,5 +815,4 @@ function my_getallheaders()
 	return $headers;
 }
 //-------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------
-//-------------------------------------------------
+//------------------------------------------------------------------------------------------
