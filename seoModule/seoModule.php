@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.77
- * 10.01.2017
+ * @version 1.78
+ * 11.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.77';
+$seomoduleversion= '1.78';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -71,7 +71,7 @@ if(
 	{
 		$logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
 		$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
-		if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*12))
+		if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*24))
 		{
 			$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
 			$seoHash= seoHash($droot, $config);
@@ -92,6 +92,7 @@ if(
 		{
 			@include_once($droot.$config['tx_path']._.$seoalias.'.php');
 
+			if($config['checkcharsetmethod']=='mb_detect_encoding'){}else tolog('[error_12]','errors');
 			$encoding= mb_detect_encoding($s_text);
 			$encoding= strtolower($encoding);
 			$encode= ($encoding===$config['toencoding']?false:true);
@@ -170,12 +171,10 @@ if(
 					}
 				}
 				curl_close($curl);
-
-			}elseif($config['get_content_method']=='file_get_contents'){
+			}else{
 				$template= false;
-			}elseif($config['get_content_method']=='socket'){
-				$template= false;
-			}else tolog('[error_02]','errors');
+				tolog('[error_02]','errors');
+			}
 
 			if($template)
 			{
@@ -235,16 +234,16 @@ if(
 						if($cf_cc===1) break;
 					}
 				}else tolog('[error_04]','errors');
-				if($cf_cc!==1) tolog('[error_06]','errors');
+				if($cf_cc!==1) tolog('[error_06]-'.$requesturi,'errors');
 
 				if($seotype=='A')
 				{
 					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-					if(preg_last_error()) tolog('[error_09]','errors');
+					if(preg_last_error()) tolog('[error_09]-'.$requesturi,'errors');
 					if($cf_cc===1)
 					{
 						$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
-						if(preg_last_error()) tolog('[error_10]','errors');
+						if(preg_last_error()) tolog('[error_10]-'.$requesturi,'errors');
 					}
 
 				}elseif($seotype=='S'){
@@ -267,14 +266,14 @@ if(
 								if($cs_cc===1)
 								{
 									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
-									if(preg_last_error()) tolog('[error_11]','errors');
+									if(preg_last_error()) tolog('[error_11]-'.$requesturi,'errors');
 									break;
 								}
 							}
-							if($cs_cc!==1) tolog('[error_08]','errors');
+							if($cs_cc!==1) tolog('[error_08]-'.$requesturi,'errors');
 						}else tolog('[error_07]','errors');
 					}
-				}else tolog('[error_05]','errors');
+				}else tolog('[error_05]-'.$requesturi,'errors');
 
 				// meta
 				if($config['meta']=='replace_or_add' || $config['meta']=='replace_if_exists' || $config['meta']=='delete')
@@ -290,11 +289,11 @@ if(
 						$meta_keywords= '';
 					}
 					$template= preg_replace("/<meta (.*)name=('|\")description('|\")(.*)>/iU", $meta_description, $template,1);
-					if(preg_last_error()) tolog('[error_13]','errors');
+					if(preg_last_error()) tolog('[error_13]-'.$requesturi,'errors');
 					$template= preg_replace("/<meta (.*)name=('|\")keywords('|\")(.*)>/iU", $meta_keywords, $template,1);
-					if(preg_last_error()) tolog('[error_14]','errors');
+					if(preg_last_error()) tolog('[error_14]-'.$requesturi,'errors');
 					$template= preg_replace("/<title>(.*)<\/title>/iU", $meta_title, $template,1);
-					if(preg_last_error()) tolog('[error_15]','errors');
+					if(preg_last_error()) tolog('[error_15]-'.$requesturi,'errors');
 				}
 
 				// base
@@ -304,17 +303,17 @@ if(
 					if($config['base']=='replace_or_add' || $config['base']=='delete')
 					{
 						$template= preg_replace("/<base (.*)>/iU", '', $template,1);
-						if(preg_last_error()) tolog('[error_16]','errors');
+						if(preg_last_error()) tolog('[error_16]-'.$requesturi,'errors');
 					}
 					if($config['base']=='replace_or_add')
 					{
 						$template= preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
-						if(preg_last_error()) tolog('[error_17]','errors');
+						if(preg_last_error()) tolog('[error_17]-'.$requesturi,'errors');
 					}
 					if($config['base']=='replace_if_exists')
 					{
 						$template= preg_replace("/<base (.*)>/iU", $base, $template,1);
-						if(preg_last_error()) tolog('[error_18]','errors');
+						if(preg_last_error()) tolog('[error_18]-'.$requesturi,'errors');
 					}
 				}
 
@@ -325,17 +324,17 @@ if(
 					if($config['canonical']=='replace_or_add' || $config['canonical']=='delete')
 					{
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
-						if(preg_last_error()) tolog('[error_19]','errors');
+						if(preg_last_error()) tolog('[error_19]-'.$requesturi,'errors');
 					}
 					if($config['canonical']=='replace_or_add')
 					{
 						$template= preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
-						if(preg_last_error()) tolog('[error_20]','errors');
+						if(preg_last_error()) tolog('[error_20]-'.$requesturi,'errors');
 					}
 					if($config['canonical']=='replace_if_exists')
 					{
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
-						if(preg_last_error()) tolog('[error_21]','errors');
+						if(preg_last_error()) tolog('[error_21]-'.$requesturi,'errors');
 					}
 				}
 				if($seotype=='S')
@@ -346,8 +345,8 @@ if(
 				print $template;
 				exit();
 
-			}else tolog('[error_03]','errors');
-		}else tolog('[error_01]','errors');
+			}else tolog('[error_03]-'.$requesturi,'errors');
+		}else tolog('[error_01]-'.$requesturi,'errors');
 	}
 }
 
@@ -814,5 +813,4 @@ function my_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------
+//------
