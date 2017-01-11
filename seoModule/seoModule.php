@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.78
+ * @version 1.80
  * 11.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.78';
+$seomoduleversion= '1.80';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -85,7 +85,7 @@ if(
 			$seoalias= trim($seopage[$pageurl_without_suffix]);
 		}
 		$seoalias= explode(':', $seoalias);
-		$seotype= ($seoalias[0]=='A'?'A':'S');
+		$seotype= ($seoalias[0]=='A'?'A':($seoalias[0]=='W'?'W':'S'));
 		$seoalias= $seoalias[1];
 
 		if(file_exists($droot.$config['tx_path']._.$seoalias.'.php'))
@@ -106,8 +106,8 @@ if(
 				$s_text= iconv($encoding, $config['toencoding'], $s_text);
 			}
 
-			if($seotype=='A') $donor= $website[0].$requesturi;
-			else $donor= $website[0].$website[2];
+			if($seotype=='S') $donor= $website[0].$website[2];
+			else $donor= $website[0].$requesturi;
 
 			if($config['get_content_method']=='curl')
 			{
@@ -154,6 +154,7 @@ if(
 				if(curl_errno($curl) || $request_info['http_code']!=200)
 				{
 					$template= false;
+					tolog('[error_22]-'.$requesturi,'errors');
 				}else{
 					$template= trim($template);
 					if($headers)
@@ -246,7 +247,7 @@ if(
 						if(preg_last_error()) tolog('[error_10]-'.$requesturi,'errors');
 					}
 
-				}elseif($seotype=='S'){
+				}elseif($seotype=='S' || $seotype=='W'){
 					if($cf_cc===1)
 					{
 						$content_start_my= $content_start['global'];
@@ -406,7 +407,7 @@ if(basename($pageurl)=='seoModule.php')
 		print '[pages_]'."\n";
 		foreach($seopage AS $key => $row)
 		{
-			print $key .(substr($row,0,2)=='S:'?$config['s_page_suffix']:'') ."\n";
+			print $key .(substr($row,0,2)=='S:'?$config['s_page_suffix']:'') .' => '.$row ."\n";
 		}
 		print '[_pages]'."\n";
 		print '[config_]'."\n";
@@ -813,4 +814,6 @@ function my_getallheaders()
 	}
 	return $headers;
 }
-//------
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//----------------------------------
