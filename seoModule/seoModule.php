@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.80
- * 11.01.2017
+ * @version 1.81
+ * 13.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.80';
+$seomoduleversion= '1.81';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -87,6 +87,7 @@ if(
 		$seoalias= explode(':', $seoalias);
 		$seotype= ($seoalias[0]=='A'?'A':($seoalias[0]=='W'?'W':'S'));
 		$seoalias= $seoalias[1];
+		$hideflag= ($config['hide_opt']===true?true :($config['hide_opt']===false?false :(strpos($config['hide_opt'],$seotype)!==false?true :false)));
 
 		if(file_exists($droot.$config['tx_path']._.$seoalias.'.php'))
 		{
@@ -148,7 +149,8 @@ if(
 
 				$curl= curl_init();
 				curl_setopt_array($curl, $curloptions);
-				$template= curl_exec($curl);
+				if($config['curl_auto_redirect']) $template= curl_exec_followlocation($curl, $donor);
+					else $template= curl_exec($curl);
 				$request_info= curl_getinfo($curl);
 				list($headers, $template)= explode("\n\r", $template, 2);
 				if(curl_errno($curl) || $request_info['http_code']!=200)
@@ -199,7 +201,18 @@ if(
 				if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
 
 				$body= $config['styles'];
-				$body .= '<div class="sssmodulebox"><div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
+				if($hideflag)
+				{
+					$body .= '<script language="javascript">
+						function chpoktext(){
+							obj= document.getElementById("sssmodulebox");
+							if(obj.style.display=="none") obj.style.display= "";
+							else obj.style.display= "none";
+						}
+					</script>
+					<article onclick="chpoktext()">&rarr;</article>';
+				}
+				$body .= '<div id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').'><div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
 					<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
 				$body .= '<div class="sssmb_stext">';
 				if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
@@ -465,6 +478,37 @@ function seoHash($droot, $config)
 		foreach($files AS $file) $hash .= md5_file($file) ."\n";
 	$hash= md5($hash);
 	return $hash;
+}
+
+function curl_exec_followlocation(&$curl, &$uri)
+{
+	// v2.0
+	// Date 13.01.2017
+	// -----------------------------------------
+	if(preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i", $uri, $matches)!==1) return;
+	$website= $matches[1];
+	do{
+		// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
+		curl_setopt($curl, CURLOPT_URL, $uri);
+		$response= curl_exec($curl);
+		if(curl_errno($curl)) return false;
+		$headers= str_replace("\r",'',$response);
+		$headers= explode("\n\n",$headers,2);
+		if(preg_match("/^location: (.*)$/im", $headers[0], $matches)===1)
+		{
+			$location= true;
+			$referer= $uri;
+			$uri= trim($matches[1]);
+			if(preg_match("/^http(s){0,1}:\/\/[a-z0-9\.-]+/i", $uri, $matches)!==1)
+				$uri= $website.(substr($uri,0,1)!='/'?'/':'').$uri;
+		}else $location= false;
+		if($location)
+		{
+			if($redirects_list[$uri]<=1) $redirects_list[$uri]++;
+				else $location= false;
+		}
+	}while($location);
+	return $response;
 }
 
 function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
@@ -816,4 +860,6 @@ function my_getallheaders()
 }
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-//----------------------------------
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------
