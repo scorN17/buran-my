@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.81
- * 13.01.2017
+ * @version 1.82
+ * 25.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.81';
+$seomoduleversion= '1.82';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -119,9 +119,11 @@ if(
 				{
 					foreach($getallheaders AS $key=>$row)
 					{
+						if(stripos($key, 'x-forwarded')!==false) continue;
 						if(stripos($key, 'accept-encoding')!==false) continue;
-						if(stripos($key, 'x-forwarded-for')!==false) continue;
 						if(stripos($key, 'x-real-ip')!==false) continue;
+						if(stripos($key, 'x-1gb-client-ip')!==false) continue;
+						if(stripos($key, 'accept')!==false) continue;
 						if(stripos($key, 'connection')!==false) $row= 'keep-alive';
 						$header= $key.': '.$row;
 						if(stripos($key, 'user-agent')!==false)
