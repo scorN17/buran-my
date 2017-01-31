@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.82
- * 25.01.2017
+ * @version 1.83
+ * 31.01.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.82';
+$seomoduleversion= '1.83';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -66,6 +66,17 @@ if(
 	if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
 
 	if(substr($pageurl,(-1)*strlen($config['s_page_suffix']))==$config['s_page_suffix']) $pageurl_without_suffix= substr($pageurl,0,(-1)*strlen($config['s_page_suffix']));
+
+	while(preg_match("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", $querystring, $matches)===1)
+	{
+		$querystring= preg_replace("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", '${4}', $querystring);
+		$bez_utm= true;
+	}
+	if($bez_utm)
+	{
+		if(strpos($querystring,'&')===0) $querystring= substr($querystring,1);
+		$requesturi= $pageurl.($querystring ? '?'.$querystring : '');
+	}
 
 	if(isset($seopage[$requesturi]) || substr($seopage[$pageurl_without_suffix],0,2)=='S:')
 	{
@@ -859,4 +870,4 @@ function my_getallheaders()
 	}
 	return $headers;
 }
-//----------------------------------------------------------------------------------
+//------------------------------------------------------
