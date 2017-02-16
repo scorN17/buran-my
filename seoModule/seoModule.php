@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.83
- * 31.01.2017
+ * @version 1.85
+ * 16.02.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.83';
+$seomoduleversion= '1.85';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -121,32 +121,34 @@ if(
 			if($seotype=='S') $donor= $website[0].$website[2];
 			else $donor= $website[0].$requesturi;
 
+			$useragent_flag= false;
+			$requestsheaders= array();
+			$getallheaders= (function_exists('getallheaders') ? getallheaders() : my_getallheaders());
+			if(is_array($getallheaders) && count($getallheaders))
+			{
+				foreach($getallheaders AS $key=>$row)
+				{
+					if(stripos($key, 'x-forwarded')!==false) continue;
+					if(stripos($key, 'accept-encoding')!==false) continue;
+					if(stripos($key, 'x-real-ip')!==false) continue;
+					if(stripos($key, 'x-1gb-client-ip')!==false) continue;
+					if($config['get_content_method']=='file_get_contents' && stripos($key, 'connection')!==false) continue;
+					if(stripos($key, 'connection')!==false) $row= 'keep-alive';
+					$header= $key.': '.$row;
+					if(stripos($key, 'user-agent')!==false)
+					{
+						$useragent_flag= true;
+						$header .= ' /buran_seo_module';
+					}
+					$requestsheaders[]= $header;
+				}
+			}
+
 			if($config['get_content_method']=='curl')
 			{
-				$useragent_flag= false;
-				$curlheaders= array();
-				$getallheaders= (function_exists('getallheaders') ? getallheaders() : my_getallheaders());
-				if(is_array($getallheaders) && count($getallheaders))
-				{
-					foreach($getallheaders AS $key=>$row)
-					{
-						if(stripos($key, 'x-forwarded')!==false) continue;
-						if(stripos($key, 'accept-encoding')!==false) continue;
-						if(stripos($key, 'x-real-ip')!==false) continue;
-						if(stripos($key, 'x-1gb-client-ip')!==false) continue;
-						if(stripos($key, 'connection')!==false) $row= 'keep-alive';
-						$header= $key.': '.$row;
-						if(stripos($key, 'user-agent')!==false)
-						{
-							$useragent_flag= true;
-							$header .= ' /buran_seo_module';
-						}
-						$curlheaders[]= $header;
-					}
-				}
 				$curloptions= array(
 					CURLOPT_URL               => $donor,
-					CURLOPT_HTTPHEADER        => $curlheaders,
+					CURLOPT_HTTPHEADER        => $requestsheaders,
 					CURLOPT_HEADER            => true,
 					CURLOPT_RETURNTRANSFER    => true,
 					CURLOPT_CONNECTTIMEOUT    => 10,
@@ -165,34 +167,65 @@ if(
 					else $template= curl_exec($curl);
 				$request_info= curl_getinfo($curl);
 				list($headers, $template)= explode("\n\r", $template, 2);
-				if(curl_errno($curl) || $request_info['http_code']!=200)
+				$http_code= $request_info['http_code'];
+				if(curl_errno($curl))
 				{
-					$template= false;
+					$break= true;
 					tolog('[error_22]-'.$requesturi,'errors');
 				}else{
-					$template= trim($template);
-					if($headers)
-					{
-						$headers= str_replace("\r",'',$headers);
-						$headers= explode("\n", $headers);
-						if(is_array($headers) && count($headers))
-						{
-							foreach($headers AS $key => $header)
-							{
-								if(stripos($header, 'transfer-encoding')!==false) continue; //Transfer-Encoding: chunked
-								header($header);
-							}
-						}
-					}
+					$headers= str_replace("\r",'',$headers);
+					$headers= explode("\n", $headers);
 				}
 				curl_close($curl);
+
+			}elseif($config['get_content_method']=='file_get_contents'){
+				$options= array(
+					'http' => array(
+						// 'ignore_errors' => true,
+						'method'        => 'GET',
+						'header'        => $requestsheaders,
+					)
+				);
+				if( ! $useragent_flag) $options['http']['user_agent']= ' /buran_seo_module';
+				$context= stream_context_create($options);
+				$stream= fopen($donor, 'r', false, $context);
+				if($stream)
+				{
+					$template= stream_get_contents($stream);
+					$headers= stream_get_meta_data($stream);
+					fclose($stream);
+					$headers= $headers['wrapper_data'];
+					$http_code= 200;
+
+				}else tolog('[error_23]-'.$requesturi,'errors');
 			}else{
-				$template= false;
+				$break= true;
 				tolog('[error_02]','errors');
 			}
 
-			if($template)
+			if($http_code!=200)
 			{
+				$break= true;
+				tolog('[error_24]-'.$requesturi,'errors');
+			}
+
+			$template= trim($template);
+			if($break)
+			{
+
+			}elseif($template){
+				if($headers)
+				{
+					if(is_array($headers) && count($headers))
+					{
+						foreach($headers AS $key => $header)
+						{
+							if(stripos($header, 'transfer-encoding')!==false) continue; //Transfer-Encoding: chunked
+							header($header);
+						}
+					}
+				}
+
 				$seoimages= array();
 				$imgs= glob($droot.$config['img_path']._.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
 				if(is_array($imgs) && count($imgs))
@@ -494,14 +527,16 @@ function seoHash($droot, $config)
 
 function curl_exec_followlocation(&$curl, &$uri)
 {
-	// v2.0
-	// Date 13.01.2017
+	// v2.1
+	// Date 16.02.2017
 	// -----------------------------------------
 	if(preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i", $uri, $matches)!==1) return;
 	$website= $matches[1];
 	do{
 		// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
 		curl_setopt($curl, CURLOPT_URL, $uri);
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_HEADER, true);
 		$response= curl_exec($curl);
 		if(curl_errno($curl)) return false;
 		$headers= str_replace("\r",'',$response);
@@ -870,4 +905,4 @@ function my_getallheaders()
 	}
 	return $headers;
 }
-//------------------------------------------------------
+//----------------------------------------------------------------------------------------
