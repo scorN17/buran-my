@@ -4,8 +4,6 @@
  *
  * Если в Битриксе слетает авторизация,
  * Настройки -> Пользователи -> Группы -> Безопасность -> установите маски: 0.0.0.0
- *
- * Собственной функции определения кодировки пока нет. Когда понадобится - добавим.
  */
 
 // Redirects --------------------------------------------------------
@@ -18,15 +16,18 @@ $redirects= array(
 // Redirects --------------------------------------------------------
 
 /*
-$websites[1]= array(
-	'https://www.subdomain.domain.com'
-	'/page_uri' - URI главной страницы
-	'/page_uri' - URI страницы донора
-	'/page_uri' - URI страницы списка статей
-)
+$websites= array(
+	1 => array(
+		'https://www.subdomain.domain.com'    - Протокол и домен
+		'/page_uri'                           - URI главной страницы
+		'/page_uri'                           - URI страницы донора
+		'/page_uri'                           - URI страницы списка статей
+		0000                                  - ID в бункере
+	),
+);
 */
 $websites= array(
-	1 => array('http://domain.ru', '/', '/', '/'),
+	1 => array('https://www.subdomain.domain.com', '/', '/', '/', 0000),
 );
 
 $seopages= array(
@@ -39,7 +40,7 @@ $configs= array(
 	'global' => array(
 		'module_enabled'     => true, // активность модуля ... можно указать IP-адрес '80.80.109.182'
 		's_page_suffix'      => '.html', // суффикс S статей
-		'get_content_method' => 'curl', // curl // file_get_contents // socket
+		'get_content_method' => 'curl', // curl // stream
 		'tx_path'            => '/tx', // путь к папке со статьями      '/tx'
 		'img_path'           => '/tx/img', // путь к папке с картинками '/tx/img'
 		'use_share'          => true, // блок поделиться
