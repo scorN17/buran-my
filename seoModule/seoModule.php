@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 1.85
- * 16.02.2017
+ * @version 2.01
+ * 09.03.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '1.85';
+$seomoduleversion= '2.01';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -21,12 +21,7 @@ $scriptname= (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['P
 $requesturi= $_SERVER['REQUEST_URI'];
 $pageurl= parse_url($requesturi, PHP_URL_PATH);
 $querystring= $_SERVER['QUERY_STRING'];
-if($_SERVER['DOCUMENT_ROOT']) $droot= $_SERVER['DOCUMENT_ROOT'];
-else{
-	$droot= __FILE__;
-	$droot= str_replace($scriptname,'',$droot);
-	if(substr($droot,strlen($droot)-1,1)==_) $droot= substr($root,0,-1);
-}
+$droot= dirname(dirname(__FILE__));
 // ------------------------------------------------------------------
 $website_num= 1;
 foreach($websites AS $key => $ws) if(strpos($ws[0].'/', '/'.$domain.'/')!==false) $website_num= $key;
@@ -51,7 +46,11 @@ if($website_num)
 	}
 }
 // ------------------------------------------------------------------
-if(
+if( ! file_exists($droot.'/_buran/'.bsm_server()))
+{
+	$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
+	bsm_tolog('[error_26]','errors');
+}elseif(
 	$website_num &&
 	basename($pageurl)!='seoModule.php' &&
 	(
@@ -59,9 +58,9 @@ if(
 		$_SERVER['REMOTE_ADDR']===$config['module_enabled']
 	) &&
 	strpos($config['requets_methods'], '/'.$_SERVER['REQUEST_METHOD'].'/')!==false &&
-	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false
-)
-{
+	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false &&
+	file_exists($droot.'/_buran/'.bsm_server())
+){
 	$seopage= $seopages['global'];
 	if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
 
@@ -85,8 +84,8 @@ if(
 		if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*24))
 		{
 			$logsfile['hash']= fopen($droot.'/_buran/seoModule_hash', 'a');
-			$seoHash= seoHash($droot, $config);
-			tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
+			$seoHash= bsm_seohash($droot, $config);
+			bsm_tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
 		}
 
 		if(isset($seopage[$requesturi]))
@@ -104,7 +103,7 @@ if(
 		{
 			@include_once($droot.$config['tx_path']._.$seoalias.'.php');
 
-			if($config['checkcharsetmethod']=='mb_detect_encoding'){}else tolog('[error_12]','errors');
+			if($config['checkcharsetmethod']=='mb_detect_encoding'){}else bsm_tolog('[error_12]','errors');
 			$encoding= mb_detect_encoding($s_text);
 			$encoding= strtolower($encoding);
 			$encode= ($encoding===$config['toencoding']?false:true);
@@ -123,7 +122,7 @@ if(
 
 			$useragent_flag= false;
 			$requestsheaders= array();
-			$getallheaders= (function_exists('getallheaders') ? getallheaders() : my_getallheaders());
+			$getallheaders= (function_exists('getallheaders') ? getallheaders() : bsm_getallheaders());
 			if(is_array($getallheaders) && count($getallheaders))
 			{
 				foreach($getallheaders AS $key=>$row)
@@ -132,7 +131,7 @@ if(
 					if(stripos($key, 'accept-encoding')!==false) continue;
 					if(stripos($key, 'x-real-ip')!==false) continue;
 					if(stripos($key, 'x-1gb-client-ip')!==false) continue;
-					if($config['get_content_method']=='file_get_contents' && stripos($key, 'connection')!==false) continue;
+					if($config['get_content_method']=='stream' && stripos($key, 'connection')!==false) continue;
 					if(stripos($key, 'connection')!==false) $row= 'keep-alive';
 					$header= $key.': '.$row;
 					if(stripos($key, 'user-agent')!==false)
@@ -171,14 +170,14 @@ if(
 				if(curl_errno($curl))
 				{
 					$break= true;
-					tolog('[error_22]-'.$requesturi,'errors');
+					bsm_tolog('[error_22]-'.$requesturi,'errors');
 				}else{
 					$headers= str_replace("\r",'',$headers);
 					$headers= explode("\n", $headers);
 				}
 				curl_close($curl);
 
-			}elseif($config['get_content_method']=='file_get_contents'){
+			}elseif($config['get_content_method']=='stream'){
 				$options= array(
 					'http' => array(
 						// 'ignore_errors' => true,
@@ -197,16 +196,16 @@ if(
 					$headers= $headers['wrapper_data'];
 					$http_code= 200;
 
-				}else tolog('[error_23]-'.$requesturi,'errors');
+				}else bsm_tolog('[error_23]-'.$requesturi,'errors');
 			}else{
 				$break= true;
-				tolog('[error_02]','errors');
+				bsm_tolog('[error_02]','errors');
 			}
 
 			if($http_code!=200)
 			{
 				$break= true;
-				tolog('[error_24]-'.$requesturi,'errors');
+				bsm_tolog('[error_24]-'.$requesturi,'errors');
 			}
 
 			$template= trim($template);
@@ -232,7 +231,7 @@ if(
 				{
 					foreach($imgs AS $key => $row)
 					{
-						$crop= seoImgCrop(str_replace($droot, '', $row), $config['img_width'], $config['img_height'], $droot);
+						$crop= bsm_imgcrop(str_replace($droot, '', $row), $config['img_width'], $config['img_height'], $droot);
 						$alt= ${'pic'.($key+1)};
 						if($encode) $alt= iconv($encoding, $config['toencoding'], $alt);
 						$seoimages[]= array(
@@ -292,17 +291,17 @@ if(
 						$cf_cc= preg_match("/".$cf2."/s", $template);
 						if($cf_cc===1) break;
 					}
-				}else tolog('[error_04]','errors');
-				if($cf_cc!==1) tolog('[error_06]-'.$requesturi,'errors');
+				}else bsm_tolog('[error_04]','errors');
+				if($cf_cc!==1) bsm_tolog('[error_06]-'.$requesturi,'errors');
 
 				if($seotype=='A')
 				{
 					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-					if(preg_last_error()) tolog('[error_09]-'.$requesturi,'errors');
+					if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
 					if($cf_cc===1)
 					{
 						$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
-						if(preg_last_error()) tolog('[error_10]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_10]-'.$requesturi,'errors');
 					}
 
 				}elseif($seotype=='S' || $seotype=='W'){
@@ -325,14 +324,14 @@ if(
 								if($cs_cc===1)
 								{
 									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
-									if(preg_last_error()) tolog('[error_11]-'.$requesturi,'errors');
+									if(preg_last_error()) bsm_tolog('[error_11]-'.$requesturi,'errors');
 									break;
 								}
 							}
-							if($cs_cc!==1) tolog('[error_08]-'.$requesturi,'errors');
-						}else tolog('[error_07]','errors');
+							if($cs_cc!==1) bsm_tolog('[error_08]-'.$requesturi,'errors');
+						}else bsm_tolog('[error_07]','errors');
 					}
-				}else tolog('[error_05]-'.$requesturi,'errors');
+				}else bsm_tolog('[error_05]-'.$requesturi,'errors');
 
 				// meta
 				if($config['meta']=='replace_or_add' || $config['meta']=='replace_if_exists' || $config['meta']=='delete')
@@ -348,11 +347,11 @@ if(
 						$meta_keywords= '';
 					}
 					$template= preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template);
-					if(preg_last_error()) tolog('[error_13]-'.$requesturi,'errors');
+					if(preg_last_error()) bsm_tolog('[error_13]-'.$requesturi,'errors');
 					$template= preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template);
-					if(preg_last_error()) tolog('[error_14]-'.$requesturi,'errors');
+					if(preg_last_error()) bsm_tolog('[error_14]-'.$requesturi,'errors');
 					$template= preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template);
-					if(preg_last_error()) tolog('[error_15]-'.$requesturi,'errors');
+					if(preg_last_error()) bsm_tolog('[error_15]-'.$requesturi,'errors');
 				}
 
 				// base
@@ -362,17 +361,17 @@ if(
 					if($config['base']=='replace_or_add' || $config['base']=='delete')
 					{
 						$template= preg_replace("/<base (.*)>/iU", '', $template,1);
-						if(preg_last_error()) tolog('[error_16]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_16]-'.$requesturi,'errors');
 					}
 					if($config['base']=='replace_or_add')
 					{
 						$template= preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
-						if(preg_last_error()) tolog('[error_17]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_17]-'.$requesturi,'errors');
 					}
 					if($config['base']=='replace_if_exists')
 					{
 						$template= preg_replace("/<base (.*)>/iU", $base, $template,1);
-						if(preg_last_error()) tolog('[error_18]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_18]-'.$requesturi,'errors');
 					}
 				}
 
@@ -383,17 +382,17 @@ if(
 					if($config['canonical']=='replace_or_add' || $config['canonical']=='delete')
 					{
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
-						if(preg_last_error()) tolog('[error_19]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_19]-'.$requesturi,'errors');
 					}
 					if($config['canonical']=='replace_or_add')
 					{
 						$template= preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
-						if(preg_last_error()) tolog('[error_20]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_20]-'.$requesturi,'errors');
 					}
 					if($config['canonical']=='replace_if_exists')
 					{
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
-						if(preg_last_error()) tolog('[error_21]-'.$requesturi,'errors');
+						if(preg_last_error()) bsm_tolog('[error_21]-'.$requesturi,'errors');
 					}
 				}
 				if($seotype=='S')
@@ -404,8 +403,8 @@ if(
 				print $template;
 				exit();
 
-			}else tolog('[error_03]-'.$requesturi,'errors');
-		}else tolog('[error_01]-'.$requesturi,'errors');
+			}else bsm_tolog('[error_03]-'.$requesturi,'errors');
+		}else bsm_tolog('[error_01]-'.$requesturi,'errors');
 	}
 }
 
@@ -415,10 +414,10 @@ if(basename($pageurl)=='seoModule.php')
 	{
 		header('Content-type: text/html; charset=utf-8');
 
+		print bsm_server().'<br /><br />';
+
 		$files= glob($droot.$config['tx_path']._.'*.php');
-
 		print '<div>Кол-во файлов: '.count($files).'</div><br />';
-
 		if(is_array($files) && count($files))
 		{
 			foreach($files AS $key => $file)
@@ -456,7 +455,7 @@ if(basename($pageurl)=='seoModule.php')
 		if(isset($seopages[$website_num])) $seopage= array_merge($seopage, $seopages[$website_num]);
 
 		print '[seomoduleversion_'.$seomoduleversion.']'."\n";
-		print '[seohash_'.seoHash($droot, $config).']'."\n";
+		print '[seohash_'.bsm_seohash($droot, $config).']'."\n";
 		print '[droot_'.$droot.']'."\n";
 		print '[website_'.$website[0].']'."\n";
 		print '[mainpage_'.$website[1].']'."\n";
@@ -498,6 +497,37 @@ if(basename($pageurl)=='seoModule.php')
 		}
 		print '[_errors]'."\n";
 	}
+
+	if($_GET['a']=='validation')
+	{
+		$uri= 'http://bunker-yug.ru/__buran/seoModule_validation.php?ws='.urlencode($website[0]).'&idc='.$website[4];
+
+		if($config['get_content_method']=='curl')
+		{
+			$curl= curl_init();
+			curl_setopt($curl, CURLOPT_URL,            $uri);
+			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+			$response= curl_exec($curl);
+			curl_close($curl);
+
+		}elseif($config['get_content_method']=='stream'){
+			$options= array(
+				'http' => array(
+					'method' => 'GET',
+				)
+			);
+			$context= stream_context_create($options);
+			$stream= fopen($uri, 'r', false, $context);
+			if($stream)
+			{
+				$response= stream_get_contents($stream);
+				fclose($stream);
+			}
+		}
+		$response= trim($response);
+		if($response=='no' && file_exists($droot.'/_buran/'.bsm_server()))
+			unlink($droot.'/_buran/'.bsm_server());
+	}
 }
 
 /*
@@ -507,14 +537,14 @@ if(basename($pageurl)=='seoModule.php')
  *
  */
 // ------------------------------------------------------------------
-function tolog($text, $type='logs')
+function bsm_tolog($text, $type='logs')
 {
 	global $logsfile;
 	if($type=='errors') $text= date('Y-m-d-H-i-s-').$text;
 	if(isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
 }
 
-function seoHash($droot, $config)
+function bsm_seohash($droot, $config)
 {
 	$hash .= md5_file($droot.'/_buran/seoModule.php') ."\n";
 	$hash .= md5_file($droot.'/_buran/seoModule_config.php') ."\n";
@@ -523,6 +553,11 @@ function seoHash($droot, $config)
 		foreach($files AS $file) $hash .= md5_file($file) ."\n";
 	$hash= md5($hash);
 	return $hash;
+}
+
+function bsm_server()
+{
+	return md5(php_uname().'/'.phpversion().getenv('DOCUMENT_ROOT'));
 }
 
 function curl_exec_followlocation(&$curl, &$uri)
@@ -558,7 +593,7 @@ function curl_exec_followlocation(&$curl, &$uri)
 	return $response;
 }
 
-function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
+function bsm_imgcrop($img, $w, $h, $droot, $website='', $baseurl='/')
 {
 	// v7.2
 	// 15.09.2016
@@ -874,7 +909,7 @@ function seoImgCrop($img, $w, $h, $droot, $website='', $baseurl='/')
  * Get all HTTP header key/values as an associative array for the current request.
  * @return string[string] The HTTP header key/value pairs.
  */
-function my_getallheaders()
+function bsm_getallheaders()
 {
 	$headers = array();
 	$copy_server = array(
@@ -905,4 +940,5 @@ function my_getallheaders()
 	}
 	return $headers;
 }
-//----------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+//------------------------------------------------
