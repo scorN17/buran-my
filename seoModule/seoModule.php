@@ -1,19 +1,19 @@
 <?php
 /**
  * seoModule
- * @version 2.02
- * 09.03.2017
+ * @version 2.03
+ * 10.03.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.02';
+$seomoduleversion= '2.03';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
-define('_', DIRECTORY_SEPARATOR);
-$http= ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' || (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https' : 'http');
+
+$http= ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' || (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https://' : 'http://');
 $domain= (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
 $www= (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
@@ -36,7 +36,7 @@ if($website_num)
 	$redirect= $redirects['global'];
 	if(isset($redirects[$website_num])) $redirect= array_merge($redirect, $redirects[$website_num]);
 
-	if($http.'://'.$www.$domain !== $website[0]) $redirect_to= $requesturi;
+	if($http.$www.$domain !== $website[0]) $redirect_to= $requesturi;
 	if($redirect[$requesturi]) $redirect_to= $redirect[$requesturi];
 
 	if($redirect_to)
@@ -77,9 +77,11 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 		$requesturi= $pageurl.($querystring ? '?'.$querystring : '');
 	}
 
-	if(isset($seopage[$requesturi]) || substr($seopage[$pageurl_without_suffix],0,2)=='S:')
-	{
-		$logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
+	if(isset($seopage[$requesturi])) $seoalias= trim($seopage[$requesturi]);
+	elseif(substr($seopage[$pageurl_without_suffix],0,2)=='S:') $seoalias= trim($seopage[$pageurl_without_suffix]);
+	if($seoalias)
+	{	
+		// $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
 		$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
 		if( ! file_exists($droot.'/_buran/seoModule_hash') || filectime($droot.'/_buran/seoModule_hash')<time()-(60*60*24))
 		{
@@ -88,26 +90,21 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			bsm_tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
 		}
 
-		if(isset($seopage[$requesturi]))
-		{
-			$seoalias= trim($seopage[$requesturi]);
-		}else{
-			$seoalias= trim($seopage[$pageurl_without_suffix]);
-		}
-		$seoalias= explode(':', $seoalias);
+		$seoalias= explode(':',$seoalias,2);
 		$seotype= ($seoalias[0]=='A'?'A':($seoalias[0]=='W'?'W':'S'));
 		$seoalias= $seoalias[1];
 		$hideflag= ($config['hide_opt']===true?true :($config['hide_opt']===false?false :(strpos($config['hide_opt'],$seotype)!==false?true :false)));
 
-		if(file_exists($droot.$config['tx_path']._.$seoalias.'.php'))
+		if(file_exists($droot.$config['tx_path'].'/'.$seoalias.'.php'))
 		{
-			@include_once($droot.$config['tx_path']._.$seoalias.'.php');
+			@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
 
-			if($config['checkcharsetmethod']=='mb_detect_encoding'){}else bsm_tolog('[error_12]','errors');
-			$encoding= mb_detect_encoding($s_text);
+			$encoding= $config['toencoding'];
+			if($config['checkcharsetmethod']=='mb_detect_encoding' && function_exists('mb_detect_encoding')){
+				$encoding= mb_detect_encoding($s_text);
+			}else bsm_tolog('[error_12]','errors');
 			$encoding= strtolower($encoding);
 			$encode= ($encoding===$config['toencoding']?false:true);
-
 			if($encode)
 			{
 				$title= iconv($encoding, $config['toencoding'], $title);
@@ -117,8 +114,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				$s_text= iconv($encoding, $config['toencoding'], $s_text);
 			}
 
-			if($seotype=='S') $donor= $website[0].$website[2];
-			else $donor= $website[0].$requesturi;
+			$donor= $website[0];
+			$donor .= ($seotype=='S' ? $website[2] : $requesturi);
 
 			$useragent_flag= false;
 			$requestsheaders= array();
@@ -153,7 +150,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					CURLOPT_CONNECTTIMEOUT    => 10,
 					CURLOPT_TIMEOUT           => 10,
 				);
-				if($http=='https' && $config['https_test'])
+				if($http=='https://' && $config['https_test'])
 				{
 					$curloptions[CURLOPT_SSL_VERIFYHOST]= false;
 					$curloptions[CURLOPT_SSL_VERIFYPEER]= true;
@@ -180,7 +177,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			}elseif($config['get_content_method']=='stream'){
 				$options= array(
 					'http' => array(
-						// 'ignore_errors' => true,
 						'method'        => 'GET',
 						'header'        => $requestsheaders,
 					)
@@ -209,24 +205,24 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			}
 
 			$template= trim($template);
-			if($break)
+			if($break){}elseif($template)
 			{
-
-			}elseif($template){
-				if($headers)
+				if(is_array($headers) && count($headers))
 				{
-					if(is_array($headers) && count($headers))
+					foreach($headers AS $key => $header)
 					{
-						foreach($headers AS $key => $header)
-						{
-							if(stripos($header, 'transfer-encoding')!==false) continue; //Transfer-Encoding: chunked
-							header($header);
-						}
+						if(stripos($header, 'transfer-encoding')!==false) continue; //Transfer-Encoding: chunked
+						header($header);
 					}
+				}
+				if($seotype=='S')
+				{
+					header('Status: 200 OK');
+					header('HTTP/1.1 200 OK');
 				}
 
 				$seoimages= array();
-				$imgs= glob($droot.$config['img_path']._.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
+				$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
 				if(is_array($imgs) && count($imgs))
 				{
 					foreach($imgs AS $key => $row)
@@ -247,7 +243,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				$body= $config['styles'];
 				if($hideflag)
 				{
-					$body .= '<script language="javascript">
+					$body .= '<script>
 						function chpoktext(){
 							obj= document.getElementById("sssmodulebox");
 							if(obj.style.display=="none") obj.style.display= "";
@@ -395,11 +391,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 						if(preg_last_error()) bsm_tolog('[error_21]-'.$requesturi,'errors');
 					}
 				}
-				if($seotype=='S')
-				{
-					header('Status: 200 OK');
-					header('HTTP/1.1 200 OK');
-				}
+
 				print $template;
 				exit();
 
@@ -416,7 +408,7 @@ if(basename($pageurl)=='seoModule.php')
 
 		print bsm_server().'<br /><br />';
 
-		$files= glob($droot.$config['tx_path']._.'*.php');
+		$files= glob($droot.$config['tx_path'].'/'.'*.php');
 		print '<div>Кол-во файлов: '.count($files).'</div><br />';
 		if(is_array($files) && count($files))
 		{
@@ -429,11 +421,10 @@ if(basename($pageurl)=='seoModule.php')
 				if( ! trim($target))
 				{
 					$seotype= 'S';
-					$target= _.substr($filename,0,-4);
+					$target= '/'.substr($filename,0,-4);
 				}else{
 					$seotype= 'A';
 				}
-				print ' | <span style="color:#47ad00;">ok</span>';
 				if($seotype=='A') $pagesurl_A .= '<div><a target="_blank" href="'.$target.'">'.$target.'</a></div>';
 					else $pagesurl_S .= '<div><a target="_blank" href="'.$website[0].$target.$config['s_page_suffix'].'">'.$target.$config['s_page_suffix'].'</a></div>';
 				$tmp= 50-strlen($target);
@@ -548,7 +539,7 @@ function bsm_seohash($droot, $config)
 {
 	$hash .= md5_file($droot.'/_buran/seoModule.php') ."\n";
 	$hash .= md5_file($droot.'/_buran/seoModule_config.php') ."\n";
-	$files= glob($droot.$config['tx_path']._.'*.php');
+	$files= glob($droot.$config['tx_path'].'/'.'*.php');
 	if(is_array($files) & count($files))
 		foreach($files AS $file) $hash .= md5_file($file) ."\n";
 	$hash= md5($hash);
@@ -595,59 +586,9 @@ function curl_exec_followlocation(&$curl, &$uri)
 
 function bsm_imgcrop($img, $w, $h, $droot, $website='', $baseurl='/')
 {
-	// v7.2
-	// 15.09.2016
-	// ImgCrop
-	/*
-		$img= assets/images/img.jpg
-		$dopimg= assets/images/dopimg.jpg
-		$toimg= assets/images/toimg.jpg
-		
-		$w= (int)156
-		$h= (int)122
-		$backgr= 0/1
-		$fill= 0/1
-		$x= center/left/right
-		$y= center/top/bottom
-		$bgcolor= R,G,B,A / x:y / fill:a;b;c;d|b;c;d
-		$wm= 0/1
-		$filter= a;b;c;d|b;c;d
-		$png= 0/1
-		$ellipse= max / (int)56
-		$degstep= (int)5
-		$dopimg_xy= x:y
-		$quality= (int)80
-		$fullpath
-		$r= 0/1
-	*/
-	//--------------------------------------------------------------------------------------
-	$ipathnotphoto= 'template/images/nophoto.png';
-	$ipathwatermark= 'template/images/watermark.png';
-	//--------------------------------------------------------------------------------------
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//--------------------------------------------------------------------------------------
 	$w= intval($w);
 	$h= intval($h);
-	$backgr= ($backgr===true || $backgr==='true' ? true : false);
-	$fill= ($fill===true || $fill==='true' ? true : false);
-	$x= ($x=='right' ? $x : 'center');
-	$y= ($y=='bottom' ? $y : 'center');
-	$bgcolor= (empty($bgcolor) ? '255,255,255,127' : $bgcolor);
-	$wm= (empty($wm) ? false : $wm);
-	$png= (empty($png) ? false : $png);
-	$filter= (empty($filter) ? -1 : $filter);
 	$refresh= (empty($r) ? false : true);
-	$ellipse= ($ellipse == 'max' ? 'max' : intval($ellipse));
-	$quality= intval($quality);
-	if($quality === 0) $quality= ($_GET['ww']<=800 ? 60 : 80);
-	else $quality= ($quality<0 || $quality>100 ? 80 : $quality);
 	$base= ltrim($baseurl, DIRECTORY_SEPARATOR);
 	$img= trim(urldecode($img));
 	$slashflag= (strpos($img, DIRECTORY_SEPARATOR)===0 ? true : false);
@@ -655,250 +596,65 @@ function bsm_imgcrop($img, $w, $h, $droot, $website='', $baseurl='/')
 	$baseflag= ($base && strpos($img, $base)===0 ? true : false);
 	if($baseflag) $img= ltrim($img, $base);
 	$root= $droot.(substr($droot,-1,1)!='/'?'/':'');
-	if($dopimg)
-	{
-		$dopimg= trim(urldecode($dopimg));
-		$dopimg= ltrim($dopimg, DIRECTORY_SEPARATOR);
-		$dopimg= ltrim($dopimg, $base);
-		$dopimg= $root.$dopimg;
-	}
-	if($toimg)
-	{
-		$toimg= trim(urldecode($toimg));
-		$toimg= ltrim($toimg, DIRECTORY_SEPARATOR);
-		$toimg= ltrim($toimg, $base);
-	}
-	if( ! file_exists($root.$img) || ! is_file($root.$img))
-	{
-		$img= $ipathnotphoto;
-		if($fill){ $fill= false; $backgr= true; $bgcolor= '1:1'; }
-	}
 	if( ! file_exists($root.$img) || ! is_file($root.$img)) return false;
-	if($wm && ( ! file_exists($root.$ipathwatermark) || ! is_file($root.$ipathwatermark))) return false;
-	if( ! $toimg)
-	{
-		$imgrassh= substr($img, strrpos($img,'.'));
-		$newimg= '_th'.md5($img . $w . $h . $backgr . $fill . $x . $y . $bgcolor . $wm . $filter . $ellipse . $dopimg . $quality) . ($png ? '.png' : $imgrassh);
-		$newimg_dir= dirname($img) .DIRECTORY_SEPARATOR.'.th'.DIRECTORY_SEPARATOR;
-		if( ! file_exists($root.$newimg_dir)) mkdir($root.$newimg_dir, 0777);
-		$newimg_path= $root.$newimg_dir.$newimg;
-		$newimg_path_return= ($fullpath ? $website : ($slashflag?DIRECTORY_SEPARATOR:'').($baseflag?$base:'')) .$newimg_dir .$newimg;
-	}else{
-		$newimg_path= $root.$toimg;
-		$newimg_path_return= ($fullpath ? $website : ($slashflag?DIRECTORY_SEPARATOR:'').($baseflag?$base:'')) .$toimg;
-	}
-	if( ! file_exists($newimg_path) || filectime($root.$img) > filectime($newimg_path)) $refresh= true;
+	$imgrassh= substr($img, strrpos($img,'.'));
+	$newimg= '_th'.md5($img . $w . $h) . $imgrassh;
+	$newimg_dir= dirname($img) .DIRECTORY_SEPARATOR.'.th'.DIRECTORY_SEPARATOR;
+	if( ! file_exists($root.$newimg_dir)) mkdir($root.$newimg_dir, 0777);
+	$newimg_path= $root.$newimg_dir.$newimg;
+	$newimg_path_return= ($fullpath ? $website : ($slashflag?DIRECTORY_SEPARATOR:'').($baseflag?$base:'')) .$newimg_dir .$newimg;
+	if( ! file_exists($newimg_path) || filectime($root.$img) >filectime($newimg_path)) $refresh= true;
 	if(filesize($root.$img) > 1024*1024*10) return $img;
 	//--------------------------------------------------------------------------------------
-	if( $refresh )
+	if($refresh)
 	{
-		$img1_info= getimagesize( $root . $img );
-		if( ! $img1_info[ 1 ] ) return false;
-		$ot= $img1_info[ 0 ] / $img1_info[ 1 ];
-		$dstW= ( $w > 0 ? $w : $img1_info[ 0 ] );
-		$dstH= ( $h > 0 ? $h : $img1_info[ 1 ] );
-		$dstX= 0;
-		$dstY= 0;
-		$srcW= $img1_info[ 0 ];
-		$srcH= $img1_info[ 1 ];
-		$srcX= 0;
-		$srcY= 0;
-		if( $fill )
+		$img1_info= getimagesize($root.$img);
+		$srcW= $img1_info[0];
+		$srcH= $img1_info[1];
+		if( ! $srcH) return false;
+		$ot= $srcW /$srcH;
+		$dstW= ($w >0 ? $w : $srcW);
+		$dstH= ($h >0 ? $h : $srcH);
+		if(($srcW>$w && $w>0) || ($srcH>$h && $h>0))
 		{
-			$srcW= $img1_info[ 0 ];
-			$srcH= round( $img1_info[ 0 ] / ( $dstW / $dstH ) );
-			if( $srcH > $img1_info[ 1 ] )
+			$dstH= round($dstW /$ot);
+			if($dstH>$h && $h>0)
 			{
-				$srcW= round( $img1_info[ 1 ] / ( $dstH / $dstW ) );
-				$srcH= $img1_info[ 1 ];
-			}
-			if( $x == 'center' ) $srcX= round( ( $img1_info[ 0 ] - $srcW ) / 2 );
-			if( $x == 'right' ) $srcX= $img1_info[ 0 ] - $srcW;
-			if( $y == 'center' ) $srcY= round( ( $img1_info[ 1 ] - $srcH ) / 2 );
-			if( $y == 'bottom' ) $srcY= $img1_info[ 1 ] - $srcH;
-		}else{
-			if( ( $img1_info[ 0 ] > $w && $w > 0 ) || ( $img1_info[ 1 ] > $h && $h > 0 ) )
-			{
-				$dstH= round( $dstW / $ot );
-				if( $dstH > $h && $h > 0 )
-				{
-					$dstH= $h;
-					$dstW= round( $dstH * $ot );
-				}
-			}else{
-				$dstW= $img1_info[ 0 ];
-				$dstH= $img1_info[ 1 ];
-			}
-			if( $backgr )
-			{
-				if( $dstW < $w )
-				{
-					if( $x == 'center' ) $dstX= round( ( $w - $dstW ) / 2 );
-					if( $x == 'right' ) $dstX= $w - $dstW;
-				}
-				if( $dstH < $h )
-				{
-					if( $y == 'center' ) $dstY= round( ( $h - $dstH ) / 2 );
-					if( $y == 'bottom' ) $dstY= $h - $dstH;
-				}
-			}
-		}
-		$crW= ( $backgr && $w > 0 ? $w : $dstW );
-		$crH= ( $backgr && $h > 0 ? $h : $dstH );
-		if( strstr( $bgcolor, "," ) )
-		{
-			$rgba_arr= explode( ",", $bgcolor );
-			for( $kk=0; $kk<=3; $kk++ )
-			{
-				$rgba_arr[ $kk ]= intval( $rgba_arr[ $kk ] );
-				if( $kk <= 2 && ( $rgba_arr[ $kk ] < 0 || $rgba_arr[ $kk ] > 255 ) ) $rgba_arr[ $kk ]= 255;
-				if( $kk == 3 && ( $rgba_arr[ $kk ] < 0 || $rgba_arr[ $kk ] > 127 ) ) $rgba_arr[ $kk ]= 127;
-			}
-			$bgcolor= 'rgba';
-		}elseif( strpos( $bgcolor, 'fill:' ) === 0 ){
-			$effect= substr( $bgcolor, strpos( $bgcolor, ':' )+1 );
-			$bgcolor= 'fill';
-		}else{
-			$coord_arr= explode( ":", $bgcolor );
-			$bgcolor= 'coord';
-		}
-		//--------------------------------------------------------------------------------------
-		if($img1_info[2] == 1) $img1= imagecreatefromgif($root.$img);
-		elseif($img1_info[2] == 2) $img1= imagecreatefromjpeg($root.$img);
-		elseif($img1_info[2] == 6) $img1= imagecreatefromwbmp($root.$img);
-		elseif($img1_info[2] == 3){ $img1= imagecreatefrompng($root.$img); $png= true; }
-		if( $bgcolor == 'coord' )
-		{
-			$col= imagecolorat( $img1, $coord_arr[ 0 ], $coord_arr[ 1 ] );
-			$bgcolor= imagecolorsforindex( $img1, $col );
-			$rgba_arr[ 0 ]= $bgcolor[ 'red' ];
-			$rgba_arr[ 1 ]= $bgcolor[ 'green' ];
-			$rgba_arr[ 2 ]= $bgcolor[ 'blue' ];
-			$rgba_arr[ 3 ]= $bgcolor[ 'alpha' ];
-		}
-		$img2= ImageCreateTrueColor( $crW, $crH );
-		if( $png )
-		{
-			imagealphablending( $img2, true );
-			imagesavealpha( $img2, true );
-			$col= imagecolorallocatealpha( $img2, $rgba_arr[ 0 ], $rgba_arr[ 1 ], $rgba_arr[ 2 ], $rgba_arr[ 3 ] );
-		}else{
-			$col= imagecolorallocate( $img2, $rgba_arr[ 0 ], $rgba_arr[ 1 ], $rgba_arr[ 2 ] );
-		}
-		if( $bgcolor == 'fill' )
-		{
-			imagecopyresampled( $img2, $img1, 0, 0, 0, 0, $crW, $crH, $img1_info[0], $img1_info[1] );
-			$effect= explode( '|', $effect );
-			if( ! empty( $effect ) )
-			{
-				foreach( $effect AS $row )
-				{
-					$tmp= explode( ';', $row );
-					if( $tmp[ 0 ] == 2 || $tmp[ 0 ] == 3 || $tmp[ 0 ] == 10 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ] );
-					elseif( $tmp[ 0 ] == 4 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ], $tmp[ 2 ], $tmp[ 3 ], $tmp[ 4 ] );
-					elseif( $tmp[ 0 ] == 11 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ], $tmp[ 2 ] );
-					else imagefilter( $img2, $tmp[ 0 ] );
-				}
+				$dstH= $h;
+				$dstW= round($dstH *$ot);
 			}
 		}else{
-			imagefill( $img2, 0,0, $col );
+			$dstW= $srcW;
+			$dstH= $srcH;
 		}
-		imagecopyresampled( $img2, $img1, $dstX, $dstY, $srcX, $srcY, $dstW, $dstH, $srcW, $srcH );
-		if( $wm )
+		$crW= $dstW;
+		$crH= $dstH;
+		//----------------
+		if($img1_info[2] ==1) $img1= imagecreatefromgif($root.$img);
+		elseif($img1_info[2] ==2) $img1= imagecreatefromjpeg($root.$img);
+		elseif($img1_info[2] ==6) $img1= imagecreatefromwbmp($root.$img);
+		elseif($img1_info[2] ==3){ $img1= imagecreatefrompng($root.$img); $png= true; }
+		$img2= ImageCreateTrueColor($crW, $crH);
+		if($png)
 		{
-			$wm_info= getimagesize( $root . $ipathwatermark );
-			$img3= imagecreatefrompng( $root . $ipathwatermark );
-			$wm_ot= $wm_info[ 0 ] / $wm_info[ 1 ];
-			$wmW= $wm_info[ 0 ];
-			$wmH= $wm_info[ 1 ];
-			if( $crW < $wm_info[ 0 ] )
-			{
-				$wmW= $crW - round( $crW / 30 );
-				$wmH= round( $wmW / $wm_ot );
-			}
-			if( $crH < $wmH )
-			{
-				$wmH= $crH - round( $crH / 30 );
-				$wmW= round( $wmH * $wm_ot );
-			}
-			$wmX= round( ( $crW - $wmW ) / 2 );
-			$wmY= round( ( $crH - $wmH ) / 2 );
-			imagecopyresampled( $img2, $img3, $wmX, $wmY, 0, 0, $wmW, $wmH, $wm_info[ 0 ], $wm_info[ 1 ] );
-			imagedestroy( $img3 );
-		}
-		$filter= explode( '|', $filter );
-		if( ! empty( $filter ) )
-		{
-			foreach( $filter AS $row )
-			{
-				$tmp= explode( ';', $row );
-				if( $tmp[ 0 ] == 2 || $tmp[ 0 ] == 3 || $tmp[ 0 ] == 10 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ] );
-				elseif( $tmp[ 0 ] == 4 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ], $tmp[ 2 ], $tmp[ 3 ], $tmp[ 4 ] );
-				elseif( $tmp[ 0 ] == 11 ) imagefilter( $img2, $tmp[ 0 ], $tmp[ 1 ], $tmp[ 2 ] );
-				else imagefilter( $img2, $tmp[ 0 ] );
-			}
-		}
-		if( $ellipse )
-		{
-			$degstep= ( $degstep ? intval( $degstep ) : 5 );
-			$w= ( $crW > $crH ? $crH : $crW );
-			$cntr= ($w/2);
-			$coord= array();
-			$opacitycolor= imagecolorallocatealpha( $img2, 255, 255, 255, 127 );
-			if( $ellipse == 'max' ) $ellipse_r= $cntr-1; else $ellipse_r= $ellipse;
-			for( $part=1; $part<=4; $part++ )
-			{
-				for( $deg=0; $deg<90; $deg+=$degstep )
-				{
-					$mydeg= $deg;
-					if( $part == 2 || $part == 4 ) $mydeg= 90 - $deg;
-					if( ! $coord[ $mydeg ][ 'x' ] ) $coord[ $mydeg ][ 'x' ]= round( $ellipse_r * cos( deg2rad( $mydeg ) ) );
-					if( ! $coord[ $mydeg ][ 'y' ] ) $coord[ $mydeg ][ 'y' ]= round( $ellipse_r * sin( deg2rad( $mydeg ) ) );
-					$x= $coord[ $mydeg ][ 'x' ];
-					$y= $coord[ $mydeg ][ 'y' ];
-					if( $part == 4 ){ $y *= -1; }
-					if( $part == 3 ){ $x *= -1; $y *= -1; }
-					if( $part == 2 ){ $x *= -1; }
-					$points[]= $cntr + $x;
-					$points[]= $cntr + $y;
-				}
-			}
-			$points[]= $cntr + $ellipse_r; $points[]= $cntr;
-			$points[]= $w; $points[]= $cntr;
-			$points[]= $w; $points[]= $w;
-			$points[]= 0; $points[]= $w;
-			$points[]= 0; $points[]= 0;
-			$points[]= $w; $points[]= 0;
-			$points[]= $w; $points[]= $cntr;
-			$png= true;
-			imagealphablending( $img2, false );
-			imagesavealpha( $img2, true );
-			imagefilledpolygon( $img2, $points, count($points)/2, $opacitycolor );
-			//$autrum= imagecolorallocate( $img2, 216, 181, 85 );
-			//imageellipse( $img2, $cntr, $cntr, $ellipse_r*2, $ellipse_r*2, $autrum );
-		}
-		if($dopimg)
-		{
-			if($dopimg_xy) $dopimg_xy= explode(':', $dopimg_xy);
 			imagealphablending($img2, true);
 			imagesavealpha($img2, true);
-			$dopimg_info= getimagesize($dopimg);
-			$img3= imagecreatefrompng($dopimg);
-			$diX= round(($crW - $dopimg_info[0]) /2) + ($dopimg_xy[0] ? intval($dopimg_xy[0]) : 0);
-			$diY= round(($crH - $dopimg_info[1]) /2) + ($dopimg_xy[1] ? intval($dopimg_xy[1]) : 0);
-			imagecopyresampled($img2, $img3, $diX, $diY, 0, 0, $dopimg_info[0], $dopimg_info[1], $dopimg_info[0], $dopimg_info[1]);
-			imagedestroy($img3);
+			$col= imagecolorallocatealpha($img2, 255,255,255,127);
+		}else{
+			$col= imagecolorallocate($img2, 255,255,255);
 		}
-		//--------------------------------------------------------------------------------------
+		imagefill($img2, 0,0, $col);
+		imagecopyresampled($img2, $img1, 0,0,0,0, $dstW,$dstH, $srcW,$srcH);
+		//------
 		if($png) imagepng($img2, $newimg_path);
-		elseif($img1_info[2] == 1) imagegif($img2, $newimg_path, $quality);
-		elseif($img1_info[2] == 2) imagejpeg($img2, $newimg_path, $quality);
+		elseif($img1_info[2] == 1) imagegif($img2, $newimg_path, 80);
+		elseif($img1_info[2] == 2) imagejpeg($img2, $newimg_path, 80);
 		elseif($img1_info[2] == 6) imagewbmp($img2, $newimg_path);
 			
 		chmod($newimg_path, 0755);
 		imagedestroy($img1);
 		imagedestroy($img2);
-	} //if($refresh)
+	}
 	return $newimg_path_return;
 }
 
@@ -940,5 +696,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------------------------------------------------------------------
-//----------------
+//--------------------------------------------------
