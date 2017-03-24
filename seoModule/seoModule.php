@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.03
- * 10.03.2017
+ * @version 2.04
+ * 24.03.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.03';
+$seomoduleversion= '2.04';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -124,6 +124,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			{
 				foreach($getallheaders AS $key=>$row)
 				{
+					if( ! $config['cookie'] && stripos($key, 'cookie')!==false) continue;
+
 					if(stripos($key, 'x-forwarded')!==false) continue;
 					if(stripos($key, 'accept-encoding')!==false) continue;
 					if(stripos($key, 'x-real-ip')!==false) continue;
@@ -696,4 +698,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//--------------------------------------------------
+//-------------------------------------------------------------------------------------
