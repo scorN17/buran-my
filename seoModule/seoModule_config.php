@@ -55,6 +55,7 @@ $configs= array(
 		'https_test'         => false, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
 		'hide_opt'           => 'A', // true // false // SAW // S // A // W // WA // SW - скрывать текст за стрелочкой
 		'curl_auto_redirect' => false, // авторедирект для CURL
+		'cookie'             => true, // сохранять печеньки
 	),
 );
 
