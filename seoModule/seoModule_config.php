@@ -9,8 +9,8 @@
 // Redirects --------------------------------------------------------
 $redirects= array(
 	'global' => array(
-		'/index.html' => '/',
 		'/index.php'  => '/',
+		'/index.html' => '/',
 	),
 );
 // Redirects --------------------------------------------------------
@@ -32,14 +32,16 @@ $websites= array(
 
 $seopages= array(
 	'global' => array(
-		'/dfgdfgdfg/' => 'A:dfgdfgdfg',
+		'/produktsiya/kachestvo-otzyvy-ispytaniya.php'           => 'A:agrosnab',
+		'/produktsiya/borony.php'                                => 'S:borona',
+		'/produktsiya/borony.php?ELEMENT_ID=44&SECTION_ID='      => 'W:borona_diskovaya',
 	),
 );
 
 $configs= array(
 	'global' => array(
 		'module_enabled'     => true, // активность модуля ... можно указать IP-адрес '80.80.109.182'
-		's_page_suffix'      => '.html', // суффикс S статей
+		's_page_suffix'      => '.php', // суффикс S статей с точкой в начале
 		'get_content_method' => 'curl', // curl // stream
 		'tx_path'            => '/tx', // путь к папке со статьями      '/tx'
 		'img_path'           => '/tx/img', // путь к папке с картинками '/tx/img'
@@ -53,9 +55,10 @@ $configs= array(
 		'meta'               => 'replace_or_add', // replace_or_add // replace_if_exists // delete // false
 		'requets_methods'    => '/GET/HEAD/',
 		'https_test'         => false, // true - для тестирования оптимизации на домене с HTTPS, но без сертификата
-		'hide_opt'           => 'A', // true // false // SAW // S // A // W // WA // SW - скрывать текст за стрелочкой
+		'hide_opt'           => false, // true // false // SAW // S // A // W // WA // SW - скрывать текст за стрелочкой
 		'curl_auto_redirect' => false, // авторедирект для CURL
 		'cookie'             => true, // сохранять печеньки
+		'set_header'         => true, // возвращать заголовки
 	),
 );
 
@@ -84,10 +87,10 @@ $configs['global']['styles']= '<style>
  * 		# - добавить ПОСЛЕ
  */
 
-$content_start['global'][]= '#<!--content_start-->';
+$content_start['global'][]= '#<!-- content_start -->';
 
 // --------------------
 
-$content_finish['global'][]= '%<!--content_end-->';
+$content_finish['global'][]= '%<!-- content_finish -->';
 
 // --------------------
