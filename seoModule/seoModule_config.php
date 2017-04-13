@@ -41,7 +41,7 @@ $seopages= array(
 $configs= array(
 	'global' => array(
 		'module_enabled'     => true, // активность модуля ... можно указать IP-адрес '80.80.109.182'
-		's_page_suffix'      => '.php', // суффикс S статей с точкой в начале
+		's_page_suffix'      => '.html', // суффикс S статей
 		'get_content_method' => 'curl', // curl // stream
 		'tx_path'            => '/tx', // путь к папке со статьями      '/tx'
 		'img_path'           => '/tx/img', // путь к папке с картинками '/tx/img'
@@ -87,10 +87,10 @@ $configs['global']['styles']= '<style>
  * 		# - добавить ПОСЛЕ
  */
 
-$content_start['global'][]= '#<!-- content_start -->';
+$content_start['global'][]= '#<!-- sssmodule_start -->';
 
 // --------------------
 
-$content_finish['global'][]= '%<!-- content_finish -->';
+$content_finish['global'][]= '%<!-- sssmodule_finish -->';
 
 // --------------------
