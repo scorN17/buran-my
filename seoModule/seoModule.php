@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.07
- * 12.04.2017
+ * @version 2.08
+ * 19.05.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.07';
+$seomoduleversion= '2.08';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -19,7 +19,7 @@ $domain = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_N
 $www    = (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname  = (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
-$requesturi  = $_SERVER['REQUEST_URI'];
+$requesturi  = urldecode($_SERVER['REQUEST_URI']);
 $pageurl     = parse_url($requesturi, PHP_URL_PATH);
 $querystring = $_SERVER['QUERY_STRING'];
 $droot       = dirname(dirname(__FILE__));
@@ -704,4 +704,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//---------------
+//----
