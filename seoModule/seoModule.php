@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.08
- * 19.05.2017
+ * @version 2.1
+ * 19.06.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.08';
+$seomoduleversion= '2.1';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -103,8 +103,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 			$encoding= $config['toencoding'];
 			if($config['checkcharsetmethod']=='mb_detect_encoding' && function_exists('mb_detect_encoding')){
-				$encoding= mb_detect_encoding($s_text);
+				$encoding= mb_detect_encoding(($s_text ? $s_text : $keywords));
 			}else bsm_tolog('[error_12]','errors');
+
 			$encoding= strtolower($encoding);
 			$encode= ($encoding===$config['toencoding']?false:true);
 			if($encode)
@@ -226,116 +227,119 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					header('HTTP/1.1 200 OK');
 				}
 
-				$seoimages= array();
-				$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
-				if(is_array($imgs) && count($imgs))
+				if($s_title)
 				{
-					foreach($imgs AS $key => $row)
+					$seoimages= array();
+					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
+					if(is_array($imgs) && count($imgs))
 					{
-						$crop= bsm_imgcrop(str_replace($droot, '', $row), $config['img_width'], $config['img_height'], $droot);
-						$alt= ${'pic'.($key+1)};
-						if($encode) $alt= iconv($encoding, $config['toencoding'], $alt);
-						$seoimages[]= array(
-							'src' => $crop,
-							'alt' => $alt,
-						);
-					}
-				}
-				$seoimages_cc= count($seoimages);
-				$seoimages_cc_half= false;
-				if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
-
-				$body= $config['styles'];
-				if($hideflag)
-				{
-					$body .= '<script>
-						function chpoktext(){
-							obj= document.getElementById("sssmodulebox");
-							if(obj.style.display=="none") obj.style.display= "";
-							else obj.style.display= "none";
-						}
-					</script>
-					<article onclick="chpoktext()">&rarr;</article>';
-				}
-				$body .= '<div id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').'>
-					<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
-					<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
-				$body .= '<div class="sssmb_stext">';
-				if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
-				for($i=0; $i<($seoimages_cc_half?$seoimages_cc_half:1); $i++)
-					$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
-						style="'.($seoimages_cc_half?'padding:0 10px;':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
-				if($seoimages_cc_half) $body .= '</div>';
-
-				$body .= $s_text;
-
-				if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
-				for($i=($seoimages_cc_half?$seoimages_cc_half:1); $i<$seoimages_cc; $i++)
-					$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
-						style="'.($seoimages_cc_half?'padding:0 10px;':'margin:0;padding:0;width:auto;height:auto;').'" />';
-				if($seoimages_cc_half) $body .= '</div>';
-				$body .= '</div>';
-				if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
-				$body .= '</div>';
-
-				$content_finish_my= $content_finish['global'];
-				if(isset($content_finish[$website_num])) $content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
-				if(is_array($content_finish_my) && count($content_finish_my))
-				{
-					foreach($content_finish_my AS $cf)
-					{
-						$cftype= substr($cf,0,1);
-						if($cftype!=='@' && $cftype!=='#' && $cftype!=='%') $cftype= '%';
-						$cf= substr($cf,1);
-						$cf2= preg_quote($cf,"/");
-						$cf2= str_replace("\n", '\n', $cf2);
-						$cf2= str_replace("\r", '', $cf2);
-						$cf2= str_replace("\t", '\t', $cf2);
-						$cf_cc= preg_match("/".$cf2."/s", $template);
-						if($cf_cc===1) break;
-					}
-				}else bsm_tolog('[error_04]','errors');
-				if($cf_cc!==1) bsm_tolog('[error_06]-'.$requesturi,'errors');
-
-				if($seotype=='A')
-				{
-					$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-					if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
-					if($cf_cc===1)
-					{
-						$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
-						if(preg_last_error()) bsm_tolog('[error_10]-'.$requesturi,'errors');
-					}
-
-				}elseif($seotype=='S' || $seotype=='W'){
-					if($cf_cc===1)
-					{
-						$content_start_my= $content_start['global'];
-						if(isset($content_start[$website_num])) $content_start_my= array_merge($content_start_my, $content_start[$website_num]);
-						if(is_array($content_start_my) && count($content_start_my))
+						foreach($imgs AS $key => $row)
 						{
-							foreach($content_start_my AS $cs)
-							{
-								$cstype = substr($cs,0,1);
-								if($cstype!=='@' && $cstype!=='#' && $cstype!=='%') $cstype= '%';
-								$cs     = substr($cs,1);
-								$cs2    = preg_quote($cs,"/");
-								$cs2    = str_replace("\n", '\n', $cs2);
-								$cs2    = str_replace("\r", '', $cs2);
-								$cs2    = str_replace("\t", '\t', $cs2);
-								$cs_cc  = preg_match("/".$cs2."/s", $template);
-
-								if($cs_cc===1)
-								{
-									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
-									if(preg_last_error()) bsm_tolog('[error_11]-'.$requesturi,'errors');
-									break;
-								}
-							}
-							if($cs_cc!==1) bsm_tolog('[error_08]-'.$requesturi,'errors');
-						}else bsm_tolog('[error_07]','errors');
+							$crop= bsm_imgcrop(str_replace($droot, '', $row), $config['img_width'], $config['img_height'], $droot);
+							$alt= ${'pic'.($key+1)};
+							if($encode) $alt= iconv($encoding, $config['toencoding'], $alt);
+							$seoimages[]= array(
+								'src' => $crop,
+								'alt' => $alt,
+							);
+						}
 					}
-				}else bsm_tolog('[error_05]-'.$requesturi,'errors');
+					$seoimages_cc= count($seoimages);
+					$seoimages_cc_half= false;
+					if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
+
+					$body= $config['styles'];
+					if($hideflag)
+					{
+						$body .= '<script>
+							function chpoktext(){
+								obj= document.getElementById("sssmodulebox");
+								if(obj.style.display=="none") obj.style.display= "";
+								else obj.style.display= "none";
+							}
+						</script>
+						<article onclick="chpoktext()">&rarr;</article>';
+					}
+					$body .= '<div id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').'>
+						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
+						<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
+					$body .= '<div class="sssmb_stext">';
+					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
+					for($i=0; $i<($seoimages_cc_half?$seoimages_cc_half:1); $i++)
+						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
+							style="'.($seoimages_cc_half?'padding:0 10px;':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
+					if($seoimages_cc_half) $body .= '</div>';
+
+					$body .= $s_text;
+
+					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
+					for($i=($seoimages_cc_half?$seoimages_cc_half:1); $i<$seoimages_cc; $i++)
+						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
+							style="'.($seoimages_cc_half?'padding:0 10px;':'margin:0;padding:0;width:auto;height:auto;').'" />';
+					if($seoimages_cc_half) $body .= '</div>';
+					$body .= '</div>';
+					if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
+					$body .= '</div>';
+
+					$content_finish_my= $content_finish['global'];
+					if(isset($content_finish[$website_num])) $content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
+					if(is_array($content_finish_my) && count($content_finish_my))
+					{
+						foreach($content_finish_my AS $cf)
+						{
+							$cftype= substr($cf,0,1);
+							if($cftype!=='@' && $cftype!=='#' && $cftype!=='%') $cftype= '%';
+							$cf= substr($cf,1);
+							$cf2= preg_quote($cf,"/");
+							$cf2= str_replace("\n", '\n', $cf2);
+							$cf2= str_replace("\r", '', $cf2);
+							$cf2= str_replace("\t", '\t', $cf2);
+							$cf_cc= preg_match("/".$cf2."/s", $template);
+							if($cf_cc===1) break;
+						}
+					}else bsm_tolog('[error_04]','errors');
+					if($cf_cc!==1) bsm_tolog('[error_06]-'.$requesturi,'errors');
+
+					if($seotype=='A')
+					{
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
+						if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
+						if($cf_cc===1)
+						{
+							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
+							if(preg_last_error()) bsm_tolog('[error_10]-'.$requesturi,'errors');
+						}
+
+					}elseif($seotype=='S' || $seotype=='W'){
+						if($cf_cc===1)
+						{
+							$content_start_my= $content_start['global'];
+							if(isset($content_start[$website_num])) $content_start_my= array_merge($content_start_my, $content_start[$website_num]);
+							if(is_array($content_start_my) && count($content_start_my))
+							{
+								foreach($content_start_my AS $cs)
+								{
+									$cstype = substr($cs,0,1);
+									if($cstype!=='@' && $cstype!=='#' && $cstype!=='%') $cstype= '%';
+									$cs     = substr($cs,1);
+									$cs2    = preg_quote($cs,"/");
+									$cs2    = str_replace("\n", '\n', $cs2);
+									$cs2    = str_replace("\r", '', $cs2);
+									$cs2    = str_replace("\t", '\t', $cs2);
+									$cs_cc  = preg_match("/".$cs2."/s", $template);
+
+									if($cs_cc===1)
+									{
+										$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
+										if(preg_last_error()) bsm_tolog('[error_11]-'.$requesturi,'errors');
+										break;
+									}
+								}
+								if($cs_cc!==1) bsm_tolog('[error_08]-'.$requesturi,'errors');
+							}else bsm_tolog('[error_07]','errors');
+						}
+					}else bsm_tolog('[error_05]-'.$requesturi,'errors');
+				}
 
 				// meta
 				if($config['meta']=='replace_or_add' || $config['meta']=='replace_if_exists' || $config['meta']=='delete')
@@ -704,4 +708,5 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//----
+//-------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------
