@@ -1,22 +1,22 @@
 <?php
 /**
  * seoModule
- * @version 2.1
- * 19.06.2017
+ * @version 2.2
+ * 04.07.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.1';
+$seomoduleversion= '2.2';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
-$http   = ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' ||
+$http        = ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' ||
 	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https://' : 'http://');
-$domain = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
-$www    = (strpos($domain,'www.')===0?'www.':'');
+$domain      = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
+$www         = (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname  = (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
 $requesturi  = urldecode($_SERVER['REQUEST_URI']);
@@ -266,7 +266,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$body .= '<div class="sssmb_stext">';
 					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 					for($i=0; $i<($seoimages_cc_half?$seoimages_cc_half:1); $i++)
-						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
+						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'" title="'.$seoimages[$i]['alt'].'"
 							style="'.($seoimages_cc_half?'padding:0 10px;':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
 					if($seoimages_cc_half) $body .= '</div>';
 
@@ -274,7 +274,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 					for($i=($seoimages_cc_half?$seoimages_cc_half:1); $i<$seoimages_cc; $i++)
-						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'"
+						$body .= '<img src="'.$seoimages[$i]['src'].'" alt="'.$seoimages[$i]['alt'].'" title="'.$seoimages[$i]['alt'].'"
 							style="'.($seoimages_cc_half?'padding:0 10px;':'margin:0;padding:0;width:auto;height:auto;').'" />';
 					if($seoimages_cc_half) $body .= '</div>';
 					$body .= '</div>';
@@ -708,5 +708,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------
