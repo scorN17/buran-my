@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.2
- * 04.07.2017
+ * @version 2.3
+ * 03.08.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.2';
+$seomoduleversion= '2.3';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -16,6 +16,8 @@ include_once('seoModule_config.php');
 $http        = ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' ||
 	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https://' : 'http://');
 $domain      = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
+$domain      = explode(':', $domain);
+$domain      = $domain[0];
 $www         = (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname  = (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
@@ -708,4 +710,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//---------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------
