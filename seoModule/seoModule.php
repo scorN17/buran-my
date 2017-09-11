@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.3
- * 03.08.2017
+ * @version 2.4
+ * 11.09.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.3';
+$seomoduleversion= '2.4';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -302,19 +302,20 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					}else bsm_tolog('[error_04]','errors');
 					if($cf_cc!==1) bsm_tolog('[error_06]-'.$requesturi,'errors');
 
-					if($seotype=='A')
+					if($cf_cc===1)
 					{
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-						if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
-						if($cf_cc===1)
+						if($seotype=='A' || $seotype=='W')
+						{
+							$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
+							if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
+						}
+
+						if($seotype=='A')
 						{
 							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
 							if(preg_last_error()) bsm_tolog('[error_10]-'.$requesturi,'errors');
-						}
 
-					}elseif($seotype=='S' || $seotype=='W'){
-						if($cf_cc===1)
-						{
+						}elseif($seotype=='S' || $seotype=='W'){
 							$content_start_my= $content_start['global'];
 							if(isset($content_start[$website_num])) $content_start_my= array_merge($content_start_my, $content_start[$website_num]);
 							if(is_array($content_start_my) && count($content_start_my))
@@ -339,8 +340,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 								}
 								if($cs_cc!==1) bsm_tolog('[error_08]-'.$requesturi,'errors');
 							}else bsm_tolog('[error_07]','errors');
-						}
-					}else bsm_tolog('[error_05]-'.$requesturi,'errors');
+						}else bsm_tolog('[error_05]-'.$requesturi,'errors');
+					}
 				}
 
 				// meta
@@ -710,4 +711,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------------------------------------------------
+//-------------------------------------------------------
