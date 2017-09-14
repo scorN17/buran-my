@@ -46,6 +46,7 @@ $configs= array(
 		'tx_path'            => '/tx', // путь к папке со статьями      '/tx'
 		'img_path'           => '/tx/img', // путь к папке с картинками '/tx/img'
 		'use_share'          => true, // блок поделиться
+		'img_crop'           => true, // кропить картинки
 		'img_width'          => 300,
 		'img_height'         => 200,
 		'checkcharsetmethod' => 'mb_detect_encoding', // mb_detect_encoding // own_function - метод определения кодировки
