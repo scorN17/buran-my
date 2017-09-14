@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.4
- * 11.09.2017
+ * @version 2.5
+ * 14.09.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.4';
+$seomoduleversion= '2.5';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -237,7 +237,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					{
 						foreach($imgs AS $key => $row)
 						{
-							$crop= bsm_imgcrop(str_replace($droot, '', $row), $config['img_width'], $config['img_height'], $droot);
+							$crop= str_replace($droot, '', $row);
+							if($config['img_crop'])
+								$crop= bsm_imgcrop($crop, $config['img_width'], $config['img_height'], $droot);
 							$alt= ${'pic'.($key+1)};
 							if($encode) $alt= iconv($encoding, $config['toencoding'], $alt);
 							$seoimages[]= array(
@@ -711,4 +713,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------------------------
+//--
