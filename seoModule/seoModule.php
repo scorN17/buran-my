@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.5
- * 14.09.2017
+ * @version 2.6
+ * 19.09.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.5';
+$seomoduleversion= '2.6';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -32,7 +32,8 @@ if($website_num)
 {
 	$config= $configs['global'];
 	if(isset($configs[$website_num])) $config= array_merge($config, $configs[$website_num]);
-	$config['toencoding']= strtolower($config['toencoding']);
+	$config['in_charset']= strtolower($config['in_charset']);
+	$config['out_charset']= strtolower($config['out_charset']);
 
 	$website= $websites[$website_num];
 
@@ -103,20 +104,14 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 		{
 			@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
 
-			$encoding= $config['toencoding'];
-			if($config['checkcharsetmethod']=='mb_detect_encoding' && function_exists('mb_detect_encoding')){
-				$encoding= mb_detect_encoding(($s_text ? $s_text : $keywords));
-			}else bsm_tolog('[error_12]','errors');
-
-			$encoding= strtolower($encoding);
-			$encode= ($encoding===$config['toencoding']?false:true);
+			$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
 			if($encode)
 			{
-				$title       = iconv($encoding, $config['toencoding'], $title);
-				$description = iconv($encoding, $config['toencoding'], $description);
-				$keywords    = iconv($encoding, $config['toencoding'], $keywords);
-				$s_title     = iconv($encoding, $config['toencoding'], $s_title);
-				$s_text      = iconv($encoding, $config['toencoding'], $s_text);
+				$title= iconv($config['in_charset'], $config['out_charset'], $title);
+				$description= iconv($config['in_charset'], $config['out_charset'], $description);
+				$keywords= iconv($config['in_charset'], $config['out_charset'], $keywords);
+				$s_title= iconv($config['in_charset'], $config['out_charset'], $s_title);
+				$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
 			}
 
 			$donor= $website[0];
@@ -134,7 +129,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if(stripos($key, 'x-forwarded')!==false) continue;
 					if(stripos($key, 'accept-encoding')!==false) continue;
 					if(stripos($key, 'x-real-ip')!==false) continue;
-					if(stripos($key, 'x-1gb-client-ip')!==false) continue;
 					if($config['get_content_method']=='stream' && stripos($key, 'connection')!==false) continue;
 					if(stripos($key, 'connection')!==false) $row= 'keep-alive';
 					$header= $key.': '.$row;
@@ -241,7 +235,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							if($config['img_crop'])
 								$crop= bsm_imgcrop($crop, $config['img_width'], $config['img_height'], $droot);
 							$alt= ${'pic'.($key+1)};
-							if($encode) $alt= iconv($encoding, $config['toencoding'], $alt);
+							if($encode) $alt= iconv($config['in_charset'], $config['out_charset'], $alt);
 							$seoimages[]= array(
 								'src' => $crop,
 								'alt' => $alt,
@@ -713,4 +707,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//--
+//------------------
