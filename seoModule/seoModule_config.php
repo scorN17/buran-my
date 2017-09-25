@@ -64,6 +64,7 @@ $configs= array(
 		'curl_auto_redirect' => false, // авторедирект для CURL
 		'cookie'             => true, // сохранять печеньки
 		'set_header'         => true, // возвращать заголовки
+		'urldecode'          => true, // декодировать адреса
 	),
 );
 
