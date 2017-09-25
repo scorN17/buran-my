@@ -1,27 +1,31 @@
 <?php
 /**
  * seoModule
- * @version 2.7
+ * @version 2.71
  * 25.09.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.7';
+$seomoduleversion= '2.71';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
-$http        = ($_SERVER['SERVER_PORT']=='443' || $_SERVER['HTTP_PORT']=='443' ||
-	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ? 'https://' : 'http://');
+$http= (
+	$_SERVER['SERVER_PORT']=='443' ||
+	$_SERVER['HTTP_PORT']=='443' ||
+	$_SERVER['HTTP_HTTPS']=='on' ||
+	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on')
+		? 'https://' : 'http://');
 $domain      = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
 $domain      = explode(':', $domain);
 $domain      = $domain[0];
 $www         = (strpos($domain,'www.')===0?'www.':'');
 if($www=='www.') $domain= substr($domain,4);
 $scriptname  = (isset($_SERVER['SCRIPT_NAME'])?$_SERVER['SCRIPT_NAME']:$_SERVER['PHP_SELF']);
-$requesturi  = urldecode($_SERVER['REQUEST_URI']);
+$requesturi  = $_SERVER['REQUEST_URI'];
 $pageurl     = parse_url($requesturi, PHP_URL_PATH);
 $querystring = $_SERVER['QUERY_STRING'];
 $droot       = dirname(dirname(__FILE__));
@@ -38,6 +42,8 @@ if($website_num)
 	$config['out_charset']= strtolower($config['out_charset']);
 
 	$website= $websites[$website_num];
+
+	if($config['urldecode']) $requesturi= urldecode($requesturi);
 
 	$redirect= $redirects['global'];
 	if(isset($redirects[$website_num]))
@@ -130,18 +136,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 		if(file_exists($droot.$config['tx_path'].'/'.$seoalias.'.php'))
 		{
-			@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
-
-			$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
-			if($encode)
-			{
-				$title= iconv($config['in_charset'], $config['out_charset'], $title);
-				$description= iconv($config['in_charset'], $config['out_charset'], $description);
-				$keywords= iconv($config['in_charset'], $config['out_charset'], $keywords);
-				$s_title= iconv($config['in_charset'], $config['out_charset'], $s_title);
-				$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
-			}
-
 			$donor= $website[0];
 			$donor .= ($seotype=='S' ? $website[2] : $requesturi);
 
@@ -226,12 +220,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$http_code= 200;
 
 				}else bsm_tolog('[error_23]-'.$requesturi,'errors');
-			}else{
-				$break= true;
-				bsm_tolog('[error_02]','errors');
 			}
 
-			if($http_code!=200)
+			if($http_code != 200)
 			{
 				$break= true;
 				bsm_tolog('[error_24]-'.$requesturi,'errors');
@@ -255,6 +246,18 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				{
 					header('Status: 200 OK');
 					header('HTTP/1.1 200 OK');
+				}
+
+				@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
+
+				$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
+				if($encode)
+				{
+					$title= iconv($config['in_charset'], $config['out_charset'], $title);
+					$description= iconv($config['in_charset'], $config['out_charset'], $description);
+					$keywords= iconv($config['in_charset'], $config['out_charset'], $keywords);
+					$s_title= iconv($config['in_charset'], $config['out_charset'], $s_title);
+					$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
 				}
 
 				if($s_title)
@@ -316,128 +319,118 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$content_finish_my= $content_finish['global'];
 					if(isset($content_finish[$website_num]))
 						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
-					if(is_array($content_finish_my) && count($content_finish_my))
+					if(is_array($content_finish_my))
 					{
 						foreach($content_finish_my AS $cf)
 						{
 							$cftype= substr($cf,0,1);
-							if($cftype!=='@' && $cftype!=='#' && $cftype!=='%')
+							if($cftype!=='@' && $cftype!=='#')
 								$cftype= '%';
-							$cf= substr($cf,1);
-							$cf2= preg_quote($cf,"/");
-							$cf2= str_replace("\n", '\n', $cf2);
-							$cf2= str_replace("\r", '', $cf2);
-							$cf2= str_replace("\t", '\t', $cf2);
-							$cf_cc= preg_match("/".$cf2."/s", $template);
+							$cf    = substr($cf,1);
+							$cf2   = preg_quote($cf,"/");
+							$cf2   = str_replace("\n", '\n', $cf2);
+							$cf2   = str_replace("\r", '', $cf2);
+							$cf2   = str_replace("\t", '\t', $cf2);
+							$cf_cc = preg_match("/".$cf2."/s", $template);
 							if($cf_cc===1) break;
 						}
-					}else bsm_tolog('[error_04]','errors');
-					if($cf_cc!==1) bsm_tolog('[error_06]-'.$requesturi,'errors');
+					}
 
 					if($cf_cc===1)
 					{
 						if($seotype=='A' || $seotype=='W')
 						{
 							$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-							if(preg_last_error()) bsm_tolog('[error_09]-'.$requesturi,'errors');
 						}
 
 						if($seotype=='A')
 						{
 							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
-							if(preg_last_error()) bsm_tolog('[error_10]-'.$requesturi,'errors');
 
 						}elseif($seotype=='S' || $seotype=='W'){
 							$content_start_my= $content_start['global'];
 							if(isset($content_start[$website_num]))
 								$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
-							if(is_array($content_start_my) && count($content_start_my))
+							if(is_array($content_start_my))
 							{
 								foreach($content_start_my AS $cs)
 								{
 									$cstype = substr($cs,0,1);
-									if($cstype!=='@' && $cstype!=='#' && $cstype!=='%') $cstype= '%';
+									if($cstype!=='@' && $cstype!=='#')
+										$cstype= '%';
 									$cs     = substr($cs,1);
 									$cs2    = preg_quote($cs,"/");
 									$cs2    = str_replace("\n", '\n', $cs2);
 									$cs2    = str_replace("\r", '', $cs2);
 									$cs2    = str_replace("\t", '\t', $cs2);
 									$cs_cc  = preg_match("/".$cs2."/s", $template);
-
-									if($cs_cc===1)
-									{
-										$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
-										if(preg_last_error()) bsm_tolog('[error_11]-'.$requesturi,'errors');
-										break;
-									}
+									if($cs_cc===1) break;
 								}
-								if($cs_cc!==1) bsm_tolog('[error_08]-'.$requesturi,'errors');
-							}else bsm_tolog('[error_07]','errors');
-						}else bsm_tolog('[error_05]-'.$requesturi,'errors');
-					}
+								if($cs_cc===1)
+								{
+									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
+									
+								}else bsm_tolog('[error_08]-'.$requesturi,'errors');
+							}
+						}
+					}else bsm_tolog('[error_06]-'.$requesturi,'errors');
 				}
 
 				// meta
-				if($config['meta']=='replace_or_add' || $config['meta']=='replace_if_exists' || $config['meta']=='delete')
+				if($config['meta']=='replace_or_add' ||
+					$config['meta']=='replace_if_exists' ||
+					$config['meta']=='delete')
 				{
-					$meta_title       = '<title>'.$title.'</title>';
-					$meta_description = '<meta name="description" content="'.$description.'" />';
-					$meta_keywords    = '<meta name="keywords" content="'.$keywords.'" />';
-					if($config['meta']=='replace_or_add') $meta_title .= "\n\t".$meta_description."\n\t".$meta_keywords."\n";
-					if($config['meta']=='delete' || $config['meta']=='replace_or_add')
+					$meta_title= '<title>'.$title.'</title>';
+					$meta_description= '<meta name="description" content="'.$description.'" />';
+					$meta_keywords= '<meta name="keywords" content="'.$keywords.'" />';
+					if($config['meta']=='replace_or_add')
+						$meta_title .= "\n\t".$meta_description."\n\t".$meta_keywords."\n";
+					if($config['meta']=='delete' ||
+						$config['meta']=='replace_or_add')
 					{
 						if($config['meta']=='delete') $meta_title= '';
 						$meta_description= '';
 						$meta_keywords= '';
 					}
 					$template= preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template);
-					if(preg_last_error()) bsm_tolog('[error_13]-'.$requesturi,'errors');
 					$template= preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template);
-					if(preg_last_error()) bsm_tolog('[error_14]-'.$requesturi,'errors');
 					$template= preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template);
-					if(preg_last_error()) bsm_tolog('[error_15]-'.$requesturi,'errors');
 				}
 
 				// base
-				if($config['base']=='replace_or_add' || $config['base']=='replace_if_exists' || $config['base']=='delete')
+				if($config['base']=='replace_or_add' ||
+					$config['base']=='replace_if_exists' ||
+					$config['base']=='delete')
 				{
 					$base= '<base href="'.$website[0].'/" />';
-					if($config['base']=='replace_or_add' || $config['base']=='delete')
-					{
+					if($config['base']=='replace_or_add' ||
+						$config['base']=='delete')
 						$template= preg_replace("/<base (.*)>/iU", '', $template,1);
-						if(preg_last_error()) bsm_tolog('[error_16]-'.$requesturi,'errors');
-					}
+					
 					if($config['base']=='replace_or_add')
-					{
 						$template= preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
-						if(preg_last_error()) bsm_tolog('[error_17]-'.$requesturi,'errors');
-					}
+					
 					if($config['base']=='replace_if_exists')
-					{
 						$template= preg_replace("/<base (.*)>/iU", $base, $template,1);
-						if(preg_last_error()) bsm_tolog('[error_18]-'.$requesturi,'errors');
-					}
 				}
 
 				// canonical
-				if($config['canonical']=='replace_or_add' || $config['canonical']=='replace_if_exists' || $config['canonical']=='delete')
+				if($config['canonical']=='replace_or_add' ||
+					$config['canonical']=='replace_if_exists' ||
+					$config['canonical']=='delete')
 				{
 					$canonical= '<link rel="canonical" href="'.$website[0].$requesturi.'" />';
-					if($config['canonical']=='replace_or_add' || $config['canonical']=='delete')
-					{
+					if($config['canonical']=='replace_or_add' ||
+						$config['canonical']=='delete')
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
-						if(preg_last_error()) bsm_tolog('[error_19]-'.$requesturi,'errors');
-					}
+					
 					if($config['canonical']=='replace_or_add')
-					{
 						$template= preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
-						if(preg_last_error()) bsm_tolog('[error_20]-'.$requesturi,'errors');
-					}
+					
 					if($config['canonical']=='replace_if_exists')
-					{
 						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
-						if(preg_last_error()) bsm_tolog('[error_21]-'.$requesturi,'errors');
-					}
+					
 				}
 
 				print $template;
@@ -745,4 +738,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//--------------------
+//-----------
