@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.71
- * 25.09.2017
+ * @version 2.73
+ * 04.10.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.71';
+$seomoduleversion= '2.73';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -250,6 +250,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 				@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
 
+				$s_text_multi= is_array($s_text) ? true : false;
+
 				$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
 				if($encode)
 				{
@@ -257,11 +259,38 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$description= iconv($config['in_charset'], $config['out_charset'], $description);
 					$keywords= iconv($config['in_charset'], $config['out_charset'], $keywords);
 					$s_title= iconv($config['in_charset'], $config['out_charset'], $s_title);
-					$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
+					if($s_text_multi)
+					{
+						foreach($s_text AS $key => $row)
+						{
+							$s_text[$key]= iconv($config['in_charset'], $config['out_charset'], $s_text[$key]);
+						}
+					}else
+						$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
 				}
 
-				if($s_title)
+				if($s_text_multi)
 				{
+					$s_text_single= '';
+					foreach($s_text AS $key => $row)
+					{
+						$foo= "<\!-- sssmodule_start_".($key+1)." -->(.*)<!-- sssmodule_finish_".($key+1)." -->";
+						$template= preg_replace("/".$foo."/s", $row, $template, 1, $matches);
+						if( ! $matches) $s_text_single .= $row;
+					}
+					$s_text= $s_text_single;
+				}
+
+				if($s_text)
+				{
+					$content_start_my= $content_start['global'];
+					if(isset($content_start[$website_num]))
+						$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
+
+					$content_finish_my= $content_finish['global'];
+					if(isset($content_finish[$website_num]))
+						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
+
 					$seoimages= array();
 					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
 					if(is_array($imgs) && count($imgs))
@@ -284,7 +313,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($seoimages_cc>2) $seoimages_cc_half= ceil($seoimages_cc/2);
 
 					$body= $config['styles'];
-					if($hideflag)
+
+					if($hideflag && ! $s_text_multi)
 					{
 						$body .= '<script>
 							function chpoktext(){
@@ -295,6 +325,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 						</script>
 						<article onclick="chpoktext()">&rarr;</article>';
 					}
+
 					$body .= '<div id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').'>
 						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
 						<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
@@ -316,9 +347,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
 					$body .= '</div>';
 
-					$content_finish_my= $content_finish['global'];
-					if(isset($content_finish[$website_num]))
-						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
 					if(is_array($content_finish_my))
 					{
 						foreach($content_finish_my AS $cf)
@@ -348,9 +376,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
 
 						}elseif($seotype=='S' || $seotype=='W'){
-							$content_start_my= $content_start['global'];
-							if(isset($content_start[$website_num]))
-								$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
 							if(is_array($content_start_my))
 							{
 								foreach($content_start_my AS $cs)
@@ -458,6 +483,7 @@ if(basename($pageurl)=='seoModule.php')
 				$filename= basename($file);
 				print '<div>Файл '.($key+1).' | '.$filename;
 				$target= false;
+				$s_text= array();
 				include_once($file);
 				if( ! trim($target))
 				{
@@ -738,4 +764,6 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------
+//-----------------------------------------------
+//-----------------------------------------------
+//--------------------------
