@@ -283,14 +283,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 				if($s_text)
 				{
-					$content_start_my= $content_start['global'];
-					if(isset($content_start[$website_num]))
-						$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
-
-					$content_finish_my= $content_finish['global'];
-					if(isset($content_finish[$website_num]))
-						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
-
 					$seoimages= array();
 					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
 					if(is_array($imgs) && count($imgs))
@@ -314,7 +306,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					$body= $config['styles'];
 
-					if($hideflag && ! $s_text_multi)
+					if($hideflag)
 					{
 						$body .= '<script>
 							function chpoktext(){
@@ -347,6 +339,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
 					$body .= '</div>';
 
+					$content_finish_my= $content_finish['global'];
+					if(isset($content_finish[$website_num]))
+						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
 					if(is_array($content_finish_my))
 					{
 						foreach($content_finish_my AS $cf)
@@ -367,15 +362,16 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($cf_cc===1)
 					{
 						if($seotype=='A' || $seotype=='W')
-						{
 							$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-						}
 
 						if($seotype=='A')
 						{
 							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
 
 						}elseif($seotype=='S' || $seotype=='W'){
+							$content_start_my= $content_start['global'];
+							if(isset($content_start[$website_num]))
+								$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
 							if(is_array($content_start_my))
 							{
 								foreach($content_start_my AS $cs)
@@ -766,4 +762,4 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//--------------------------
+//--
