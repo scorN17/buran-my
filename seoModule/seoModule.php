@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.73
+ * @version 2.74
  * 04.10.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.73';
+$seomoduleversion= '2.74';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -255,18 +255,19 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
 				if($encode)
 				{
-					$title= iconv($config['in_charset'], $config['out_charset'], $title);
-					$description= iconv($config['in_charset'], $config['out_charset'], $description);
-					$keywords= iconv($config['in_charset'], $config['out_charset'], $keywords);
-					$s_title= iconv($config['in_charset'], $config['out_charset'], $s_title);
+					$eti= '//TRANSLIT//IGNORE';
+					$title= iconv($config['in_charset'], $config['out_charset'].$eti, $title);
+					$description= iconv($config['in_charset'], $config['out_charset'].$eti, $description);
+					$keywords= iconv($config['in_charset'], $config['out_charset'].$eti, $keywords);
+					$s_title= iconv($config['in_charset'], $config['out_charset'].$eti, $s_title);
 					if($s_text_multi)
 					{
 						foreach($s_text AS $key => $row)
 						{
-							$s_text[$key]= iconv($config['in_charset'], $config['out_charset'], $s_text[$key]);
+							$s_text[$key]= iconv($config['in_charset'], $config['out_charset'].$eti, $s_text[$key]);
 						}
 					}else
-						$s_text= iconv($config['in_charset'], $config['out_charset'], $s_text);
+						$s_text= iconv($config['in_charset'], $config['out_charset'].$eti, $s_text);
 				}
 
 				if($s_text_multi)
@@ -293,7 +294,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							if($config['img_crop'])
 								$crop= bsm_imgcrop($crop, $config['img_width'], $config['img_height'], $droot);
 							$alt= ${'pic'.($key+1)};
-							if($encode) $alt= iconv($config['in_charset'], $config['out_charset'], $alt);
+							if($encode) $alt= iconv($config['in_charset'], $config['out_charset'].$eti, $alt);
 							$seoimages[]= array(
 								'src' => $crop,
 								'alt' => $alt,
@@ -760,6 +761,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------------------------------------------
-//-----------------------------------------------
-//--
+//----------------------------------
