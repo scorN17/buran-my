@@ -474,10 +474,13 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					
 				}
 
-				$template= preg_replace("/\[hide\](.*?)\[\/hide\]/", '', $template);
-				$template= preg_replace("/\[replace\](.*?)\[\/replace\]/", $declension[6], $template);
-				$template= preg_replace("/\[replaceMeta\](.*?)\[\/replaceMeta\]/", $declension[1], $template);
-				$template= preg_replace("/\[replaceTitle\](.*?)\[\/replaceTitle\]/", $declension[1], $template);
+				if($config['city_replace'])
+				{
+					$template= preg_replace("/\[hide\](.*?)\[\/hide\]/", '', $template);
+					$template= preg_replace("/\[replace\](.*?)\[\/replace\]/", $declension[6], $template);
+					$template= preg_replace("/\[replaceMeta\](.*?)\[\/replaceMeta\]/", $declension[1], $template);
+					$template= preg_replace("/\[replaceTitle\](.*?)\[\/replaceTitle\]/", $declension[1], $template);
+				}
 
 				print $template;
 				exit();
@@ -820,5 +823,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------
+//-------------------------------------
