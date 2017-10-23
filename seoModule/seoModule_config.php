@@ -27,6 +27,7 @@ $websites= array(
 		'/page_uri'                           - URI страницы донора
 		'/page_uri'                           - URI страницы списка статей
 		0000                                  - ID в бункере
+		'city'                                - Город
 	),
 );
 */
@@ -36,9 +37,9 @@ $websites= array(
 
 $seopages= array(
 	'global' => array(
-		'/produktsiya/kachestvo-otzyvy-ispytaniya.php'           => 'A:agrosnab',
-		'/produktsiya/borony.php'                                => 'S:borona',
-		'/produktsiya/borony.php?ELEMENT_ID=44&SECTION_ID='      => 'W:borona_diskovaya',
+		'/xxxxxxxxxxxxxx' 			=> 'A:xxxxxxxxxxxxxx',
+		'/xxxxxxxxxxxxxx' 			=> 'S:xxxxxxxxxxxxxx',
+		'/xxxxxxxxxxxxxx' 			=> 'W:xxxxxxxxxxxxxx',
 	),
 );
 
@@ -65,6 +66,7 @@ $configs= array(
 		'cookie'             => true, // сохранять печеньки
 		'set_header'         => true, // возвращать заголовки
 		'urldecode'          => true, // декодировать адреса
+		'city_replace'       => true, // подставлять город
 	),
 );
 
@@ -100,3 +102,6 @@ $content_start['global'][]= '#<!-- sssmodule_start -->';
 $content_finish['global'][]= '%<!-- sssmodule_finish -->';
 
 // --------------------
+
+
+$declension['Ростов-на-Дону']= array(1 => 'Ростов-на-Дону', 6 => 'Ростове-на-Дону');
