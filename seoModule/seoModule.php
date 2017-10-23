@@ -535,8 +535,6 @@ if(basename($pageurl) == 'seoModule.php')
 		$green= '#089c29';
 		$red= '#d41717';
 
-		print $_SERVER['SERVER_PROTOCOL'];
-
 		$flag= version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
 		print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
 
@@ -823,4 +821,5 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-------------------------------------
+//-----------------------------------------------
+//-------------------------
