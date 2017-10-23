@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.74
- * 04.10.2017
+ * @version 2.8
+ * 23.10.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.74';
+$seomoduleversion= '2.8';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -17,7 +17,9 @@ $http= (
 	$_SERVER['SERVER_PORT']=='443' ||
 	$_SERVER['HTTP_PORT']=='443' ||
 	$_SERVER['HTTP_HTTPS']=='on' ||
-	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on')
+	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ||
+	(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
+		$_SERVER['HTTP_X_FORWARDED_PROTO']=='https')
 		? 'https://' : 'http://');
 $domain      = (isset($_SERVER['HTTP_HOST'])?$_SERVER['HTTP_HOST']:$_SERVER['SERVER_NAME']);
 $domain      = explode(':', $domain);
@@ -29,10 +31,15 @@ $requesturi  = $_SERVER['REQUEST_URI'];
 $pageurl     = parse_url($requesturi, PHP_URL_PATH);
 $querystring = $_SERVER['QUERY_STRING'];
 $droot       = dirname(dirname(__FILE__));
+if(substr($sapi_type,0,3) == 'cgi')
+	$protocol= 'Status:';
+else 
+	$protocol= $_SERVER['HTTP_X_PROTOCOL'] ? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL'] ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1');
 // ------------------------------------------------------------------
 $website_num= 1;
-foreach($websites AS $key => $ws) if(strpos($ws[0].'/', '/'.$domain.'/')!==false)
-	$website_num= $key;
+foreach($websites AS $key => $ws)
+	if(strpos($ws[0].'/', '/'.$domain.'/') !== false)
+		$website_num= $key;
 if($website_num)
 {
 	$config= $configs['global'];
@@ -104,6 +111,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	if(substr($pageurl,(-1)*strlen($config['s_page_suffix']))==$config['s_page_suffix'])
 		$pageurl_without_suffix= substr($pageurl,0,(-1)*strlen($config['s_page_suffix']));
 
+	if($website[5])
+		$declension= $declension[$website[5]];
+
 	while(preg_match("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", $querystring, $matches)===1)
 	{
 		$querystring= preg_replace("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", '${4}', $querystring);
@@ -164,7 +174,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				}
 			}
 
-			if($config['get_content_method']=='curl')
+			if($config['get_content_method'] == 'curl')
 			{
 				$curloptions= array(
 					CURLOPT_URL               => $donor,
@@ -200,7 +210,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				}
 				curl_close($curl);
 
-			}elseif($config['get_content_method']=='stream'){
+			}elseif($config['get_content_method'] == 'stream'){
 				$options= array(
 					'http' => array(
 						'method'        => 'GET',
@@ -231,6 +241,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			$template= trim($template);
 			if($break){}elseif($template)
 			{
+				if($seotype=='S')
+					header($protocol .' 200 OK');
+
 				if($config['set_header'] && is_array($headers) && count($headers))
 				{
 					foreach($headers AS $key => $header)
@@ -242,47 +255,55 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 						header($header);
 					}
 				}
-				if($seotype=='S')
-				{
-					header('Status: 200 OK');
-					header('HTTP/1.1 200 OK');
-				}
 
 				@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
 
-				$s_text_multi= is_array($s_text) ? true : false;
+				$st= array(
+					'title' => $title,
+					'description' => $description,
+					'keywords' => $keywords,
+					's_title' => $s_title,
+					's_text' => $s_text,
+				);
+				for($pic=1; $pic<=10; $pic++)
+				{
+					if( ! ${'pic'.$pic}) break;
+					$st['pic'.$pic]= ${'pic'.$pic};
+				}
+
+				$s_text_multi= is_array($st['s_text']) ? true : false;
 
 				$encode= ($config['in_charset']===$config['out_charset'] ?false :true);
-				if($encode)
+				$eti= '//TRANSLIT//IGNORE';
+
+				foreach($st AS $txtk => $txt)
 				{
-					$eti= '//TRANSLIT//IGNORE';
-					$title= iconv($config['in_charset'], $config['out_charset'].$eti, $title);
-					$description= iconv($config['in_charset'], $config['out_charset'].$eti, $description);
-					$keywords= iconv($config['in_charset'], $config['out_charset'].$eti, $keywords);
-					$s_title= iconv($config['in_charset'], $config['out_charset'].$eti, $s_title);
-					if($s_text_multi)
+					if(is_array($txt))
 					{
-						foreach($s_text AS $key => $row)
+						foreach($txt AS $key => $row)
 						{
-							$s_text[$key]= iconv($config['in_charset'], $config['out_charset'].$eti, $s_text[$key]);
+							if($encode)
+								$st[$txtk][$key]= iconv($config['in_charset'], $config['out_charset'].$eti, $row);
 						}
-					}else
-						$s_text= iconv($config['in_charset'], $config['out_charset'].$eti, $s_text);
+					}else{
+						if($encode)
+							$st[$txtk]= iconv($config['in_charset'], $config['out_charset'].$eti, $txt);
+					}
 				}
 
 				if($s_text_multi)
 				{
 					$s_text_single= '';
-					foreach($s_text AS $key => $row)
+					foreach($st['s_text'] AS $key => $row)
 					{
 						$foo= "<\!-- sssmodule_start_".($key+1)." -->(.*)<!-- sssmodule_finish_".($key+1)." -->";
 						$template= preg_replace("/".$foo."/s", $row, $template, 1, $matches);
 						if( ! $matches) $s_text_single .= $row;
 					}
-					$s_text= $s_text_single;
+					$st['s_text']= $s_text_single;
 				}
 
-				if($s_text)
+				if($st['s_text'])
 				{
 					$seoimages= array();
 					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
@@ -293,11 +314,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							$crop= str_replace($droot, '', $row);
 							if($config['img_crop'])
 								$crop= bsm_imgcrop($crop, $config['img_width'], $config['img_height'], $droot);
-							$alt= ${'pic'.($key+1)};
-							if($encode) $alt= iconv($config['in_charset'], $config['out_charset'].$eti, $alt);
 							$seoimages[]= array(
 								'src' => $crop,
-								'alt' => $alt,
+								'alt' => $st['pic'.($key+1)],
 							);
 						}
 					}
@@ -321,7 +340,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					$body .= '<div id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').'>
 						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
-						<div class="sssmb_h1"><h1>'.$s_title.'</h1></div>';
+						<div class="sssmb_h1"><h1>'.$st['s_title'].'</h1></div>';
 					$body .= '<div class="sssmb_stext">';
 					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 					for($i=0; $i<($seoimages_cc_half?$seoimages_cc_half:1); $i++)
@@ -329,7 +348,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							style="'.($seoimages_cc_half?'padding:0 10px;':'float:right;margin:0 0 20px 30px;padding:0;width:auto;height:auto;').'" />';
 					if($seoimages_cc_half) $body .= '</div>';
 
-					$body .= $s_text;
+					$body .= $st['s_text'];
 
 					if($seoimages_cc_half) $body .= '<div style="margin-bottom:10px;text-align:center;">';
 					for($i=($seoimages_cc_half?$seoimages_cc_half:1); $i<$seoimages_cc; $i++)
@@ -403,9 +422,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$config['meta']=='replace_if_exists' ||
 					$config['meta']=='delete')
 				{
-					$meta_title= '<title>'.$title.'</title>';
-					$meta_description= '<meta name="description" content="'.$description.'" />';
-					$meta_keywords= '<meta name="keywords" content="'.$keywords.'" />';
+					$meta_title= '<title>'.$st['title'].'</title>';
+					$meta_description= '<meta name="description" content="'.$st['description'].'" />';
+					$meta_keywords= '<meta name="keywords" content="'.$st['keywords'].'" />';
 					if($config['meta']=='replace_or_add')
 						$meta_title .= "\n\t".$meta_description."\n\t".$meta_keywords."\n";
 					if($config['meta']=='delete' ||
@@ -455,6 +474,11 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					
 				}
 
+				$template= preg_replace("/\[hide\](.*?)\[\/hide\]/", '', $template);
+				$template= preg_replace("/\[replace\](.*?)\[\/replace\]/", $declension[6], $template);
+				$template= preg_replace("/\[replaceMeta\](.*?)\[\/replaceMeta\]/", $declension[1], $template);
+				$template= preg_replace("/\[replaceTitle\](.*?)\[\/replaceTitle\]/", $declension[1], $template);
+
 				print $template;
 				exit();
 
@@ -463,16 +487,16 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	}
 }
 
-if(basename($pageurl)=='seoModule.php')
+if(basename($pageurl) == 'seoModule.php')
 {
-	if($_GET['a']=='list')
+	if($_GET['a'] == 'list')
 	{
 		header('Content-type: text/html; charset=utf-8');
 
-		print bsm_server().'<br /><br />';
+		print bsm_server().'<br><br>';
 
 		$files= glob($droot.$config['tx_path'].'/'.'*.php');
-		print '<div>Кол-во файлов: '.count($files).'</div><br />';
+		print '<div>Кол-во файлов: '.count($files).'</div><br>';
 		if(is_array($files) && count($files))
 		{
 			foreach($files AS $key => $file)
@@ -489,22 +513,53 @@ if(basename($pageurl)=='seoModule.php')
 				}else{
 					$seotype= 'A';
 				}
-				if($seotype=='A') $pagesurl_A .= '<div><a target="_blank" href="'.$target.'">'.$target.'</a></div>';
-					else $pagesurl_S .= '<div><a target="_blank" href="'.$website[0].$target.$config['s_page_suffix'].'">'.$target.$config['s_page_suffix'].'</a></div>';
+				if($seotype=='A') $pagesurl_A .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
+					else $pagesurl_S .= '<div><a style="text-decoration:none;" target="_blank" href="'.$website[0].$target.$config['s_page_suffix'].'">'.$target.$config['s_page_suffix'].'</a></div>';
 				$tmp= 50-strlen($target);
 				if($seotype=='A') $printarray_A .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\r";
 					else $printarray_S .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\r";
 				print '</div>';
 			}
 			print '<div style="font-weight:bold;color:#47ad00;">OK</div>';
-			print '<br />';
+			print '<br>';
 			print $pagesurl_A.$pagesurl_S;
-			print '<br />';
+			print '<br>';
 			print "<pre>\t=array(\n".$printarray_A.$printarray_S."\t);</pre>";
 		}
+
+		print '<br><br>';
+
+		$green= '#089c29';
+		$red= '#d41717';
+
+		print $_SERVER['SERVER_PROTOCOL'];
+
+		$flag= version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
+		print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
+
+		$flag= $http.$www.$domain === $website[0] ? true : false;
+		print '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$http.$www.$domain.' == '.$website[0].'</span></div>';
+
+		$flag= $website[4] ? true : false;
+		print '<div>ID в бункере: <span style="color:'.($flag ? $green : $red).'">'.$website[4].'</span></div>';
+
+		$flag= extension_loaded('gd') ? true : false;
+		print '<div>Кроп картинок: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$flag= extension_loaded('iconv') ? true : false;
+		print '<div>Перекодировка текстов: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$flag= extension_loaded('openssl') ? true : false;
+		print '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
+
+		$flag= extension_loaded('curl') && function_exists('curl_init') ? true : false;
+		print '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$flag= function_exists('stream_get_contents') ? true : false;
+		print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 	}
 
-	if($_GET['a']=='info')
+	if($_GET['a'] == 'info')
 	{
 		$seopage= $seopages['global'];
 		if(isset($seopages[$website_num]))
@@ -554,11 +609,12 @@ if(basename($pageurl)=='seoModule.php')
 		print '[_errors]'."\n";
 	}
 
-	if($_GET['a']=='validation')
+	if($_GET['a'] == 'validation')
 	{
-		$uri= 'http://bunker-yug.ru/__buran/seoModule_validation.php?ws='.urlencode($website[0]).'&idc='.$website[4];
+		$uri= 'http://bunker-yug.ru/__buran/seoModule_validation.php?ws='.
+			urlencode($website[0]).'&idc='.$website[4];
 
-		if($config['get_content_method']=='curl')
+		if($config['get_content_method'] == 'curl')
 		{
 			$curl= curl_init();
 			curl_setopt($curl, CURLOPT_URL,            $uri);
@@ -566,7 +622,7 @@ if(basename($pageurl)=='seoModule.php')
 			$response= curl_exec($curl);
 			curl_close($curl);
 
-		}elseif($config['get_content_method']=='stream'){
+		}elseif($config['get_content_method'] == 'stream'){
 			$options= array(
 				'http' => array(
 					'method' => 'GET',
@@ -761,4 +817,8 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//----------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------
