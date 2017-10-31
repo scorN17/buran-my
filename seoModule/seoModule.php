@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.8
- * 23.10.2017
+ * @version 2.81
+ * 31.10.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.8';
+$seomoduleversion= '2.81';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -38,8 +38,10 @@ else
 // ------------------------------------------------------------------
 $website_num= 1;
 foreach($websites AS $key => $ws)
-	if(strpos($ws[0].'/', '/'.$domain.'/') !== false)
-		$website_num= $key;
+	if(
+		strpos($ws[0].'/', '//'.$domain.'/') ||
+		strpos($ws[0].'/', '//www.'.$domain.'/')
+	) $website_num= $key;
 if($website_num)
 {
 	$config= $configs['global'];
@@ -821,5 +823,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-------------------------
+//---------------------------------
