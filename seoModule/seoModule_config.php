@@ -70,20 +70,6 @@ $configs= array(
 	),
 );
 
-$configs['global']['share_code']= '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,moimir,twitter,viber,whatsapp,skype,telegram" data-counter=""></div>';
-
-$configs['global']['styles']= '<style>
-	.sssmodulebox {padding:0 0 20px; font-size:1em; line-height:1em;}
-	.sssmodulebox .sssmb_h1 h1 {margin:1.2em 0 1em; line-height:1.2em;}
-	.sssmodulebox .sssmb_stext {padding:0 0 20px}
-	.sssmodulebox .sssmb_stext h2,
-	.sssmodulebox .sssmb_stext h3,
-	.sssmodulebox .sssmb_stext h4 {margin:1.2em 0 1em; line-height:1.3em;}
-	.sssmodulebox .sssmb_stext p {line-height:1.5em; padding:5px 0;}
-	.sssmodulebox .sssmb_stext ul {list-style:disc; margin:1em 0 1em 2em;}
-	.sssmodulebox .sssmb_stext ul li {display:list-item; margin:0; padding:5px 0 5px 1em; line-height:1.2em;}
-	.sssmodulebox .yasharebox ul li {background:none; padding-left:0;}
-</style>';
 
 /*
  * Место в коде для вставки текста
@@ -104,4 +90,92 @@ $content_finish['global'][]= '%<!-- sssmodule_finish -->';
 // --------------------
 
 
+
 $declension['Ростов-на-Дону']= array(1 => 'Ростов-на-Дону', 6 => 'Ростове-на-Дону');
+
+
+
+$configs['global']['share_code']= '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,moimir,twitter,viber,whatsapp,skype,telegram" data-counter=""></div>';
+
+$configs['global']['styles']= '<style>
+	.sssmodulebox {padding:0 0 20px; font-size:1em; line-height:1em;}
+	.sssmodulebox .sssmb_h1 h1 {margin:1em 0 .7em; line-height:1.2em;}
+	.sssmodulebox .sssmb_stext {padding:0 0 20px}
+	.sssmodulebox .sssmb_stext h2,
+	.sssmodulebox .sssmb_stext h3,
+	.sssmodulebox .sssmb_stext h4 {margin:1em 0 .7em; line-height:1.3em;}
+	.sssmodulebox .sssmb_stext p {line-height:1.5em; padding:5px 0; text-indent:2em;}
+	.sssmodulebox .sssmb_stext ul {list-style:none; margin:1em 0 1em 2em;}
+
+	.sssmodulebox .sssmb_stext ul li {
+		display:list-item;
+		margin:0;
+		padding:5px 0 5px 1em;
+		line-height:1.2em;
+	}
+	.sssmodulebox .sssmb_stext ul li:before {
+		content:"";
+		width:1em;
+		height:0;
+		border-top:1px solid #446b98;
+		display:block;
+		position:relative;
+		left:-2em;
+		top:12px;
+	}
+
+	.sssmodulebox .yasharebox ul li {background:none; padding-left:0;}
+	.sssmodulebox .sssmb_clr {clear:both; height:0; line-height:0; font-size:0;}
+	.sssmodulebox .sssmb_img {
+		float:left;
+		margin-right:5%;
+		margin-bottom:5%;
+		line-height:0;
+		position:relative;
+	}
+	.sssmodulebox .sssmb_ir {
+		float:right;
+		margin-right:0;
+		margin-left:5%;
+	}
+	.sssmodulebox .sssmb_img2 {
+		max-width:28%;
+		float:left;
+		margin-left:0;
+		margin-right:5%;
+	}
+	.sssmodulebox .sssmb_img img {
+		max-width:100%;
+	}
+	.sssmodulebox .sssmb_bck {
+		position:absolute;
+		top:0;
+		left:0;
+		width:100%;
+		height:100%;
+		padding:5px;
+		box-sizing:border-box;
+		line-height:0;
+background: -moz-linear-gradient(top, rgba(0,25,48,0) 0%, rgba(0,22,43,0) 20%, rgba(0,12,22,0.7) 100%);
+background: -webkit-linear-gradient(top, rgba(0,25,48,0) 0%,rgba(0,22,43,0) 20%,rgba(0,12,22,0.7) 100%);
+background: linear-gradient(to bottom, rgba(0,25,48,0) 0%,rgba(0,22,43,0) 20%,rgba(0,12,22,0.7) 100%);
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=\'#00001930\', endColorstr=\'#b3000c16\',GradientType=0 );
+	}
+	.sssmodulebox .sssmb_ln {
+		width:100%;
+		height:100%;
+		border:1px solid rgba(255,255,255,.7);
+		box-sizing:border-box;
+	}
+	.sssmodulebox .sssmb_alt {
+		position:absolute;
+		bottom:0;
+		left:0;
+		width:100%;
+		color:#fff;
+		padding:0 18px 14px;
+		font-size:90%;
+		box-sizing:border-box;
+		line-height:1.3em;
+	}
+</style>';
