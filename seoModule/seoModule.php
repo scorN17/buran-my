@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.9
- * 02.11.2017
+ * @version 2.91
+ * 07.11.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.9';
+$seomoduleversion= '2.91';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -35,6 +35,7 @@ $requesturi  = $_SERVER['REQUEST_URI'];
 $pageurl     = parse_url($requesturi, PHP_URL_PATH);
 $querystring = $_SERVER['QUERY_STRING'];
 $droot       = dirname(dirname(__FILE__));
+$sapi_type   = php_sapi_name();
 if(substr($sapi_type,0,3) == 'cgi')
 	$protocol= 'Status:';
 else 
@@ -864,5 +865,4 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------
+//---------------------------------------------
