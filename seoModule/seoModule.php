@@ -9,7 +9,7 @@
 $seomoduleversion= '2.93';
 
 error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'on');
+ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
@@ -923,4 +923,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//--------------------------
+//-------------------------
