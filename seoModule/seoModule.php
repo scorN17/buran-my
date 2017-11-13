@@ -1,15 +1,15 @@
 <?php
 /**
  * seoModule
- * @version 2.91
- * 07.11.2017
+ * @version 2.93
+ * 13.11.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.91';
+$seomoduleversion= '2.93';
 
 error_reporting(E_ALL & ~E_NOTICE);
-ini_set('display_errors', 'off');
+ini_set('display_errors', 'on');
 
 include_once('seoModule_config.php');
 
@@ -331,7 +331,27 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$st['s_text']= $s_text_single;
 				}
 
-				if($st['s_text'])
+				$content_finish_my= $content_finish['global'];
+				if(isset($content_finish[$website_num]))
+					$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
+				if(is_array($content_finish_my))
+				{
+					foreach($content_finish_my AS $cf)
+					{
+						$cftype= substr($cf,0,1);
+						if($cftype!=='@' && $cftype!=='#')
+							$cftype= '%';
+						$cf    = substr($cf,1);
+						$cf2   = preg_quote($cf,"/");
+						$cf2   = str_replace("\n", '\n', $cf2);
+						$cf2   = str_replace("\r", '', $cf2);
+						$cf2   = str_replace("\t", '\t', $cf2);
+						$cf_cc = preg_match("/".$cf2."/s", $template);
+						if($cf_cc===1) break;
+					}
+				}
+
+				if($cf_cc===1 && $st['s_text'])
 				{
 					$st['s_text'] .= '<br>';
 
@@ -355,8 +375,35 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$seoimages_cc= count($seoimages);
 					preg_match_all("/\[img\]/U", $st['s_text'], $imgtags);
 					$imgtags= is_array($imgtags) ? count($imgtags[0]) : 0;
-					for($ii=1; $ii <= $seoimages_cc - $imgtags; $ii++)
-						$st['s_text'] .= "\n".'[img]';
+					if( ! $imgtags)
+					{
+						$seoimages_cc_1= floor($seoimages_cc/2);
+						$seoimages_cc_2= $seoimages_cc - $seoimages_cc_1;
+						if( ! $seoimages_cc_1 && $seoimages_cc_2)
+						{
+							$seoimages_cc_1= 1;
+							$seoimages_cc_2= 0;
+						}
+					}else{
+						$seoimages_cc_2= $seoimages_cc - $imgtags;
+					}
+					if($seoimages_cc_1 == 1) $imgtags= 1;
+					if($seoimages_cc_1)
+					{
+						if($seoimages_cc_1 > 1)
+							$st['s_text']= '<div class="sssmb_clr"></div></div>' .$st['s_text'];
+						for($ii=1; $ii <= $seoimages_cc_1; $ii++)
+							$st['s_text']= '[img]' ."\n" .$st['s_text'];
+						if($seoimages_cc_1 > 1)
+							$st['s_text']= '<div class="sssmb_imgs sssmb_imgs_1">' .$st['s_text'];
+					}
+					if($seoimages_cc_2)
+					{
+						$st['s_text'] .= '<div class="sssmb_imgs sssmb_imgs_2">';
+						for($ii=1; $ii <= $seoimages_cc_2; $ii++)
+							$st['s_text'] .= "\n". '[img]';
+						$st['s_text'] .= '<div class="sssmb_clr"></div></div>';
+					}
 
 					$ii= 0;
 					do{
@@ -380,6 +427,26 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							$imgp, $st['s_text'], 1, $cc);
 					}while($cc);
 
+					preg_match_all("/\[col\]/U", $st['s_text'], $coltags);
+					$coltags= is_array($coltags) ? count($coltags[0]) : 0;
+					$ii= 0;
+					do{
+						$ii= $ii == 3 ? 1 : $ii+1;
+						if($ii == 1)
+						{
+							$colp= '<div class="sssmb_clr"></div>
+							<div class="sssmb_col sssmb_col_l">';
+						}elseif($ii == 2){
+							$colp= '</div>
+							<div class="sssmb_col sssmb_col_r">';
+						}else{
+							$colp= '</div>
+							<div class="sssmb_clr"></div>';
+						}
+						$st['s_text']= preg_replace("/\[col\]/U",
+							$colp, $st['s_text'], 1, $cc);
+					}while($cc);
+
 					$body= $config['styles'];
 
 					if($hideflag)
@@ -395,73 +462,55 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					}
 
 					$body .= '<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>
-						<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>';
+
+					if($seotype=='A' || $seotype=='W')
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template, 1, $hcc);
+					else
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h1 ${1}>'.$st['s_title'].'</h1>', $template, 1, $hcc);
+
+					if($seotype=='A' || $seotype=='W' || ! $hcc)
+						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+
 					$body .= '<div class="sssmb_stext">';
 
 					$body .= $st['s_text'];
 
-					$body .= '</div><div class="sssmb_clr">&nbsp;</div>';
+					$body .= '<div class="sssmb_clr">&nbsp;</div></div>';
 					if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
 					$body .= '</section>';
 
-					$content_finish_my= $content_finish['global'];
-					if(isset($content_finish[$website_num]))
-						$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
-					if(is_array($content_finish_my))
+					if($seotype=='A')
 					{
-						foreach($content_finish_my AS $cf)
+						$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
+
+					}elseif($seotype=='S' || $seotype=='W'){
+						$content_start_my= $content_start['global'];
+						if(isset($content_start[$website_num]))
+							$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
+						if(is_array($content_start_my))
 						{
-							$cftype= substr($cf,0,1);
-							if($cftype!=='@' && $cftype!=='#')
-								$cftype= '%';
-							$cf    = substr($cf,1);
-							$cf2   = preg_quote($cf,"/");
-							$cf2   = str_replace("\n", '\n', $cf2);
-							$cf2   = str_replace("\r", '', $cf2);
-							$cf2   = str_replace("\t", '\t', $cf2);
-							$cf_cc = preg_match("/".$cf2."/s", $template);
-							if($cf_cc===1) break;
+							foreach($content_start_my AS $cs)
+							{
+								$cstype = substr($cs,0,1);
+								if($cstype!=='@' && $cstype!=='#')
+									$cstype= '%';
+								$cs     = substr($cs,1);
+								$cs2    = preg_quote($cs,"/");
+								$cs2    = str_replace("\n", '\n', $cs2);
+								$cs2    = str_replace("\r", '', $cs2);
+								$cs2    = str_replace("\t", '\t', $cs2);
+								$cs_cc  = preg_match("/".$cs2."/s", $template);
+								if($cs_cc===1) break;
+							}
+							if($cs_cc===1)
+							{
+								$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
+								
+							}else bsm_tolog('[error_08]-'.$requesturi,'errors');
 						}
 					}
-
-					if($cf_cc===1)
-					{
-						if($seotype=='A' || $seotype=='W')
-							$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template);
-
-						if($seotype=='A')
-						{
-							$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
-
-						}elseif($seotype=='S' || $seotype=='W'){
-							$content_start_my= $content_start['global'];
-							if(isset($content_start[$website_num]))
-								$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
-							if(is_array($content_start_my))
-							{
-								foreach($content_start_my AS $cs)
-								{
-									$cstype = substr($cs,0,1);
-									if($cstype!=='@' && $cstype!=='#')
-										$cstype= '%';
-									$cs     = substr($cs,1);
-									$cs2    = preg_quote($cs,"/");
-									$cs2    = str_replace("\n", '\n', $cs2);
-									$cs2    = str_replace("\r", '', $cs2);
-									$cs2    = str_replace("\t", '\t', $cs2);
-									$cs_cc  = preg_match("/".$cs2."/s", $template);
-									if($cs_cc===1) break;
-								}
-								if($cs_cc===1)
-								{
-									$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
-									
-								}else bsm_tolog('[error_08]-'.$requesturi,'errors');
-							}
-						}
-					}else bsm_tolog('[error_06]-'.$requesturi,'errors');
-				}
+				}else bsm_tolog('[error_06]-'.$requesturi,'errors');
 
 				// meta
 				if($config['meta']=='replace_or_add' ||
@@ -865,4 +914,13 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//---------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//--------------------------
