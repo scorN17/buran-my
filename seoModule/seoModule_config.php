@@ -66,7 +66,7 @@ $configs= array(
 		'cookie'             => true, // сохранять печеньки
 		'set_header'         => true, // возвращать заголовки
 		'urldecode'          => true, // декодировать адреса
-		'city_replace'       => true, // подставлять город
+		'city_replace'       => false, // подставлять город
 	),
 );
 
@@ -99,33 +99,69 @@ $configs['global']['share_code']= '<script src="//yastatic.net/es5-shims/0.0.2/e
 
 $configs['global']['styles']= '<style>
 	.sssmodulebox {padding:0 0 20px; font-size:1em; line-height:1em;}
-	.sssmodulebox .sssmb_h1 h1 {margin:1em 0 .7em; line-height:1.2em;}
-	.sssmodulebox .sssmb_stext {padding:0 0 20px}
-	.sssmodulebox .sssmb_stext h2,
-	.sssmodulebox .sssmb_stext h3,
-	.sssmodulebox .sssmb_stext h4 {margin:1em 0 .7em; line-height:1.3em;}
-	.sssmodulebox .sssmb_stext p {line-height:1.5em; padding:5px 0; text-indent:2em;}
-	.sssmodulebox .sssmb_stext ul {list-style:none; margin:1em 0 1em 2em;}
-
+	.sssmodulebox h1,
+	.sssmodulebox h2,
+	.sssmodulebox h3 {
+		margin:1em 0 .7em !important;
+		line-height:1.2em !important;
+	}
+	.sssmodulebox .sssmb_stext {
+		padding:0 0 20px;
+		text-align:left;
+		line-height:1.5em;
+	}
+	.sssmodulebox .sssmb_stext p {
+		line-height:1.5em;
+		padding:5px 0;
+		text-indent:2em;
+		margin:0;
+		text-align:left;
+	}
+	.sssmodulebox .sssmb_stext ul {
+		list-style:none;
+		margin:1em 0 1em 0em;
+	}
 	.sssmodulebox .sssmb_stext ul li {
 		display:list-item;
 		margin:0;
-		padding:5px 0 5px 1em;
-		line-height:1.2em;
+		padding:5px 0 5px 0em;
+		line-height:1.5em;
+		background:none;
+		text-align:left;
 	}
 	.sssmodulebox .sssmb_stext ul li:before {
 		content:"";
 		width:1em;
 		height:0;
 		border-top:1px solid #446b98;
-		display:block;
+		display:inline-block;
 		position:relative;
-		left:-2em;
-		top:12px;
+		left: 0em;
+		top: -3px;
+		margin: 0 1.5em 0 0;
 	}
 
 	.sssmodulebox .yasharebox ul li {background:none; padding-left:0;}
-	.sssmodulebox .sssmb_clr {clear:both; height:0; line-height:0; font-size:0;}
+	.sssmodulebox .sssmb_clr {
+		clear:both;
+		height:0;
+		line-height:0;
+		font-size:0;
+		margin:0;
+		padding:0;
+	}
+	.sssmodulebox .sssmb_col {
+		float:left;
+		width:48%;
+		box-sizing: border-box;
+	}
+	.sssmodulebox .sssmb_col_l {
+		border-right: 1px solid #eee;
+		padding-right:4%;
+	}
+	.sssmodulebox .sssmb_col_r {
+		float:right;
+	}
 	.sssmodulebox .sssmb_img {
 		float:left;
 		margin-right:5%;
@@ -146,6 +182,20 @@ $configs['global']['styles']= '<style>
 	}
 	.sssmodulebox .sssmb_img img {
 		max-width:100%;
+		margin:0;
+		padding:0;
+		border:none;
+	}
+	.sssmodulebox .sssmb_imgs {
+		margin:0;
+	}
+	.sssmodulebox .sssmb_imgs_1 {
+		margin-top:1em;
+		margin-bottom:2em;
+	}
+	.sssmodulebox .sssmb_imgs .sssmb_img {
+		margin-top:0;
+		margin-bottom:0;
 	}
 	.sssmodulebox .sssmb_bck {
 		position:absolute;
@@ -177,5 +227,6 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=\'#00001930\',
 		font-size:90%;
 		box-sizing:border-box;
 		line-height:1.3em;
+		text-align:left;
 	}
 </style>';
