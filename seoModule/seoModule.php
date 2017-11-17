@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.93
- * 13.11.2017
+ * @version 2.94
+ * 17.11.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.93';
+$seomoduleversion= '2.94';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -278,7 +278,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					}
 				}
 
-				@include_once($droot.$config['tx_path'].'/'.$seoalias.'.php');
+				$optfile= $droot.$config['tx_path'].'/'.$seoalias.'.php';
+				$optfile_d= filectime($optfile);
+				@include_once($optfile);
 
 				$st= array(
 					'title' => $title,
@@ -414,13 +416,14 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							$ii++;
 							$img['attr']= $img['alt'].
 								' ('.($ii==1 ? 'рисунок' : 'фото').')';
-							$imgp= '<div class="sssmb_img '.($ii==1?'sssmb_ir':'').' '.($ii<=$imgtags?'sssmb_img1':'sssmb_img2').'">
-								<img src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
-								<div class="sssmb_bck">
-									<div class="sssmb_ln"></div>
-									<div class="sssmb_alt">'.$img['alt'].'</div>
-								</div>
-							</div>';
+							$imgp= '
+	<div class="sssmb_img '.($ii==1?'sssmb_ir':'').' '.($ii<=$imgtags?'sssmb_img1':'sssmb_img2').'">
+		<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
+		<div class="sssmb_bck">
+			<div class="sssmb_ln"></div>
+			<div class="sssmb_alt">'.$img['alt'].'</div>
+		</div>
+	</div>';
 						}
 
 						$st['s_text']= preg_replace("/\[img\]/U",
@@ -451,26 +454,38 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					if($hideflag)
 					{
-						$body .= '<script>
-							function chpoktext(){
-								obj= document.getElementById("sssmodulebox");
-								if(obj.style.display=="none") obj.style.display= "";
-								else obj.style.display= "none";
-							}
-						</script>
-						<article onclick="chpoktext()">&rarr;</article>';
+						$body .= '
+	<script>
+		function chpoktext(){
+			obj= document.getElementById("sssmodulebox");
+			if(obj.style.display=="none") obj.style.display= "";
+			else obj.style.display= "none";
+		}
+	</script>
+	<article onclick="chpoktext()">&rarr;</article>';
 					}
 
 					$body .= '<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-						<div style="clear:both;font-size:0;line-height:0;">&nbsp;</div>';
+						<div class="sssmb_clr">&nbsp;</div>';
 
 					if($seotype=='A' || $seotype=='W')
 						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template, 1, $hcc);
 					else
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h1 ${1}>'.$st['s_title'].'</h1>', $template, 1, $hcc);
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>', $template, 1, $hcc);
 
 					if($seotype=='A' || $seotype=='W' || ! $hcc)
 						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+
+					$body .= '
+	<div class="sssmb_cinf">
+		<p itemprop="author">Автор: '.$website[6].'</p>
+		<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
+			<meta itemprop="logo" content="'.$website[7].'" />
+			<meta itemprop="name" content="'.$domain.'" />
+		</div>
+		<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',$optfile_d).'</time></p>
+		<noindex><p itemprop="headline">'.$st['title'].'</p></noindex>
+	</div>';
 
 					$body .= '<div class="sssmb_stext">';
 
@@ -914,13 +929,4 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-------------------------
+//-
