@@ -465,8 +465,10 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	<article onclick="chpoktext()">&rarr;</article>';
 					}
 
-					$body .= '<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-						<div class="sssmb_clr">&nbsp;</div>';
+					$body .= '
+	<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+		<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
+		<div class="sssmb_clr">&nbsp;</div>';
 
 					if($seotype=='A' || $seotype=='W')
 						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template, 1, $hcc);
@@ -476,14 +478,21 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($seotype=='A' || $seotype=='W' || ! $hcc)
 						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 
+					list($foo_width, $foo_height, $foo_1, $foo_2)= getimagesize($droot.$website[8]);
 					$body .= '
 	<div class="sssmb_cinf">
-		<p itemprop="author">Автор: '.$website[6].'</p>
+		<p itemprop="author">Автор: '.$website[7].'</p>
 		<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
-			<meta itemprop="logo" content="'.$website[7].'" />
+			<meta itemprop="logo" content="" />
 			<meta itemprop="name" content="'.$domain.'" />
+			<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
+				<img itemprop="url" itemprop="image" src="'.$website[8].'" />
+				<meta itemprop="width" content="'.$foo_width.'" />
+				<meta itemprop="height" content="'.$foo_height.'" />
+			</div>
 		</div>
-		<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',$optfile_d).'</time></p>
+		<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($website[6])).'</time></p>
+		<p>Дата изменения: <time itemprop="dateModified">'.date('Y-m-d',$optfile_d).'</time></p>
 		<noindex><p itemprop="headline">'.$st['title'].'</p></noindex>
 	</div>';
 
@@ -929,4 +938,5 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//-
+//-----------------------------------------------
+//-------------------------------------------
