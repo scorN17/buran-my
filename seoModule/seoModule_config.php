@@ -28,11 +28,21 @@ $websites= array(
 		'/page_uri'                           - URI страницы списка статей
 		0000                                  - ID в бункере
 		'city'                                - Город
+		''                                    - Наименование организации
+		'/path/name.jpg'                      - Относительный путь к логотипу
 	),
 );
 */
 $websites= array(
-	1 => array('https://www.subdomain.domain.com', '/', '/', '/', 0000),
+	1 => array('https://www.subdomain.domain.com',
+		'/',
+		'/',
+		'/',
+		0000,
+		'Ростов-на-Дону',
+		'ООО «Наименование»',
+		'/images/logo.png'
+	),
 );
 
 $seopages= array(
@@ -104,6 +114,9 @@ $configs['global']['styles']= '<style>
 	.sssmodulebox h3 {
 		margin:1em 0 .7em !important;
 		line-height:1.2em !important;
+	}
+	.sssmodulebox .sssmb_cinf {
+		display:none;
 	}
 	.sssmodulebox .sssmb_stext {
 		padding:0 0 20px;
