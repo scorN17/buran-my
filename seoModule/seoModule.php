@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.94
- * 17.11.2017
+ * @version 2.95
+ * 18.11.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.94';
+$seomoduleversion= '2.95';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -471,19 +471,22 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 		<div class="sssmb_clr">&nbsp;</div>';
 
 					if($seotype=='A' || $seotype=='W')
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h2 ${1}>${2}</h2>', $template, 1, $hcc);
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+							'<h2 ${1}>${2}</h2>', $template, 1, $hcc);
 					else
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>', $template, 1, $hcc);
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+							'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
+							$template, 1, $hcc);
 
 					if($seotype=='A' || $seotype=='W' || ! $hcc)
 						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 
-					list($foo_width, $foo_height, $foo_1, $foo_2)= getimagesize($droot.$website[8]);
+					list($foo_width, $foo_height, $foo_1, $foo_2)
+						= getimagesize($droot.$website[8]);
 					$body .= '
 	<div class="sssmb_cinf">
 		<p itemprop="author">Автор: '.$website[7].'</p>
 		<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
-			<meta itemprop="logo" content="" />
 			<meta itemprop="name" content="'.$domain.'" />
 			<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
 				<img itemprop="url" itemprop="image" src="'.$website[8].'" />
@@ -501,12 +504,15 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$body .= $st['s_text'];
 
 					$body .= '<div class="sssmb_clr">&nbsp;</div></div>';
-					if($config['use_share']) $body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
+					if($config['use_share'])
+						$body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
 					$body .= '</section>';
 
 					if($seotype=='A')
 					{
-						$template= preg_replace("/".$cf2."/s", ($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''), $template,1);
+						$template= preg_replace("/".$cf2."/s",
+							($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''),
+							$template, 1);
 
 					}elseif($seotype=='S' || $seotype=='W'){
 						$content_start_my= $content_start['global'];
@@ -939,4 +945,4 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-------------------------------------------
+//---------------------------------
