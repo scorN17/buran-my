@@ -244,4 +244,27 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr=\'#00001930\',
 		line-height:1.3em;
 		text-align:left;
 	}
+	@media(max-width:600px){
+		.sssmodulebox .sssmb_img {
+			max-width:35%;
+			float:none;
+			margin-left:auto;
+			margin-right:auto;
+		}
+	}
+	@media(max-width:400px){
+		.sssmodulebox .sssmb_img {
+			max-width:50%;
+		}
+	}
+	@media(max-width:350px){
+		.sssmodulebox .sssmb_img {
+			max-width:55%;
+		}
+	}
+	@media(max-width:300px){
+		.sssmodulebox .sssmb_img {
+			max-width:70%;
+		}
+	}
 </style>';
