@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 2.95
- * 18.11.2017
+ * @version 3.0
+ * 24.11.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '2.95';
+$seomoduleversion= '3.0';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -44,6 +44,10 @@ else
 				: ($_SERVER['SERVER_PROTOCOL']
 					? $_SERVER['SERVER_PROTOCOL']
 					: 'HTTP/1.1');
+$test= isset($_POST['seomodule_test']) &&
+	isset($_POST['seomodule_s_title']) &&
+	isset($_POST['seomodule_s_text'])
+		? true : false;
 // ------------------------------------------------------------------
 $website_num= 1;
 foreach($websites AS $key => $ws)
@@ -109,9 +113,13 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	basename($pageurl)!='seoModule.php' &&
 	(
 		$config['module_enabled']===true ||
-		$_SERVER['REMOTE_ADDR']===$config['module_enabled']
+		$_SERVER['REMOTE_ADDR']===$config['module_enabled'] ||
+		$test
 	) &&
-	strpos($config['requets_methods'], '/'.$_SERVER['REQUEST_METHOD'].'/')!==false &&
+	(
+		strpos($config['requets_methods'], '/'.$_SERVER['REQUEST_METHOD'].'/')!==false ||
+		$test
+	) &&
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false &&
 	file_exists($droot.'/_buran/'.bsm_server())
 ){
@@ -186,12 +194,20 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					if($config['get_content_method']=='stream' &&
 						stripos($key, 'connection')!==false) continue;
 					if(stripos($key, 'connection')!==false) $row= 'keep-alive';
+
+					if($test)
+					{
+						if(stripos($key, 'Content-Length')!==false) continue;
+					}
+
 					$header= $key.': '.$row;
+
 					if(stripos($key, 'user-agent')!==false)
 					{
 						$useragent_flag= true;
 						$header .= ' /buran_seo_module';
 					}
+
 					$requestsheaders[]= $header;
 				}
 			}
@@ -295,6 +311,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$st['pic'.$pic]= ${'pic'.$pic};
 				}
 
+				if($test)
+					$st['s_text']= $_POST['seomodule_s_text'];
+
 				$s_text_multi= is_array($st['s_text']) ? true : false;
 
 				$encode= $config['in_charset'] === $config['out_charset']
@@ -356,6 +375,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 				if($cf_cc===1 && $st['s_text'])
 				{
 					$st['s_text'] .= '<br>';
+					$st['s_text']= str_replace('<p>[img]</p>', '[img]', $st['s_text']);
+					$st['s_text']= str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 
 					$seoimages= array();
 					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
@@ -469,6 +490,9 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
 		<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
 		<div class="sssmb_clr">&nbsp;</div>';
+
+					if($test)
+						$st['s_title']= $_POST['seomodule_s_title'];
 
 					if($seotype=='A' || $seotype=='W')
 						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
@@ -943,6 +967,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------------------------------------------
-//-----------------------------------------------
-//---------------------------------
+//------------------------------------------------
