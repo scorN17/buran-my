@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 3.0
- * 24.11.2017
+ * @version 3.1
+ * 19.12.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '3.0';
+$seomoduleversion= '3.1';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -496,11 +496,15 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					if($seotype=='A' || $seotype=='W')
 						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-							'<h2 ${1}>${2}</h2>', $template, 1, $hcc);
+							'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
 					else
 						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 							'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
-							$template, 1, $hcc);
+							$template, -1, $hcc);
+
+					if($hcc >= 2)
+						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+							'', $template);
 
 					if($seotype=='A' || $seotype=='W' || ! $hcc)
 						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
@@ -812,7 +816,8 @@ function bsm_seohash($droot, $config)
 	$hash .= md5_file($droot.'/_buran/seoModule_config.php') ."\n";
 	$files= glob($droot.$config['tx_path'].'/'.'*.php');
 	if(is_array($files) & count($files))
-		foreach($files AS $file) $hash .= md5_file($file) ."\n";
+		foreach($files AS $file)
+			$hash .= md5_file($file) ."\n";
 	$hash= md5($hash);
 	return $hash;
 }
@@ -967,4 +972,5 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//------------------------------------------------
+//-----------------------------------------------
+//----
