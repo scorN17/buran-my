@@ -1,12 +1,12 @@
 <?php
 /**
  * seoModule
- * @version 3.1
- * 19.12.2017
+ * @version 3.11
+ * 28.12.2017
  * DELTA
  * sergey.it@delta-ltd.ru
  */
-$seomoduleversion= '3.1';
+$seomoduleversion= '3.11';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -487,7 +487,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					}
 
 					$body .= '
-	<section id="sssmodulebox" class="sssmodulebox" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+	<section id="sssmodulebox" class="sssmodulebox turbocontainer" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
 		<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
 		<div class="sssmb_clr">&nbsp;</div>';
 
@@ -972,5 +972,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------------------------------------------
-//----
+//-------------------------------------
