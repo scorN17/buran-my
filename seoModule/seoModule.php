@@ -1,12 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.11
- * 28.12.2017
+ * @version 3.12
+ * 23.01.2018
  * DELTA
  * sergey.it@delta-ltd.ru
+ * @filesize 31444
  */
-$seomoduleversion= '3.11';
+$seomoduleversion= '3.12';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -141,15 +142,19 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	}
 	if($bez_utm)
 	{
-		if(strpos($querystring,'&')===0) $querystring= substr($querystring,1);
-		$requesturi= $pageurl .($querystring ? '?'.$querystring : '');
+		if (strpos($querystring,'&') === 0) {
+			$querystring= substr($querystring, 1);
+		}
+		$requesturi= $pageurl . ($querystring ? '?'.$querystring : '');
 	}
 
-	if(isset($seopage[$requesturi])) $seoalias= trim($seopage[$requesturi]);
-		elseif(substr($seopage[$pageurl_without_suffix],0,2)=='S:')
-			$seoalias= trim($seopage[$pageurl_without_suffix]);
-	if($seoalias)
-	{
+	if (isset($seopage[$requesturi])) {
+		$seopage_row= trim($seopage[$requesturi]);
+	} elseif (substr($seopage[$pageurl_without_suffix], 0, 2) == 'S:') {
+		$seopage_row= trim($seopage[$pageurl_without_suffix]);
+	}
+
+	if ($seopage_row) {
 		// $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
 		$logsfile['errors']= fopen($droot.'/_buran/seoModule_errors', 'a');
 		if( ! file_exists($droot.'/_buran/seoModule_hash') ||
@@ -160,16 +165,24 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			bsm_tolog('['.date('Y-m-d-H-i-s').'_'.$seoHash.']','hash');
 		}
 
-		$seoalias = explode(':',$seoalias,2);
-		$seotype  = $seoalias[0]=='A'?'A':($seoalias[0]=='W'?'W':'S');
-		$seoalias = $seoalias[1];
-		$hideflag = $config['hide_opt']===true
+		$seopage_row = explode(':', $seopage_row);
+		$seoalias = end($seopage_row);
+
+		$seotype  = $seopage_row[0]=='A'?'A':($seopage_row[0]=='W'?'W':'S');
+
+		$hideflag = $config['hide_opt'] === true
 			? true
-			: ($config['hide_opt']===false
+			: ($config['hide_opt'] === false
 				? false
 				: (strpos($config['hide_opt'],$seotype) !== false
 					? true
 					: false));
+
+		$hideflag= $seopage_row[1] === '-'
+			? true
+			: ($seopage_row[1] === '+'
+				? false
+				: $hideflag);
 
 		if(file_exists($droot.$config['tx_path'].'/'.$seoalias.'.php'))
 		{
@@ -972,4 +985,5 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-------------------------------------
+//-----------------------------------------------
+//---------------------
