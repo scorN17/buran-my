@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.12
- * 23.01.2018
+ * @version 3.13
+ * 24.01.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 31444
+ * @filesize 30666
  */
-$seomoduleversion= '3.12';
+$seomoduleversion= '3.13';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -124,16 +124,6 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false &&
 	file_exists($droot.'/_buran/'.bsm_server())
 ){
-	$seopage= $seopages['global'];
-	if(isset($seopages[$website_num]))
-		$seopage= array_merge($seopage, $seopages[$website_num]);
-
-	if(substr($pageurl,(-1)*strlen($config['s_page_suffix']))==$config['s_page_suffix'])
-		$pageurl_without_suffix
-			= substr($pageurl,0,(-1)*strlen($config['s_page_suffix']));
-
-	if($website[5]) $declension= $declension[$website[5]];
-
 	while(preg_match("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", $querystring, $matches)===1)
 	{
 		$querystring
@@ -148,11 +138,11 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 		$requesturi= $pageurl . ($querystring ? '?'.$querystring : '');
 	}
 
-	if (isset($seopage[$requesturi])) {
-		$seopage_row= trim($seopage[$requesturi]);
-	} elseif (substr($seopage[$pageurl_without_suffix], 0, 2) == 'S:') {
-		$seopage_row= trim($seopage[$pageurl_without_suffix]);
-	}
+	$seopage= $seopages['global'];
+	if(isset($seopages[$website_num]))
+		$seopage= array_merge($seopage, $seopages[$website_num]);
+
+	$seopage_row= trim($seopage[$requesturi]);
 
 	if ($seopage_row) {
 		// $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
@@ -183,6 +173,8 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 			: ($seopage_row[1] === '+'
 				? false
 				: $hideflag);
+
+		if($website[5]) $declension= $declension[$website[5]];
 
 		if(file_exists($droot.$config['tx_path'].'/'.$seoalias.'.php'))
 		{
@@ -675,25 +667,21 @@ if(basename($pageurl) == 'seoModule.php')
 				$target= false;
 				$s_text= array();
 				include_once($file);
-				if( ! trim($target))
-				{
-					$seotype= 'S';
-					$target= '/'.substr($filename,0,-4);
-				}else{
-					$seotype= 'A';
-				}
-				if($seotype=='A') $pagesurl_A .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
-					else $pagesurl_S .= '<div><a style="text-decoration:none;" target="_blank" href="'.$website[0].$target.$config['s_page_suffix'].'">'.$target.$config['s_page_suffix'].'</a></div>';
-				$tmp= 50-strlen($target);
-				if($seotype=='A') $printarray_A .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\r";
-					else $printarray_S .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\r";
+				$seotype= ! trim($target) ? 'S' : 'A';
+				if( ! $target)
+					$target= '/'.substr($filename,0,-4) . $config['s_page_suffix'];
+
+				$pagesurl .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
+
+				$printarray[$seotype] .= "\t\t'{$target}'\n\t\t=> '{$seotype}:".substr($filename,0,-4)."',\n\n";
+
 				print '</div>';
 			}
 			print '<div style="font-weight:bold;color:#47ad00;">OK</div>';
 			print '<br>';
-			print $pagesurl_A.$pagesurl_S;
+			print $pagesurl;
 			print '<br>';
-			print "<pre>\t=array(\n".$printarray_A.$printarray_S."\t);</pre>";
+			print "<pre>\t=array(\n".$printarray['A'].$printarray['S']."\t);</pre>";
 		}
 
 		print '<br><br>';
@@ -742,7 +730,7 @@ if(basename($pageurl) == 'seoModule.php')
 		print '[pages_]'."\n";
 		foreach($seopage AS $key => $row)
 		{
-			print $key .(substr($row,0,2)=='S:'?$config['s_page_suffix']:'') .' => '.$row ."\n";
+			print $key.' => '.$row ."\n";
 		}
 		print '[_pages]'."\n";
 		print '[config_]'."\n";
@@ -986,4 +974,4 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//---------------------
+//-------------------------------------------------
