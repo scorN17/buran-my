@@ -654,6 +654,9 @@ if(basename($pageurl) == 'seoModule.php')
 	{
 		header('Content-type: text/html; charset=utf-8');
 
+		$green= '#089c29';
+		$red= '#d41717';
+
 		print bsm_server().'<br><br>';
 
 		$files= glob($droot.$config['tx_path'].'/'.'*.php');
@@ -668,10 +671,10 @@ if(basename($pageurl) == 'seoModule.php')
 				$s_text= array();
 				include_once($file);
 				$seotype= ! trim($target) ? 'S' : 'A';
-				if( ! $target)
+				if($seotype == 'S')
 					$target= '/'.substr($filename,0,-4) . $config['s_page_suffix'];
 
-				$pagesurl .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
+				$pagesurl[$seotype] .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
 
 				$printarray[$seotype] .= "\t\t'{$target}'\n\t\t=> '{$seotype}:".substr($filename,0,-4)."',\n\n";
 
@@ -679,15 +682,7 @@ if(basename($pageurl) == 'seoModule.php')
 			}
 			print '<div style="font-weight:bold;color:#47ad00;">OK</div>';
 			print '<br>';
-			print $pagesurl;
-			print '<br>';
-			print "<pre>\t=array(\n".$printarray['A'].$printarray['S']."\t);</pre>";
 		}
-
-		print '<br><br>';
-
-		$green= '#089c29';
-		$red= '#d41717';
 
 		$flag= version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
 		print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
@@ -712,6 +707,13 @@ if(basename($pageurl) == 'seoModule.php')
 
 		$flag= function_exists('stream_get_contents') ? true : false;
 		print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		print '<br><br>';
+		print 'A<br>'.$pagesurl['A'] . '<br>S<br>'.$pagesurl['S'];
+		print '<br>';
+		print "<pre>\t=array(\n".$printarray['A'].$printarray['S']."\t);</pre>";
+
+		print '<br><br><br>';
 	}
 
 	if($_GET['a'] == 'info')
@@ -973,5 +975,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------------------------------------------
-//-------------------------------------------------
+//--------------------
