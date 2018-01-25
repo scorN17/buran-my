@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.13
- * 24.01.2018
+ * @version 3.14
+ * 25.01.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 30666
+ * @filesize 30777
  */
-$seomoduleversion= '3.13';
+$seomoduleversion= '3.14';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -676,7 +676,8 @@ if(basename($pageurl) == 'seoModule.php')
 
 				$pagesurl[$seotype] .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
 
-				$printarray[$seotype] .= "\t\t'{$target}'\n\t\t=> '{$seotype}:".substr($filename,0,-4)."',\n\n";
+				$tmp= 60-strlen($target);
+				$printarray[$seotype] .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\n\n";
 
 				print '</div>';
 			}
@@ -709,7 +710,7 @@ if(basename($pageurl) == 'seoModule.php')
 		print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		print '<br><br>';
-		print 'A<br>'.$pagesurl['A'] . '<br>S<br>'.$pagesurl['S'];
+		print $pagesurl['A'].$pagesurl['S'];
 		print '<br>';
 		print "<pre>\t=array(\n".$printarray['A'].$printarray['S']."\t);</pre>";
 
@@ -975,4 +976,5 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//--------------------
+//-----------------------------------------------
+//-----------------------------------------
