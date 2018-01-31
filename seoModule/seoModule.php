@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.14
- * 25.01.2018
+ * @version 3.15
+ * 31.01.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 30777
+ * @filesize 31000
  */
-$seomoduleversion= '3.14';
+$seomoduleversion= '3.15';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -675,14 +675,25 @@ if(basename($pageurl) == 'seoModule.php')
 					$target= '/'.substr($filename,0,-4) . $config['s_page_suffix'];
 
 				$pagesurl[$seotype] .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
-
-				$tmp= 60-strlen($target);
-				$printarray[$seotype] .= "\t\t'{$target}' ".($tmp>0?str_repeat(' ',$tmp):'')." => '{$seotype}:".substr($filename,0,-4)."',\n\n";
-
 				print '</div>';
+
+				if(strlen($target) > $max)
+					$max= strlen($target);
+				$printarray[$seotype] .= "\t\t'{$target}'[".strlen($target)."]=> '{$seotype}:".substr($filename,0,-4)."',\n\n";
 			}
 			print '<div style="font-weight:bold;color:#47ad00;">OK</div>';
 			print '<br>';
+
+			$printarray= $printarray['A'] . $printarray['S'];
+			preg_match_all("/\[([0-9]+)\]=>/U", $printarray, $matches);
+			if(is_array($matches[1]))
+			{
+				foreach($matches[1] AS $row)
+				{
+					$tmp= $max - $row + 2;
+					$printarray= str_replace('['.$row.']=>', str_repeat(' ',$tmp).'=>', $printarray);
+				}
+			}
 		}
 
 		$flag= version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
@@ -712,7 +723,7 @@ if(basename($pageurl) == 'seoModule.php')
 		print '<br><br>';
 		print $pagesurl['A'].$pagesurl['S'];
 		print '<br>';
-		print "<pre>\t=array(\n".$printarray['A'].$printarray['S']."\t);</pre>";
+		print "<pre>\t=array(\n".$printarray."\t);</pre>";
 
 		print '<br><br><br>';
 	}
@@ -976,5 +987,4 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//-----------------------------------------------
-//-----------------------------------------
+//---------
