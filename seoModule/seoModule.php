@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.15
- * 31.01.2018
+ * @version 3.2
+ * 22.03.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 31000
+ * @filesize 33000
  */
-$seomoduleversion= '3.15';
+$seomoduleversion= '3.2';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -476,19 +476,76 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 							$colp, $st['s_text'], 1, $cc);
 					}while($cc);
 
+					preg_match_all("/\[tab(.*)\]/U", $st['s_text'], $tabtags);
+					if (is_array($tabtags[0])) {
+						$tabs_flag = true;
+						$tabs = '';
+
+						$first = true;
+						foreach ($tabtags[0] AS $key => $row) {
+							$st['s_text']= str_replace('<p>'.$row.'</p>', $row, $st['s_text']);
+
+							if ($key+1 != count($tabtags[0])) {
+								$butt = trim($tabtags[1][$key]);
+								$tabs .= '<div class="sssmbt_butt '.(!$key?'sssmbt_butt_a':'').'" data-tabid="'.$key.'">'.$butt.'</div>';
+							}
+
+							if ($first) {
+								$first = false;
+								$replace = '<div id="sssmb_tabs" class="sssmb_tabs">
+									<div class="sssmbt_butts">[tabs_buttons]</div>
+									<div class="sssmbt_itms">
+										<div class="sssmbt_itm sssmbt_itm_'.$key.' sssmbt_itm_a">';
+
+							} elseif($key+1 == count($tabtags[0])) {
+								$replace = '<div class="sssmb_clr"></div></div></div></div>';
+
+							} else {
+								$replace = '<div class="sssmb_clr"></div></div><div class="sssmbt_itm sssmbt_itm_'.$key.'">';
+							}
+
+							$st['s_text'] = str_replace($row, $replace, $st['s_text']);
+						}
+
+						$st['s_text'] = str_replace('[tabs_buttons]', $tabs, $st['s_text']);
+					}
+
 					$body= $config['styles'];
 
 					if($hideflag)
 					{
 						$body .= '
 	<script>
-		function chpoktext(){
+		function sssmb_chpoktext(){
 			obj= document.getElementById("sssmodulebox");
 			if(obj.style.display=="none") obj.style.display= "";
 			else obj.style.display= "none";
 		}
 	</script>
-	<article onclick="chpoktext()">&rarr;</article>';
+	<article onclick="sssmb_chpoktext()">&rarr;</article>';
+					}
+
+					if ($tabs_flag) {
+						$body .= '
+<script>
+document.onreadystatechange = function(){
+	if (document.readyState != "interactive") return;
+	var tabs = document.getElementById("sssmb_tabs");
+	var butts = tabs.getElementsByClassName("sssmbt_butt");
+	Array.prototype.filter.call(butts, function(butt){
+		butt.onclick = function(e){
+			if (butt.classList.contains("sssmbt_butt_a")) {
+				return;
+			}
+			let tabid = butt.dataset.tabid;
+			tabs.getElementsByClassName("sssmbt_butt_a")[0].classList.remove("sssmbt_butt_a");
+			this.classList.add("sssmbt_butt_a");
+			tabs.getElementsByClassName("sssmbt_itm_a")[0].classList.remove("sssmbt_itm_a");
+			tabs.getElementsByClassName("sssmbt_itm_"+tabid)[0].classList.add("sssmbt_itm_a");
+		};
+	});
+};
+</script>';
 					}
 
 					$body .= '
@@ -987,4 +1044,5 @@ function bsm_getallheaders()
 	}
 	return $headers;
 }
-//---------
+//-----------------------------------------------
+//------------------
