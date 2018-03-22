@@ -165,6 +165,60 @@ $configs['global']['styles']= '<style>
 		margin:0;
 		padding:0;
 	}
+	
+	.sssmodulebox .sssmb_tabs {
+	}
+		.sssmodulebox .sssmb_tabs .sssmbt_butts {
+			display: flex;
+			align-items: flex-end;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_butt {
+			border-top: 1px solid #ddd;
+			border-left: 1px solid #ddd;
+			background: #eee;
+			padding: 10px 15px;
+			margin-top: 10px;
+			cursor: pointer;
+			font-size: 120%;
+			transition: .3s;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_butt:nth-last-child(1) {
+			border-right: 1px solid #ddd;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_butt:nth-child(1) {
+			border-radius: 5px 0 0 0;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_butt:nth-last-child(1) {
+			border-radius: 0 5px 0 0;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_butt_a {
+			background: #fff;
+			padding-bottom: 20px;
+			border-radius: 5px 5px 0 0 !important;
+			margin-top: 0;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_itms {
+			border: 1px solid #ddd;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_itm {
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			right: 0px;
+			z-index: 1;
+			background: #fff;
+			opacity: 0;
+			visibility: hidden;
+			padding: 0 35px;
+		}
+		.sssmodulebox .sssmb_tabs .sssmbt_itm_a {
+			z-index: 2;
+			opacity: 1;
+			visibility: visible;
+			position: relative;
+			transition: .3s;
+		}
+		
 	.sssmodulebox .sssmb_col {
 		float:left;
 		width:48%;
