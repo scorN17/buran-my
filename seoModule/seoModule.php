@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.2
- * 22.03.2018
+ * @version 3.21
+ * 04.04.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 33000
  */
-$seomoduleversion= '3.2';
+$seomoduleversion= '3.21';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -497,7 +497,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 									<div class="sssmbt_itms">
 										<div class="sssmbt_itm sssmbt_itm_'.$key.' sssmbt_itm_a">';
 
-							} elseif($key+1 == count($tabtags[0])) {
+							} elseif ($key+1 == count($tabtags[0])) {
 								$replace = '<div class="sssmb_clr"></div></div></div></div>';
 
 							} else {
@@ -512,17 +512,16 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 
 					$body= $config['styles'];
 
-					if($hideflag)
-					{
+					if ($hideflag) {
 						$body .= '
-	<script>
-		function sssmb_chpoktext(){
-			obj= document.getElementById("sssmodulebox");
-			if(obj.style.display=="none") obj.style.display= "";
-			else obj.style.display= "none";
-		}
-	</script>
-	<article onclick="sssmb_chpoktext()">&rarr;</article>';
+<script>
+	function sssmb_chpoktext(){
+		obj= document.getElementById("sssmodulebox");
+		if(obj.style.display=="none") obj.style.display= "";
+		else obj.style.display= "none";
+	}
+</script>
+<article onclick="sssmb_chpoktext()">&rarr;</article>';
 					}
 
 					if ($tabs_flag) {
@@ -691,10 +690,10 @@ document.onreadystatechange = function(){
 
 				if($config['city_replace'])
 				{
-					$template= preg_replace("/\[hide\](.*?)\[\/hide\]/", '', $template);
-					$template= preg_replace("/\[replace\](.*?)\[\/replace\]/", $declension[6], $template);
-					$template= preg_replace("/\[replaceMeta\](.*?)\[\/replaceMeta\]/", $declension[1], $template);
-					$template= preg_replace("/\[replaceTitle\](.*?)\[\/replaceTitle\]/", $declension[1], $template);
+					$template= preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
+					foreach ($declension AS $deklkey => $decl) {
+						$template= preg_replace("/\[city_{$deklkey}\](.*?)\[city\]/U", $decl, $template);
+					}
 				}
 
 				print $template;
@@ -1045,4 +1044,7 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//---------------------------
