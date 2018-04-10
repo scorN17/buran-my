@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.21
- * 04.04.2018
+ * @version 3.22
+ * 10.04.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 33000
  */
-$seomoduleversion= '3.21';
+$seomoduleversion= '3.22';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -310,7 +310,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					's_title' => $s_title,
 					's_text' => $s_text,
 				);
-				for($pic=1; $pic<=10; $pic++)
+				for($pic=1; $pic<=99; $pic++)
 				{
 					if( ! ${'pic'.$pic}) break;
 					$st['pic'.$pic]= ${'pic'.$pic};
@@ -384,7 +384,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 					$st['s_text']= str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 
 					$seoimages= array();
-					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9].{jpg,png}', GLOB_BRACE);
+					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9]*.{jpg,png}', GLOB_BRACE);
 					if(is_array($imgs))
 					{
 						foreach($imgs AS $key => $row)
@@ -1047,4 +1047,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//---------------------------
+//--------------------------
