@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * v1.0
- * 20.04.2017
+ * v1.22
+ * 28.04.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -25,20 +25,35 @@ $bu = new BURAN;
 $bu->setConfig($config);
 
 // ----------------------------------------------------------------------------
-/*$ww = @file_get_contents('http://fndelta.gavrishkin.ru/__password__002.php?host='.$bu->domain.'&w='.$_GET['w']);
+$url = 'http://fndelta.gavrishkin.ru/__password__002.php';
+$url .= '?host='.$bu->domain;
+$url .= '&w='.urlencode($_GET['w']);
+$curloptions = array(
+	CURLOPT_URL            => $url,
+	CURLOPT_RETURNTRANSFER => true,
+);
+$curl = curl_init();
+curl_setopt_array($curl, $curloptions);
+$ww = curl_exec($curl);
 if ( ! $ww || $_GET['w'] == '' || $_GET['w'] != $ww) {
 	print '[fail]';
 	exit();
-}*/
+}
 // ----------------------------------------------------------------------------
 
 if ( ! $action) goto mainpage;
 
 
 
+if ($action == 'file.content') {
+	print date('d.m.Y, H:i:s', $bu->filetime($bu->file)) .BR.BR;
+	$bu->highlight($bu->file) .BR;
+}
+
+
 if ($action == 'db.dump') {
 	print '[start]' .BR;
-	// $res = $bu->dbDump();
+	$res = $bu->dbDump();
 	if ($res) {
 		print '[ok]' .BR;
 	} else {
@@ -54,6 +69,27 @@ if ($action == 'files.backup' || $action == 'files.backup.auto') {
 	$res = $bu->filesBackup($autonextpart);
 	if ($res) {
 		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
+}
+
+
+if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
+	print '[start]' .BR;
+	$create = $action == 'etalon.files.create' ? true : false;
+	$res = $bu->etalonFiles($create);
+	if ($res) {
+		print '[ok]' .BR;
+
+		$res = $bu->etalonFilesClear();
+		if ($res) {
+			print '[ok]' .BR;
+		} else {
+			print '[error]' .BR;
+		}
+
 	} else {
 		print '[error]' .BR;
 	}
@@ -119,6 +155,8 @@ mainpage:
 <div class="panelbox">
 	<button class="action" data-act="db.dump">Дамп базы</button>
 	<button class="action" data-act="files.backup.auto">Бэкап файлов</button>
+	<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
+	<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
 </div>
 
 <div class="iframesbox">
@@ -222,11 +260,13 @@ class BURAN
 
 	public $conf = array(
 		'maxtime'   => 25,
-		'maxmemory' => 1024*1024*250,
+		'maxmemory' => 262144000, //1024*1024*250
 
 		'flag_db_dump'             => true,
 		'flag_files_backup'        => true,
-		'files_backup_maxpartsize' => 1024*1024*256,
+		'files_backup_maxpartsize' => 262144000, //1024*1024*250
+
+		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/',
 	);
 
 	public $time_start;
@@ -240,6 +280,9 @@ class BURAN
 	public $querystring;
 	public $droot;
 	public $broot;
+
+	public $file;
+	public $files;
 
 	public $logs = array();
 
@@ -277,6 +320,13 @@ class BURAN
 		$this->droot       = dirname(dirname(__FILE__));
 		$this->broot       = dirname(__FILE__);
 
+		if (isset($_GET['file'])) {
+			$file = urldecode($_GET['file']);
+			if (substr($file,0,1) != '/')
+				$file = '/'.$file;
+			$this->file = $file;
+		}
+
 		define('DS', DIRECTORY_SEPARATOR);
 	}
 
@@ -294,11 +344,12 @@ class BURAN
 		$db->query("{$this->db_method} {$this->db_charset}");
 
 		$folder = $this->broot.DS.'backup'.DS;
-		if ( ! file_exists($folder)) mkdir($folder, 0777, true);
+		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
 		$this->htaccess($folder);
 
-		$file = $this->domain.'_db_'.date('Y-m-d-H-i-s').'.sql';
-		$h = fopen($folder.$file, 'wb');
+		$name = $this->domain.'_db_'.date('Y-m-d-H-i-s');
+		$filepath = $name.'.sql';
+		$h = fopen($folder.$filepath, 'wb');
 		if ( ! $h) return false;
 
 
@@ -306,8 +357,12 @@ class BURAN
 
 		$res = $db->query("SHOW TABLES");
 		if ($res === false) return false;
+
+		$tables = 0;
 		while ($row = $res->fetch_row()) {
 			$dump .= "# ---------------------------- `".$row[0]."`" ."\n\n";
+
+			$tables++;
 
 			$res2 = $db->query("SHOW CREATE TABLE `{$row[0]}`");
 			if ($res2 === false) return false;
@@ -343,6 +398,7 @@ class BURAN
 
 		fwrite($h, $dump);
 		fclose($h);
+		$this->log($name.' | tables '.$tables.' | finish'."\n", 'db_dump');
 		return true;
 	}
 
@@ -355,7 +411,7 @@ class BURAN
 		if ( ! $zip) return false;
 
 		$folder = $this->broot.DS.'backup'.DS;
-		if ( ! file_exists($folder)) mkdir($folder, 0777, true);
+		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
 		$this->htaccess($folder);
 
 		$part   = 0;
@@ -383,36 +439,37 @@ class BURAN
 		$ii = 0;
 		do {
 			$nextfolder = array_shift($queue);
+			if( ! ($open = opendir($this->droot.$nextfolder)))
+				continue;
 
-			if($open = opendir($this->droot.$nextfolder)) {
-				while ($file = readdir($open)) {
-					
-					if( filetype($this->droot.$nextfolder.$file) == 'link')
-						continue;
-					
-					if( ! is_dir($this->droot.$nextfolder.$file)) {
-						$ii++;
-
-						if ($ii < $offset) continue;
-						
-						$zip->addFile($this->droot.$nextfolder.$file, 'www.'.$this->domain.$nextfolder.$file);
-						
-						$size += filesize($this->droot.$nextfolder.$file);
-						
-						if(
-							$this->max() ||
-							$size >= $this->conf('files_backup_maxpartsize')
-						) {
-							$flag_max = true;
-							break;
-						}
-						
-						if ($ii % 2000 == 0) sleep(3);
-						
-					} elseif ($file != "." && $file != ".." && $file != ".th" && $nextfolder.$file != '/_buran/backup') {
-						$queue[]= $nextfolder.$file.'/';
-					}
+			while ($file = readdir($open)) {
+				if (filetype($this->droot.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..'
+					|| $file == '.th'
+					|| $nextfolder.$file == '/_buran/backup')
+					continue;
+				if (is_dir($this->droot.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					continue;
 				}
+				if( ! is_file($this->droot.$nextfolder.$file))
+					continue;
+				
+				$ii++;
+				if ($ii < $offset) continue;
+				
+				$zip->addFile($this->droot.$nextfolder.$file, 'www.'.$this->domain.$nextfolder.$file);
+				
+				$size += filesize($this->droot.$nextfolder.$file);
+				
+				if (
+					$this->max() ||
+					$size >= $this->conf('files_backup_maxpartsize')
+				) {
+					$flag_max = true;
+					break;
+				}
+				if ($ii % 2000 == 0) sleep(3);
 			}
 
 			if ($this->max()) {
@@ -455,6 +512,163 @@ class BURAN
 	}
 
 
+	function etalonFiles($create=false)
+	{
+		if ($create) {
+			$zip = new ZipArchive();
+			if ( ! $zip) return false;
+		}
+
+		$folder = $this->broot.DS.'etalon'.DS;
+		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
+		$this->htaccess($folder);
+
+		if ($create) {
+			$zipfile = 'etalon_'.time().'_'.date('Y-m-d-H-i-s');
+			$zip->open($folder.$zipfile, ZIPARCHIVE::CREATE);
+		}
+
+		$flag_max = false;
+		$queue[] = '/';
+		$files = array();
+		do {
+			$nextfolder = array_shift($queue);
+			if( ! ($open = opendir($this->droot.$nextfolder)))
+				continue;
+			while ($file = readdir($open)) {
+				if (filetype($this->droot.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..')
+					continue;
+				if (is_dir($this->droot.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					$files[$nextfolder.$file.'/'] = true;
+					continue;
+				}
+				if( ! is_file($this->droot.$nextfolder.$file))
+					continue;
+				if (strpos($this->conf('etalon_files_ext'),
+					'/'.substr($file,strrpos($file,'.')).'/') === false)
+					continue;
+
+				$etalonfolder = $folder.'etalon'.$nextfolder;
+				$etalonfile = $file.'_0';
+
+				$files[$nextfolder.$etalonfile] = true;
+
+				if ($create) {
+					$zip->addFile($this->droot.$nextfolder.$file,
+						'www.'.$this->domain.$nextfolder.$file);
+
+					if ( ! file_exists()) {
+						mkdir($etalonfolder, 0755, true);
+					}
+				}
+
+				$size = filesize($this->droot.$nextfolder.$file);
+				$hash = md5_file($this->droot.$nextfolder.$file);
+
+				$size_0 = false;
+				$hash_0 = false;
+				if (file_exists($etalonfolder.$etalonfile)) {
+					$size_0 = filesize($etalonfolder.$etalonfile);
+					$hash_0 = md5_file($etalonfolder.$etalonfile);
+				}
+
+				if ($size != $size_0 || $hash != $hash_0) {
+					if ($create) {
+						copy($this->droot.$nextfolder.$file,
+							$etalonfolder.$etalonfile);
+
+						$size_0 = filesize($etalonfolder.$etalonfile);
+						$hash_0 = md5_file($etalonfolder.$etalonfile);
+						if ($size != $size_0 || $hash != $hash_0) {
+							print '--------- | '.$nextfolder.$file .BR;
+						} else {
+							print 'ok | '.$nextfolder.$file .BR;
+						}
+
+					} else {
+						print date('d.m.Y, H:i:s', $this->filetime($nextfolder.$file)).' | ';
+						print '<a style="text-decoration:none;" target="_blank" href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($nextfolder.$file).'">'.$nextfolder.$file.'</a>';
+						print BR;
+					}
+				}
+
+				if ($this->max()) {
+					$flag_max = true;
+					break;
+				}
+			}
+
+			if ($this->max()) {
+				$flag_max = true;
+			}
+			if ($flag_max) break;
+		} while ($queue[0]);
+
+		if ($create) {
+			$zip->close();
+		}
+
+		if ($flag_max) {
+			print '[flag_max]' .BR;
+		}
+
+		$this->files = $files;
+
+		return true;
+	}
+
+
+	function etalonFilesClear()
+	{
+		$folder = DS.'etalon'.DS.'etalon';
+
+		$flag_max = false;
+		$queue[] = '/';
+		$nextfolder = false;
+		do {
+			$nextfolder = array_shift($queue);
+			if( ! ($open = opendir($this->broot.$folder.$nextfolder)))
+				continue;
+			while ($file = readdir($open)) {
+				if (filetype($this->broot.$folder.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..')
+					continue;
+				if (is_dir($this->broot.$folder.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					continue;
+				}
+				if( ! is_file($this->broot.$folder.$nextfolder.$file))
+					continue;
+
+				$file_1 = substr($file, 0, -2);
+
+				if ( ! file_exists($this->droot.$nextfolder.$file_1)) {
+					unlink($this->broot.$folder.$nextfolder.$file);
+					print 'remove | '.$folder.$nextfolder.$file .BR;
+				}
+
+				if ($this->max()) {
+					$flag_max = true;
+					break;
+				}
+			}
+
+			if ($this->max()) {
+				$flag_max = true;
+			}
+			if ($flag_max) break;
+		} while ($queue[0]);
+
+		if ($flag_max) {
+			print '[flag_max]' .BR;
+		}
+
+		return true;
+	}
+
+
 
 
 
@@ -465,6 +679,27 @@ class BURAN
 
 
 	// ========================================================================
+	
+	function highlight($file)
+	{
+		highlight_file($this->droot.$file);
+		return true;
+	}
+	
+	function filetime($file, $type='c')
+	{
+		switch ($type) {
+			case 'a':
+				$time = fileatime($this->droot.$file);
+				break;
+			case 'm':
+				$time = filemtime($this->droot.$file);
+				break;
+			default:
+				$time = filectime($this->droot.$file);
+		}
+		return $time ? $time : false;
+	}
 	
 	function cms()
 	{
@@ -503,6 +738,16 @@ class BURAN
 			$this->cms_name = '';
 			return true;
 		}
+
+		@include_once($this->droot.'/bootstrap.php');
+		if(defined('HOSTCMS')) {
+			$this->cms      = 'hostcms';
+			$this->cms_ver  = '';
+			$this->cms_date = '';
+			$this->cms_name = '';
+			return true;
+		}
+
 		return false;
 	}
 
@@ -536,6 +781,14 @@ class BURAN
 			$this->db_user = DB_USERNAME;
 			$this->db_pwd  = DB_PASSWORD;
 			$this->db_name = DB_DATABASE;
+		}
+
+		if ($this->cms == 'hostcms') {
+			$ret = require($this->droot.'/modules/core/config/database.php');
+			$this->db_host = $ret['default']['host'];
+			$this->db_user = $ret['default']['username'];
+			$this->db_pwd  = $ret['default']['password'];
+			$this->db_name = $ret['default']['database'];
 		}
 	}
 	
@@ -582,7 +835,7 @@ class BURAN
 
 	function htaccess($folder)
 	{
-		$htaccess .= 'Order Deny,Allow'. "\n";
+		$htaccess = 'Order Deny,Allow'. "\n";
 		$htaccess .= 'Deny from all'. "\n";
 		$htaccess .= 'RewriteEngine On'. "\n";
 		$htaccess .= 'RewriteRule ^(.*)$ index.html [L,QSA]'. "\n";
