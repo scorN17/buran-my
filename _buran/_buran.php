@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * v1.22
- * 28.04.2017
+ * v1.25
+ * 03.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -97,6 +97,16 @@ if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
 }
 
 
+if ($action == 'etalon.list.compare') {
+	print '[start]' .BR;
+	if ( ! $bu->file) {
+		$bu->file = 'etalon_list';
+	}
+	$res = $bu->etalonListCompare();
+	print '[finish]' .BR;
+}
+
+
 
 $toprint = ob_get_contents();
 $toprint = str_replace(BR, $br, $toprint);
@@ -152,11 +162,14 @@ mainpage:
 </script>
 </head>
 <body>
+<div class="loading_status">Загрузка ...</div>
+
 <div class="panelbox">
 	<button class="action" data-act="db.dump">Дамп базы</button>
 	<button class="action" data-act="files.backup.auto">Бэкап файлов</button>
 	<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
 	<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
+	<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
 </div>
 
 <div class="iframesbox">
@@ -198,6 +211,16 @@ br {
 	line-height: 0;
 	height: 0;
 }
+.loading_status {
+	color: #003bb6;
+	display: none;
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+	.loading .loading_status {
+		display: block;
+	}
 .panelbox {
 	height: 7vh;
 	padding: 10px;
@@ -267,6 +290,7 @@ class BURAN
 		'files_backup_maxpartsize' => 262144000, //1024*1024*250
 
 		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/',
+		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/',
 	);
 
 	public $time_start;
@@ -418,9 +442,8 @@ class BURAN
 		$offset = 0;
 		$h = fopen($folder.'files_backup_process', 'rb');
 		if ($h) {
-			while ( ! feof($h)) {
-				$prms .= fread($h, 1024*128);
-			}
+			while ( ! feof($h))
+				$prms .= fread($h, 1024*256);
 			$prms   = explode("\n", $prms);
 			$name   = $prms[0];
 			$part   = $prms[1];
@@ -626,7 +649,6 @@ class BURAN
 
 		$flag_max = false;
 		$queue[] = '/';
-		$nextfolder = false;
 		do {
 			$nextfolder = array_shift($queue);
 			if( ! ($open = opendir($this->broot.$folder.$nextfolder)))
@@ -664,6 +686,117 @@ class BURAN
 		if ($flag_max) {
 			print '[flag_max]' .BR;
 		}
+
+		return true;
+	}
+
+
+	function etalonListCompare()
+	{
+		$h = fopen($this->broot.DS.'etalon/list/'.$this->file, 'rb');
+		if ( ! $h) return false;
+		$list = '';
+		while ( ! feof($h))
+			$list .= fread($h, 1024*256);
+		fclose($h);
+		$list = unserialize($list);
+
+		$offset = 0;
+		$h = fopen($this->broot.DS.'etalon/list/etalon_list_process', 'rb');
+		if ($h) {
+			while ( ! feof($h))
+				$offset .= fread($h, 1024*256);
+			$offset = intval($offset);
+			fclose($h);
+		}
+
+		if (is_array($list)) {
+			foreach ($list AS $file => $row) {
+				if (file_exists($this->droot.DS.$file))
+					continue;
+				$list_3 = '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
+				$list_3 .= '<span style="text-decoration:none;color:#000;">'.DS.$file.'</span>';
+				$list_3 .= '</div>';
+			}
+		}
+
+		$flag_max = false;
+		$queue[] = '/';
+		$ii = 0;
+		do {
+			$nextfolder = array_shift($queue);
+			if( ! ($open = opendir($this->droot.$nextfolder)))
+				continue;
+			while ($file = readdir($open)) {
+				if (filetype($this->droot.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..')
+					continue;
+				if (is_dir($this->droot.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					continue;
+				}
+				if( ! is_file($this->droot.$nextfolder.$file))
+					continue;
+				if (strpos($this->conf('etalon_list_ext'),
+					'/'.substr($file,strrpos($file,'.')).'/') === false)
+					continue;
+
+				$ii++;
+				if ($ii < $offset) continue;
+
+				$stat = stat($this->droot.$nextfolder.$file);
+				$hash = md5_file($this->droot.$nextfolder.$file);
+
+				$row = '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
+				$row .= date('d.m.Y, H:i:s', $this->filetime($nextfolder.$file));
+				$row .= ' | ';
+				$row .= '<a style="text-decoration:none;color:#000;" target="_blank" href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($nextfolder.$file).'">'.$nextfolder.$file.'</a>';
+				$row .= '</div>';
+				
+				if ( ! $list[substr($nextfolder.$file, 1)]['md5']) {
+					$list_1 .= $row;
+
+				} elseif ($list[substr($nextfolder.$file,1)]['md5'] != $hash
+					|| $list[substr($nextfolder.$file,1)]['size'] != $stat['size']) {
+					$list_2 .= $row;
+
+				} else {
+					$list_0 .= $row;
+				}
+
+				if ($this->max()) {
+					$flag_max = true;
+					break;
+				}
+			}
+
+			if ($this->max()) {
+				$flag_max = true;
+			}
+			if ($flag_max) break;
+		} while ($queue[0]);
+
+		$offset = $ii;
+
+		if ($flag_max) {
+			print '[flag_max]' .BR;
+			$h = fopen($this->broot.DS.'etalon/list/etalon_list_process', 'wb');
+			if ( ! $h) return false;
+			fwrite($h, $offset);
+			fclose($h);
+
+		} else {
+			unlink($this->broot.DS.'etalon/list/etalon_list_process');
+		}
+
+		print '<h3>Файл изменен</h3>';
+		print $list_2;
+		print '<h3>Нет файла</h3>';
+		print $list_3;
+		print '<h3>Новый файл</h3>';
+		print $list_1;
+		print '<h3>Файл не изменен</h3>';
+		print $list_0;
 
 		return true;
 	}
