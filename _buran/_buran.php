@@ -1,7 +1,7 @@
 <?php
 /**
  * Buran_0
- * v1.25
+ * v1.26
  * 03.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
@@ -100,9 +100,21 @@ if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
 if ($action == 'etalon.list.compare') {
 	print '[start]' .BR;
 	if ( ! $bu->file) {
-		$bu->file = 'etalon_list';
+		$bu->file = 'etalon_0';
 	}
 	$res = $bu->etalonListCompare();
+	print '[finish]' .BR;
+}
+
+
+if ($action == 'etalon.list.create') {
+	print '[start]' .BR;
+	$res = $bu->etalonListCreate();
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
 	print '[finish]' .BR;
 }
 
@@ -167,9 +179,11 @@ mainpage:
 <div class="panelbox">
 	<button class="action" data-act="db.dump">Дамп базы</button>
 	<button class="action" data-act="files.backup.auto">Бэкап файлов</button>
+
 	<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
 	<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
 	<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
+	<button class="action" data-act="etalon.list.create">Создать эталон</button>
 </div>
 
 <div class="iframesbox">
@@ -282,7 +296,7 @@ class BURAN
 	public $version = '1.0';
 
 	public $conf = array(
-		'maxtime'   => 25,
+		'maxtime'   => 27,
 		'maxmemory' => 262144000, //1024*1024*250
 
 		'flag_db_dump'             => true,
@@ -693,16 +707,37 @@ class BURAN
 
 	function etalonListCompare()
 	{
-		$h = fopen($this->broot.DS.'etalon/list/'.$this->file, 'rb');
+		$folder = $this->broot.DS.'etalon'.DS.'list'.DS;
+		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
+		$this->htaccess($folder);
+
+		if (($files = glob($folder.'etalon_*'))) {
+			print BR;
+			foreach ($files AS $etalonfile) {
+				$etalonfile = substr($etalonfile, strrpos($etalonfile, '/'));
+				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=etalon.list.compare&file='.$etalonfile.'">'.$etalonfile.'</a></div>';
+			}
+		}
+
+		$h = fopen($folder.$this->file, 'rb');
 		if ( ! $h) return false;
 		$list = '';
 		while ( ! feof($h))
 			$list .= fread($h, 1024*256);
 		fclose($h);
-		$list = unserialize($list);
+
+		$list = explode("\n\n", $list);
+		$time = array_shift($list);
+
+		$parts = array();
+		while ($part = array_shift($list)) {
+			$part = unserialize($part);
+			$parts = array_merge($parts, $part);
+		}
+		$list = $parts;
 
 		$offset = 0;
-		$h = fopen($this->broot.DS.'etalon/list/etalon_list_process', 'rb');
+		$h = fopen($folder.'etalon_list_process', 'rb');
 		if ($h) {
 			while ( ! feof($h))
 				$offset .= fread($h, 1024*256);
@@ -712,10 +747,10 @@ class BURAN
 
 		if (is_array($list)) {
 			foreach ($list AS $file => $row) {
-				if (file_exists($this->droot.DS.$file))
+				if (file_exists($this->droot.$file))
 					continue;
 				$list_3 = '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
-				$list_3 .= '<span style="text-decoration:none;color:#000;">'.DS.$file.'</span>';
+				$list_3 .= '<span style="text-decoration:none;color:#000;">'.$file.'</span>';
 				$list_3 .= '</div>';
 			}
 		}
@@ -753,11 +788,11 @@ class BURAN
 				$row .= '<a style="text-decoration:none;color:#000;" target="_blank" href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($nextfolder.$file).'">'.$nextfolder.$file.'</a>';
 				$row .= '</div>';
 				
-				if ( ! $list[substr($nextfolder.$file, 1)]['md5']) {
+				if ( ! $list[$nextfolder.$file]['h']) {
 					$list_1 .= $row;
 
-				} elseif ($list[substr($nextfolder.$file,1)]['md5'] != $hash
-					|| $list[substr($nextfolder.$file,1)]['size'] != $stat['size']) {
+				} elseif ($list[$nextfolder.$file]['h'] != $hash
+					|| $list[$nextfolder.$file]['s'] != $stat['size']) {
 					$list_2 .= $row;
 
 				} else {
@@ -778,25 +813,124 @@ class BURAN
 
 		$offset = $ii;
 
+		print BR;
+		print 'Дата эталона: '.date('d.m.Y, H:i:s', $time) .BR;
+
 		if ($flag_max) {
 			print '[flag_max]' .BR;
-			$h = fopen($this->broot.DS.'etalon/list/etalon_list_process', 'wb');
+			$h = fopen($folder.'etalon_list_process', 'wb');
 			if ( ! $h) return false;
 			fwrite($h, $offset);
 			fclose($h);
 
 		} else {
-			unlink($this->broot.DS.'etalon/list/etalon_list_process');
+			unlink($folder.'etalon_list_process');
 		}
 
-		print '<h3>Файл изменен</h3>';
+		print '<h3 style="color:#d70000;">Файл изменен</h3>';
 		print $list_2;
-		print '<h3>Нет файла</h3>';
+		print '<h3 style="color:#004cd6;">Нет файла</h3>';
 		print $list_3;
-		print '<h3>Новый файл</h3>';
+		print '<h3 style="color:#d3b200;">Новый файл</h3>';
 		print $list_1;
-		print '<h3>Файл не изменен</h3>';
+		print '<h3 style="color:#00c73c;">Файл не изменен</h3>';
 		print $list_0;
+
+		return true;
+	}
+
+
+	function etalonListCreate()
+	{
+		$folder = $this->broot.DS.'etalon'.DS.'list'.DS;
+		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
+		$this->htaccess($folder);
+
+		$process = false;
+		$offset = 0;
+		$etalonfile = false;
+		$h = fopen($folder.'etalon_list_create_process', 'rb');
+		if ($h) {
+			while ( ! feof($h))
+				$info .= fread($h, 1024*256);
+			$info = explode("\n", $info, 2);
+			$etalonfile = $info[0];
+			$offset = intval($info[1]);
+			fclose($h);
+			$process = true;
+		}
+
+		$flag_max = false;
+		$queue[] = '/';
+		$ii = 0;
+		do {
+			$nextfolder = array_shift($queue);
+			if( ! ($open = opendir($this->droot.$nextfolder)))
+				continue;
+			while ($file = readdir($open)) {
+				if (filetype($this->droot.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..')
+					continue;
+				if (is_dir($this->droot.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					continue;
+				}
+				if( ! is_file($this->droot.$nextfolder.$file))
+					continue;
+				if (strpos($this->conf('etalon_list_ext'),
+					'/'.substr($file,strrpos($file,'.')).'/') === false)
+					continue;
+
+				$ii++;
+				if ($ii < $offset) continue;
+
+				$stat = stat($this->droot.$nextfolder.$file);
+				$hash = md5_file($this->droot.$nextfolder.$file);
+
+				$files[$nextfolder.$file] = array(
+					'h' => $hash,
+					's' => $stat['size'],
+					't' => $stat['ctime'],
+				);
+
+				if ($this->max()) {
+					$flag_max = true;
+					break;
+				}
+			}
+
+			if ($this->max()) {
+				$flag_max = true;
+			}
+			if ($flag_max) break;
+		} while ($queue[0]);
+
+		$offset = $ii;
+
+		$files = serialize($files);
+
+		if ( ! $etalonfile) {
+			$etalonfile = 'etalon_'.date('Y-m-d-H-i-s');
+		}
+		$h = fopen($folder.$etalonfile, ($process ? 'ab' : 'wb'));
+		if ( ! $h) return false;
+		if ( ! $process) {
+			fwrite($h, time()."\n\n");
+		}
+		fwrite($h, $files."\n\n");
+		fclose($h);
+
+		if ($flag_max) {
+			print '[flag_max]' .BR;
+			$h = fopen($folder.'etalon_list_create_process', 'wb');
+			if ( ! $h) return false;
+			fwrite($h, $etalonfile."\n");
+			fwrite($h, $offset);
+			fclose($h);
+
+		} else {
+			unlink($folder.'etalon_list_create_process');
+		}
 
 		return true;
 	}
