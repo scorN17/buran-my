@@ -58,8 +58,8 @@ if ($action == 'update') {
 
 
 if ($action == 'file.content') {
-	print date('d.m.Y, H:i:s', $bu->filetime($bu->file)) .BR.BR;
-	$bu->highlight($bu->file) .BR;
+	print date('d.m.Y, H:i:s', $bu->filetime($bu->droot.$bu->file)) .BR.BR;
+	$bu->highlight($bu->droot.$bu->file) .BR;
 }
 
 
@@ -75,10 +75,9 @@ if ($action == 'db.dump') {
 }
 
 
-if ($action == 'files.backup' || $action == 'files.backup.auto') {
+if ($action == 'files.backup') {
 	print '[start]' .BR;
-	$autonextpart = $action == 'files.backup.auto' ? true : false;
-	$res = $bu->filesBackup($autonextpart);
+	$res = $bu->filesBackup();
 	if ($res) {
 		print '[ok]' .BR;
 	} else {
@@ -112,7 +111,7 @@ if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
 if ($action == 'etalon.list.compare') {
 	print '[start]' .BR;
 	if ( ! $bu->file) {
-		$bu->file = 'etalon_0';
+		$bu->file = 'etalon_list_0';
 	}
 	$res = $bu->etalonListCompare();
 	print '[finish]' .BR;
@@ -161,8 +160,10 @@ mainpage:
 			if ($('body').hasClass('loading')) return;
 			$('body').addClass('loading');
 			let act = $(this).data('act');
+			let get = $(this).data('get');
+			if (get == undefined) get = '';
 			$('.iframes iframe').removeClass('active');
-			$('.iframes').prepend('<iframe class="active" src="<?=$bu->scriptname.'?w='.$_GET['w']?>&act='+act+'">');
+			$('.iframes').prepend('<iframe class="active" src="<?=$bu->scriptname.'?w='.$_GET['w']?>&act='+act+get+'">');
 			$('.iframes iframe.active').one('load',function(){
 				$('body').removeClass('loading');
 			});
@@ -192,12 +193,12 @@ mainpage:
 	<button class="action" data-act="update">Самообновление</button>
 
 	<button class="action" data-act="db.dump">Дамп базы</button>
-	<button class="action" data-act="files.backup.auto">Бэкап файлов</button>
+	<button class="action" data-act="files.backup" data-get="&auto">Бэкап файлов</button>
 
 	<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
 	<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
 	<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
-	<button class="action" data-act="etalon.list.create">Создать эталон</button>
+	<button class="action" data-act="etalon.list.create" data-get="&auto">Создать эталон</button>
 </div>
 
 <div class="iframesbox">
@@ -312,6 +313,7 @@ class BURAN
 	public $conf = array(
 		'maxtime'   => 27,
 		'maxmemory' => 262144000, //1024*1024*250
+		'maxitems'  => 2000,
 
 		'flag_db_dump'             => true,
 		'flag_files_backup'        => true,
@@ -333,8 +335,14 @@ class BURAN
 	public $droot;
 	public $broot;
 
+	public $autoReload = false;
+
 	public $file;
 	public $files;
+
+	public $processFile = false;
+
+	public $itemscounter = 0;
 
 	public $logs = array();
 
@@ -371,6 +379,10 @@ class BURAN
 		$this->querystring = $_SERVER['QUERY_STRING'];
 		$this->droot       = dirname(dirname(__FILE__));
 		$this->broot       = dirname(__FILE__);
+
+		if (isset($_GET['auto'])) {
+			$this->autoReload = true;
+		}
 
 		if (isset($_GET['file'])) {
 			$file = urldecode($_GET['file']);
@@ -485,7 +497,7 @@ class BURAN
 	}
 
 
-	function filesBackup($autonextpart=false)
+	function filesBackup()
 	{
 		if ( ! $this->conf('flag_files_backup')) return false;
 
@@ -496,20 +508,20 @@ class BURAN
 		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
 		$this->htaccess($folder);
 
+		$name = $this->domain.'_files_'.date('Y-m-d-H-i-s');
+
+		$this->processFile = $folder.'files_backup_process';
 		$part   = 0;
 		$offset = 0;
-		$h = fopen($folder.'files_backup_process', 'rb');
-		if ($h) {
-			while ( ! feof($h))
-				$prms .= fread($h, 1024*256);
-			$prms   = explode("\n", $prms);
-			$name   = $prms[0];
-			$part   = $prms[1];
-			$offset = $prms[2];
-
+		$info = $this->processFile();
+		if ($info) {
+			$name   = $info[0];
+			$part   = $info[1];
+			$offset = $info[2];
 		} else {
 			$name = $this->domain.'_files_'.date('Y-m-d-H-i-s');
 		}
+
 		$part++;
 		$filepath = $name.'_part'.$part.'.zip';
 		$zip->open($folder.$filepath, ZIPARCHIVE::CREATE);
@@ -538,6 +550,7 @@ class BURAN
 				
 				$ii++;
 				if ($ii < $offset) continue;
+				$this->itemscounter++;
 				
 				$zip->addFile($this->droot.$nextfolder.$file, 'www.'.$this->domain.$nextfolder.$file);
 				
@@ -567,26 +580,19 @@ class BURAN
 		print '[offset_'.$offset.']' .BR;
 
 		if ($flag_max) {
-			$h = fopen($folder.'files_backup_process', 'wb');
-			if ( ! $h) return false;
-			fwrite($h, $name."\n");
-			fwrite($h, $part."\n");
-			fwrite($h, $offset."\n");
-			fclose($h);
 			print '[nextpart]' .BR;
+
+			$res = $this->processFile('w', $name."\n".$part."\n".$offset);
+			if ( ! $res) return false;
+
 			$this->log($name.' | part '.$part.' | offset '.$offset.' | nextpart', 'files_backup');
 
-			if ($autonextpart) {
-				print '[autonextpart]' .BR;
-				print '<script>
-					setTimeout(function(){
-						location.reload();
-					},1000);
-				</script>';
+			if ($this->autoReload) {
+				$this->reloadAction();
 			}
 
 		} else {
-			unlink($folder.'files_backup_process');
+			$this->deleteFile($this->processFile);
 			$this->log($name.' | part '.$part.' | offset '.$offset.' | finish'."\n", 'files_backup');
 		}
 		return true;
@@ -611,7 +617,6 @@ class BURAN
 
 		$flag_max = false;
 		$queue[] = '/';
-		$files = array();
 		do {
 			$nextfolder = array_shift($queue);
 			if( ! ($open = opendir($this->droot.$nextfolder)))
@@ -622,7 +627,6 @@ class BURAN
 					continue;
 				if (is_dir($this->droot.$nextfolder.$file)) {
 					$queue[] = $nextfolder.$file.'/';
-					$files[$nextfolder.$file.'/'] = true;
 					continue;
 				}
 				if( ! is_file($this->droot.$nextfolder.$file))
@@ -633,8 +637,6 @@ class BURAN
 
 				$etalonfolder = $folder.'etalon'.$nextfolder;
 				$etalonfile = $file.'_0';
-
-				$files[$nextfolder.$etalonfile] = true;
 
 				if ($create) {
 					$zip->addFile($this->droot.$nextfolder.$file,
@@ -669,7 +671,7 @@ class BURAN
 						}
 
 					} else {
-						print date('d.m.Y, H:i:s', $this->filetime($nextfolder.$file)).' | ';
+						print date('d.m.Y, H:i:s', $this->filetime($this->droot.$nextfolder.$file)).' | ';
 						print '<a style="text-decoration:none;" target="_blank" href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($nextfolder.$file).'">'.$nextfolder.$file.'</a>';
 						print BR;
 					}
@@ -694,8 +696,6 @@ class BURAN
 		if ($flag_max) {
 			print '[flag_max]' .BR;
 		}
-
-		$this->files = $files;
 
 		return true;
 	}
@@ -725,7 +725,7 @@ class BURAN
 				$file_1 = substr($file, 0, -2);
 
 				if ( ! file_exists($this->droot.$nextfolder.$file_1)) {
-					unlink($this->broot.$folder.$nextfolder.$file);
+					$this->deleteFile($this->broot.$folder.$nextfolder.$file);
 					print 'remove | '.$folder.$nextfolder.$file .BR;
 				}
 
@@ -780,13 +780,11 @@ class BURAN
 		}
 		$list = $parts;
 
+		$this->processFile = $folder.'etalon_list_process';
 		$offset = 0;
-		$h = fopen($folder.'etalon_list_process', 'rb');
-		if ($h) {
-			while ( ! feof($h))
-				$offset .= fread($h, 1024*256);
-			$offset = intval($offset);
-			fclose($h);
+		$info = $this->processFile();
+		if ($info) {
+			$offset = intval($info[0]);
 		}
 
 		if (is_array($list)) {
@@ -822,12 +820,13 @@ class BURAN
 
 				$ii++;
 				if ($ii < $offset) continue;
+				$this->itemscounter++;
 
 				$stat = stat($this->droot.$nextfolder.$file);
 				$hash = md5_file($this->droot.$nextfolder.$file);
 
 				$row = '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
-				$row .= date('d.m.Y, H:i:s', $this->filetime($nextfolder.$file));
+				$row .= date('d.m.Y, H:i:s', $this->filetime($this->droot.$nextfolder.$file));
 				$row .= ' | ';
 				$row .= '<a style="text-decoration:none;color:#000;" target="_blank" href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($nextfolder.$file).'">'.$nextfolder.$file.'</a>';
 				$row .= '</div>';
@@ -862,13 +861,12 @@ class BURAN
 
 		if ($flag_max) {
 			print '[flag_max]' .BR;
-			$h = fopen($folder.'etalon_list_process', 'wb');
-			if ( ! $h) return false;
-			fwrite($h, $offset);
-			fclose($h);
+
+			$res = $this->processFile('w', $offset);
+			if ( ! $res) return false;
 
 		} else {
-			unlink($folder.'etalon_list_process');
+			$this->deleteFile($this->processFile);
 		}
 
 		print '<h3 style="color:#d70000;">Файл изменен</h3>';
@@ -890,19 +888,18 @@ class BURAN
 		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
 		$this->htaccess($folder);
 
+		$this->processFile = $folder.'etalon_list_create_process';
 		$process = false;
 		$offset = 0;
 		$etalonfile = false;
-		$h = fopen($folder.'etalon_list_create_process', 'rb');
-		if ($h) {
-			while ( ! feof($h))
-				$info .= fread($h, 1024*256);
-			$info = explode("\n", $info, 2);
+		$info = $this->processFile();
+		if ($info) {
 			$etalonfile = $info[0];
 			$offset = intval($info[1]);
-			fclose($h);
 			$process = true;
 		}
+
+		$files = array();
 
 		$flag_max = false;
 		$queue[] = '/';
@@ -927,6 +924,7 @@ class BURAN
 
 				$ii++;
 				if ($ii < $offset) continue;
+				$this->itemscounter++;
 
 				$stat = stat($this->droot.$nextfolder.$file);
 				$hash = md5_file($this->droot.$nextfolder.$file);
@@ -951,35 +949,43 @@ class BURAN
 
 		$offset = $ii;
 
-		$files = serialize($files);
+		if (is_array($files) && count($files)) {
+			$files = serialize($files);
+		} else {
+			$files = false;
+		}
 
 		if ( ! $etalonfile) {
-			$etalonfile = 'etalon_list_'.date('Y-m-d-H-i-s');
+			$etalonfile = 'etalon_list_'.date('Y-m-d-H-i-s').'_process';
 		}
-		$h = fopen($folder.$etalonfile, ($process ? 'ab' : 'wb'));
-		if ( ! $h) return false;
-		if ( ! $process) {
-			fwrite($h, time()."\n\n");
+		if ($files) {
+			$h = fopen($folder.$etalonfile, ($process ? 'ab' : 'wb'));
+			if ( ! $h) return false;
+			if ( ! $process) {
+				fwrite($h, time()."\n\n");
+			}
+			fwrite($h, $files."\n\n");
+			fclose($h);
 		}
-		fwrite($h, $files."\n\n");
-		fclose($h);
 
 		if ($flag_max) {
 			print '[flag_max]' .BR;
-			$h = fopen($folder.'etalon_list_create_process', 'wb');
-			if ( ! $h) return false;
-			fwrite($h, $etalonfile."\n");
-			fwrite($h, $offset);
-			fclose($h);
+
+			$res = $this->processFile('w', $etalonfile."\n".$offset);
+			if ( ! $res) return false;
+
+			if ($this->autoReload) {
+				$this->reloadAction();
+			}
 
 		} else {
-			unlink($folder.'etalon_list_create_process');
+			$rename = substr($etalonfile, 0, -8);
+			rename($folder.$etalonfile, $folder.$rename);
+			$this->deleteFile($this->processFile);
 		}
 
 		return true;
 	}
-
-
 
 
 
@@ -990,10 +996,53 @@ class BURAN
 
 
 	// ========================================================================
+
+
+	function reloadAction($tm=1000)
+	{
+		print '<script>setTimeout(function(){
+			window.location.reload(true);
+		}, '.$tm.');</script>';
+	}
+
+	
+	function processFile($act='r', $text='')
+	{
+		if ($act == 'w') {
+			$h = fopen($this->processFile, 'wb');
+			if ( ! $h) return false;
+			$res = fwrite($h, $text);
+			if ( ! $res) return false;
+			fclose($h);
+
+		} else {
+			$info = false;
+			$foo = $this->filetime($this->processFile);
+			if (time() - $foo > 60*60*2) {
+				$this->deleteFile($this->processFile);
+				return false;
+			}
+			$h = fopen($this->processFile, 'rb');
+			if ( ! $h) return false;
+			$info = '';
+			while ( ! feof($h))
+				$info .= fread($h, 1024*256);
+			$info = explode("\n", $info);
+			fclose($h);
+			return $info;
+		}
+		return true;
+	}
 	
 	function highlight($file)
 	{
-		highlight_file($this->droot.$file);
+		highlight_file($file);
+		return true;
+	}
+	
+	function deleteFile($file)
+	{
+		unlink($file);
 		return true;
 	}
 	
@@ -1001,13 +1050,13 @@ class BURAN
 	{
 		switch ($type) {
 			case 'a':
-				$time = fileatime($this->droot.$file);
+				$time = fileatime($file);
 				break;
 			case 'm':
-				$time = filemtime($this->droot.$file);
+				$time = filemtime($file);
 				break;
 			default:
-				$time = filectime($this->droot.$file);
+				$time = filectime($file);
 		}
 		return $time ? $time : false;
 	}
@@ -1136,10 +1185,12 @@ class BURAN
 	{
 		$time = microtime(true) - $this->time_start;
 		$memory = memory_get_peak_usage(true);
-		$res = $time >= $this->conf('maxtime') || $memory >= $this->conf('maxmemory')
+		$res = $time >= $this->conf('maxtime') ||
+			$memory >= $this->conf('maxmemory') ||
+			$this->itemscounter >= $this->conf('maxitems')
 			? true : false;
 		if ($res) {
-			$this->log('max | '.$time.' s | '.$memory.' b');
+			$this->log('max | '.$time.' s | '.$memory.' b | '.$this->itemscounter.' i');
 		}
 		return $res;
 	}
