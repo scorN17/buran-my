@@ -1,7 +1,7 @@
 <?php
 /**
  * Buran_0
- * v1.28
+ * v1.29
  * 04.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
@@ -9,6 +9,7 @@
  */
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
+header('Content-type: text/html; charset=utf-8');
 
 if (file_exists('_buran_config.php')) {
 	include_once('_buran_config.php');
@@ -43,7 +44,25 @@ if ( ! $ww || $_GET['w'] == '' || $_GET['w'] != $ww) {
 
 if ( ! $action) goto mainpage;
 
+?>
+<!doctype html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script>
+(function($){
+	$(document).ready(function(){
+		$('.openpanel').on('click',function(){
+			$(this).remove();
+			$('.panel').css({ display:'flex' });
+		});
+	});
+})(jQuery);
+</script>
+</head>
+<body>
 
+<?php
 
 if ($action == 'update') {
 	print '[start]' .BR;
@@ -57,9 +76,54 @@ if ($action == 'update') {
 }
 
 
+if ($action == 'files.manager') {
+	print '[start]' .BR;
+	$res = $bu->filesManager();
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
+}
+
+
 if ($action == 'file.content') {
+	?>
+	<div class="openpanel" style="cursor:pointer;">PANEL</div>
+	<div class="panel" style="display:none; justify-content:space-between;">
+		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.chmod&file=<?=$_GET['file']?>&prm=0755">0755</a>
+		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.cure&file=<?=$_GET['file']?>">CURE</a>
+		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.delete&file=<?=$_GET['file']?>">DELETE</a>
+	</div>
+	<?php
+	print BR;
 	print date('d.m.Y, H:i:s', $bu->filetime($bu->droot.$bu->file)) .BR.BR;
 	$bu->highlight($bu->droot.$bu->file) .BR;
+}
+
+
+if ($action == 'file.chmod') {
+	print '[start]' .BR;
+	$res = $bu->chmodFile($bu->droot.$bu->file, $bu->param);
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
+}
+
+
+if ($action == 'file.delete') {
+	print '[start]' .BR;
+	$res = $bu->deleteFile($bu->droot.$bu->file);
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
 }
 
 
@@ -135,6 +199,10 @@ $toprint = ob_get_contents();
 $toprint = str_replace(BR, $br, $toprint);
 ob_end_clean();
 print $toprint;
+?>
+</body>
+</html>
+<?php
 exit();
 
 
@@ -152,7 +220,6 @@ mainpage:
 <html>
 <head>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
 <script>
 (function($){
 	$(document).ready(function(){
@@ -190,15 +257,24 @@ mainpage:
 <div class="loading_status">Загрузка ...</div>
 
 <div class="panelbox">
-	<button class="action" data-act="update">Самообновление</button>
+	<div><button class="action" data-act="files.manager">Менеджер файлов</button></div>
 
-	<button class="action" data-act="db.dump">Дамп базы</button>
-	<button class="action" data-act="files.backup" data-get="&auto">Бэкап файлов</button>
+	<div>
+		<button class="action" data-act="db.dump">Дамп базы</button>
+		<button class="action" data-act="files.backup" data-get="&auto">Бэкап файлов</button>
+	</div>
 
-	<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
-	<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
-	<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
-	<button class="action" data-act="etalon.list.create" data-get="&auto">Создать эталон</button>
+	<div>
+		<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
+		<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
+	</div>
+
+	<div>
+		<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
+		<button class="action" data-act="etalon.list.create" data-get="&auto">Создать эталон</button>
+	</div>
+
+	<div><button class="action" data-act="update">Самообновление</button></div>
 </div>
 
 <div class="iframesbox">
@@ -253,6 +329,8 @@ br {
 .panelbox {
 	height: 7vh;
 	padding: 10px;
+	display: flex;
+	justify-content: space-between;
 }
 .iframesbox {
 	height: 93vh;
@@ -313,7 +391,7 @@ class BURAN
 	public $conf = array(
 		'maxtime'   => 27,
 		'maxmemory' => 262144000, //1024*1024*250
-		'maxitems'  => 2000,
+		'maxitems'  => 10000,
 
 		'flag_db_dump'             => true,
 		'flag_files_backup'        => true,
@@ -336,6 +414,7 @@ class BURAN
 	public $broot;
 
 	public $autoReload = false;
+	public $param = false;
 
 	public $file;
 	public $files;
@@ -382,6 +461,9 @@ class BURAN
 
 		if (isset($_GET['auto'])) {
 			$this->autoReload = true;
+		}
+		if (isset($_GET['prm'])) {
+			$this->param = $_GET['prm'];
 		}
 
 		if (isset($_GET['file'])) {
@@ -595,6 +677,68 @@ class BURAN
 			$this->deleteFile($this->processFile);
 			$this->log($name.' | part '.$part.' | offset '.$offset.' | finish'."\n", 'files_backup');
 		}
+		return true;
+	}
+
+
+	function filesManager()
+	{
+		$flag_max = false;
+		$folder = $this->file;
+		if (substr($folder,-1) != '/')
+			$folder .= '/';
+
+		if( ! ($open = opendir($this->droot.$folder)))
+			continue;
+		while ($file = readdir($open)) {
+			if (filetype($this->droot.$folder.$file) == 'link'
+				|| $file == '.' || $file == '..')
+				continue;
+			if (is_dir($this->droot.$folder.$file)) {
+				$a1[] = $folder.$file.DS;
+				continue;
+			}
+			if( ! is_file($this->droot.$folder.$file))
+				continue;
+
+			$a2[] = $folder.$file;
+
+			if ($this->max()) {
+				$flag_max = true;
+				break;
+			}
+		}
+
+		$folder = dirname($folder);
+
+		sort($a1);
+		sort($a2);
+
+		print BR;
+		print '<div><a href="_buran.php?w='.$_GET['w'].'&act=files.manager">#droot</a></div>';
+		print '<div><a href="_buran.php?w='.$_GET['w'].'&act=files.manager&file='.urlencode($folder).'"><- back</a></div>';
+		print BR;
+		
+		if (is_array($a1)) {
+			foreach ($a1 AS $row) {
+				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=files.manager&file='.urlencode($row).'">'.$row.'</a></div>';
+			}
+		}
+
+		print BR;
+		
+		if (is_array($a2)) {
+			foreach ($a2 AS $row) {
+				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($row).'">'.$row.'</a></div>';
+			}
+		}
+
+		print BR;
+
+		if ($flag_max) {
+			print '[flag_max]' .BR;
+		}
+
 		return true;
 	}
 
@@ -1042,8 +1186,14 @@ class BURAN
 	
 	function deleteFile($file)
 	{
-		unlink($file);
-		return true;
+		$res = unlink($file);
+		return $res;
+	}
+	
+	function chmodFile($file, $chmod='0755')
+	{
+		$res = chmod($file, intval($chmod,8));
+		return $res;
 	}
 	
 	function filetime($file, $type='c')
