@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * v1.26
- * 03.05.2017
+ * v1.28
+ * 04.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -43,6 +43,18 @@ if ( ! $ww || $_GET['w'] == '' || $_GET['w'] != $ww) {
 
 if ( ! $action) goto mainpage;
 
+
+
+if ($action == 'update') {
+	print '[start]' .BR;
+	$res = $bu->update();
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
+}
 
 
 if ($action == 'file.content') {
@@ -177,6 +189,8 @@ mainpage:
 <div class="loading_status">Загрузка ...</div>
 
 <div class="panelbox">
+	<button class="action" data-act="update">Самообновление</button>
+
 	<button class="action" data-act="db.dump">Дамп базы</button>
 	<button class="action" data-act="files.backup.auto">Бэкап файлов</button>
 
@@ -370,6 +384,36 @@ class BURAN
 
 	// ========================================================================
 
+	function update()
+	{
+		$requestsheaders = array(
+			'Content-Type: text/plain; charset=utf-8'
+		);
+		$url = 'http://bunker-yug.ru/__buran/update/_buran';
+		$curloptions = array(
+			CURLOPT_URL            => $url,
+			CURLOPT_RETURNTRANSFER => true,
+		);
+		$curl = curl_init();
+		curl_setopt_array($curl, $curloptions);
+		$code = curl_exec($curl);
+
+		if ( ! $code ||
+			strpos($code, "<?php\n/**\n * Buran_0") !== 0)
+			return false;
+
+		$h = fopen(__FILE__, 'wb');
+		if ( ! $h) return false;
+
+		$res = fwrite($h, $code);
+		if ( ! $res) return false;
+
+		fclose($h);
+
+		return true;
+	}
+
+
 	function dbDump()
 	{
 		if ( ! $this->conf('flag_db_dump')) return false;
@@ -561,7 +605,7 @@ class BURAN
 		$this->htaccess($folder);
 
 		if ($create) {
-			$zipfile = 'etalon_'.time().'_'.date('Y-m-d-H-i-s');
+			$zipfile = 'etalon_files_'.date('Y-m-d-H-i-s');
 			$zip->open($folder.$zipfile, ZIPARCHIVE::CREATE);
 		}
 
@@ -910,7 +954,7 @@ class BURAN
 		$files = serialize($files);
 
 		if ( ! $etalonfile) {
-			$etalonfile = 'etalon_'.date('Y-m-d-H-i-s');
+			$etalonfile = 'etalon_list_'.date('Y-m-d-H-i-s');
 		}
 		$h = fopen($folder.$etalonfile, ($process ? 'ab' : 'wb'));
 		if ( ! $h) return false;
