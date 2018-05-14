@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * v1.29
- * 04.05.2017
+ * v1.31
+ * 14.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -49,16 +49,6 @@ if ( ! $action) goto mainpage;
 <html>
 <head>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script>
-(function($){
-	$(document).ready(function(){
-		$('.openpanel').on('click',function(){
-			$(this).remove();
-			$('.panel').css({ display:'flex' });
-		});
-	});
-})(jQuery);
-</script>
 </head>
 <body>
 
@@ -77,6 +67,14 @@ if ($action == 'update') {
 
 
 if ($action == 'files.manager') {
+	?>
+<style>
+	a {
+		text-decoration: none;
+		color: #00167d;
+	}
+</style>
+	<?php
 	print '[start]' .BR;
 	$res = $bu->filesManager();
 	if ($res) {
@@ -89,13 +87,25 @@ if ($action == 'files.manager') {
 
 
 if ($action == 'file.content') {
+	$folder = dirname($_GET['file']);
 	?>
+<script>
+(function($){
+	$(document).ready(function(){
+		$('.openpanel').on('click',function(){
+			$(this).remove();
+			$('.panel').css({ display:'flex' });
+		});
+	});
+})(jQuery);
+</script>
 	<div class="openpanel" style="cursor:pointer;">PANEL</div>
 	<div class="panel" style="display:none; justify-content:space-between;">
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.chmod&file=<?=$_GET['file']?>&prm=0755">0755</a>
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.cure&file=<?=$_GET['file']?>">CURE</a>
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.delete&file=<?=$_GET['file']?>">DELETE</a>
 	</div>
+	<br><a href="_buran.php?w=<?=$_GET['w']?>&act=files.manager&file=<?=$folder?>"><- back</a><br>
 	<?php
 	print BR;
 	print date('d.m.Y, H:i:s', $bu->filetime($bu->droot.$bu->file)) .BR.BR;
@@ -105,7 +115,11 @@ if ($action == 'file.content') {
 
 if ($action == 'file.chmod') {
 	print '[start]' .BR;
-	$res = $bu->chmodFile($bu->droot.$bu->file, $bu->param);
+	if ($bu->go) {
+		$res = $bu->chmodFile($bu->droot.$bu->file, $bu->param);
+	} else {
+		print '<a href="'.$bu->uri.'&go">GO</a>' .BR;
+	}
 	if ($res) {
 		print '[ok]' .BR;
 	} else {
@@ -117,7 +131,11 @@ if ($action == 'file.chmod') {
 
 if ($action == 'file.delete') {
 	print '[start]' .BR;
-	$res = $bu->deleteFile($bu->droot.$bu->file);
+	if ($bu->go) {
+		$res = $bu->deleteFile($bu->droot.$bu->file);
+	} else {
+		print '<a href="'.$bu->uri.'&go">GO</a>' .BR;
+	}
 	if ($res) {
 		print '[ok]' .BR;
 	} else {
@@ -413,8 +431,9 @@ class BURAN
 	public $droot;
 	public $broot;
 
+	public $go         = false;
 	public $autoReload = false;
-	public $param = false;
+	public $param      = false;
 
 	public $file;
 	public $files;
@@ -456,6 +475,7 @@ class BURAN
 		$this->requesturi  = $_SERVER['REQUEST_URI'];
 		$this->pageurl     = parse_url($requesturi, PHP_URL_PATH);
 		$this->querystring = $_SERVER['QUERY_STRING'];
+		$this->uri         = $this->requesturi;
 		$this->droot       = dirname(dirname(__FILE__));
 		$this->broot       = dirname(__FILE__);
 
@@ -464,6 +484,9 @@ class BURAN
 		}
 		if (isset($_GET['prm'])) {
 			$this->param = $_GET['prm'];
+		}
+		if (isset($_GET['go'])) {
+			$this->go = true;
 		}
 
 		if (isset($_GET['file'])) {
@@ -527,7 +550,6 @@ class BURAN
 		$filepath = $name.'.sql';
 		$h = fopen($folder.$filepath, 'wb');
 		if ( ! $h) return false;
-
 
 		$dump .= "# -- start / ". date('d.m.Y, H:i:s') ."\n\n";
 
@@ -1258,6 +1280,16 @@ class BURAN
 			return true;
 		}
 
+		@include_once($this->droot.'/wp-config.php');
+		if(defined('DB_NAME') && defined('DB_USER') &&
+			defined('DB_PASSWORD') && defined('DB_HOST')) {
+			$this->cms      = 'wordpress';
+			$this->cms_ver  = $wp_version;
+			$this->cms_date = '';
+			$this->cms_name = '';
+			return true;
+		}
+
 		return false;
 	}
 
@@ -1299,6 +1331,14 @@ class BURAN
 			$this->db_user = $ret['default']['username'];
 			$this->db_pwd  = $ret['default']['password'];
 			$this->db_name = $ret['default']['database'];
+		}
+
+		if ($this->cms == 'wordpress') {
+			@include_once($this->droot.'/wp-config.php');
+			$this->db_host = DB_HOST;
+			$this->db_user = DB_USER;
+			$this->db_pwd  = DB_PASSWORD;
+			$this->db_name = DB_NAME;
 		}
 	}
 	
