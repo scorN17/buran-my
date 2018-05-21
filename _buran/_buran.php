@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * v1.31
- * 14.05.2017
+ * @version 1.38
+ * 21.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -103,6 +103,7 @@ if ($action == 'file.content') {
 	<div class="panel" style="display:none; justify-content:space-between;">
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.chmod&file=<?=$_GET['file']?>&prm=0755">0755</a>
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.cure&file=<?=$_GET['file']?>">CURE</a>
+		<a target="_blank" href="_buran.php?w=<?=$_GET['w']?>&act=file.rename&file=<?=$_GET['file']?>&prm=">RENAME</a>
 		<a href="_buran.php?w=<?=$_GET['w']?>&act=file.delete&file=<?=$_GET['file']?>">DELETE</a>
 	</div>
 	<br><a href="_buran.php?w=<?=$_GET['w']?>&act=files.manager&file=<?=$folder?>"><- back</a><br>
@@ -133,6 +134,22 @@ if ($action == 'file.delete') {
 	print '[start]' .BR;
 	if ($bu->go) {
 		$res = $bu->deleteFile($bu->droot.$bu->file);
+	} else {
+		print '<a href="'.$bu->uri.'&go">GO</a>' .BR;
+	}
+	if ($res) {
+		print '[ok]' .BR;
+	} else {
+		print '[error]' .BR;
+	}
+	print '[finish]' .BR;
+}
+
+
+if ($action == 'file.rename') {
+	print '[start]' .BR;
+	if ($bu->go) {
+		$res = $bu->renameFile($bu->droot.$bu->file, $bu->param);
 	} else {
 		print '<a href="'.$bu->uri.'&go">GO</a>' .BR;
 	}
@@ -288,8 +305,8 @@ mainpage:
 	</div>
 
 	<div>
-		<button class="action" data-act="etalon.list.compare">Сравнить с эталоном</button>
-		<button class="action" data-act="etalon.list.create" data-get="&auto">Создать эталон</button>
+		<button class="action" data-act="etalon.list.compare">Сравнить со слепком</button>
+		<button class="action" data-act="etalon.list.create" data-get="&auto">Создать слепок</button>
 	</div>
 
 	<div><button class="action" data-act="update">Самообновление</button></div>
@@ -415,8 +432,8 @@ class BURAN
 		'flag_files_backup'        => true,
 		'files_backup_maxpartsize' => 262144000, //1024*1024*250
 
-		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/',
-		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/',
+		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/',
+		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/',
 	);
 
 	public $time_start;
@@ -436,6 +453,7 @@ class BURAN
 	public $param      = false;
 
 	public $file;
+	public $tofile;
 	public $files;
 
 	public $processFile = false;
@@ -494,6 +512,13 @@ class BURAN
 			if (substr($file,0,1) != '/')
 				$file = '/'.$file;
 			$this->file = $file;
+		}
+
+		if (isset($_GET['tofile'])) {
+			$tofile = urldecode($_GET['tofile']);
+			if (substr($tofile,0,1) != '/')
+				$tofile = '/'.$tofile;
+			$this->tofile = $tofile;
 		}
 
 		define('DS', DIRECTORY_SEPARATOR);
@@ -717,13 +742,26 @@ class BURAN
 				|| $file == '.' || $file == '..')
 				continue;
 			if (is_dir($this->droot.$folder.$file)) {
-				$a1[] = $folder.$file.DS;
+				$a1[] = array(
+					$folder.$file.DS,
+				);
 				continue;
 			}
 			if( ! is_file($this->droot.$folder.$file))
 				continue;
 
-			$a2[] = $folder.$file;
+			$fs = filesize($this->droot.$folder.$file);
+			$st = 0;
+			while ($fs >= 1024) {
+				$fs /= 1024;
+				$st++;
+			}
+			$fs = round($fs, 2).' '.$this->sizeType($st);
+
+			$a2[] = array(
+				$folder.$file,
+				$fs
+			);
 
 			if ($this->max()) {
 				$flag_max = true;
@@ -743,7 +781,7 @@ class BURAN
 		
 		if (is_array($a1)) {
 			foreach ($a1 AS $row) {
-				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=files.manager&file='.urlencode($row).'">'.$row.'</a></div>';
+				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=files.manager&file='.urlencode($row[0]).'">'.$row[0].'</a></div>';
 			}
 		}
 
@@ -751,7 +789,10 @@ class BURAN
 		
 		if (is_array($a2)) {
 			foreach ($a2 AS $row) {
-				print '<div><a href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($row).'">'.$row.'</a></div>';
+				print '<div style="display:flex;">
+					<div style="width:100px;text-align:right;padding-right:20px;">'.$row[1].'</div>
+					<div><a href="_buran.php?w='.$_GET['w'].'&act=file.content&file='.urlencode($row[0]).'">'.$row[0].'</a></div>
+				</div>';
 			}
 		}
 
@@ -801,7 +842,7 @@ class BURAN
 					'/'.substr($file,strrpos($file,'.')).'/') === false)
 					continue;
 
-				$etalonfolder = $folder.'etalon'.$nextfolder;
+				$etalonfolder = $folder.'etalon_files'.$nextfolder;
 				$etalonfile = $file.'_0';
 
 				if ($create) {
@@ -1212,6 +1253,15 @@ class BURAN
 		return $res;
 	}
 	
+	function renameFile($file, $newfile)
+	{
+		if ( ! $newfile) return false;
+		$path = substr($file, 0, strrpos($file, '/'));
+		$newfile = $path .DS. $newfile;
+		$res = rename($file, $newfile);
+		return $res;
+	}
+	
 	function chmodFile($file, $chmod='0755')
 	{
 		$res = chmod($file, intval($chmod,8));
@@ -1383,6 +1433,14 @@ class BURAN
 			$this->log('max | '.$time.' s | '.$memory.' b | '.$this->itemscounter.' i');
 		}
 		return $res;
+	}
+
+	function sizeType($st)
+	{
+		$sta = array(
+			'b', 'Kb', 'Mb', 'Gb', 'Tb'
+		);
+		return $sta[$st];
 	}
 
 	function htaccess($folder)
