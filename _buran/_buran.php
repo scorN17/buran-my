@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.38
- * 21.05.2017
+ * @version 1.39
+ * 22.05.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -736,7 +736,7 @@ class BURAN
 			$folder .= '/';
 
 		if( ! ($open = opendir($this->droot.$folder)))
-			continue;
+			return false;
 		while ($file = readdir($open)) {
 			if (filetype($this->droot.$folder.$file) == 'link'
 				|| $file == '.' || $file == '..')
