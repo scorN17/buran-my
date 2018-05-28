@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.22
- * 10.04.2018
+ * @version 3.3
+ * 28.05.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 33000
  */
-$seomoduleversion= '3.22';
+$seomoduleversion= '3.3';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -34,48 +34,48 @@ $scriptname  = isset($_SERVER['SCRIPT_NAME'])
 				: $_SERVER['PHP_SELF'];
 $requesturi  = $_SERVER['REQUEST_URI'];
 $pageurl     = parse_url($requesturi, PHP_URL_PATH);
-$querystring = $_SERVER['QUERY_STRING'];
+$querystring = substr($requesturi, strpos($requesturi, '?')+1);
 $droot       = dirname(dirname(__FILE__));
 $sapi_type   = php_sapi_name();
 if(substr($sapi_type,0,3) == 'cgi')
-	$protocol= 'Status:';
+	$protocol = 'Status:';
 else 
-	$protocol= $_SERVER['HTTP_X_PROTOCOL']
+	$protocol = $_SERVER['HTTP_X_PROTOCOL']
 				? $_SERVER['HTTP_X_PROTOCOL']
 				: ($_SERVER['SERVER_PROTOCOL']
 					? $_SERVER['SERVER_PROTOCOL']
 					: 'HTTP/1.1');
-$test= isset($_POST['seomodule_test']) &&
+$test = isset($_POST['seomodule_test']) &&
 	isset($_POST['seomodule_s_title']) &&
 	isset($_POST['seomodule_s_text'])
 		? true : false;
 // ------------------------------------------------------------------
-$website_num= 1;
+$website_num = 1;
 foreach($websites AS $key => $ws)
 	if(
 		strpos($ws[0].'/', '//'.$domain.'/') ||
 		strpos($ws[0].'/', '//www.'.$domain.'/')
-	) $website_num= $key;
+	) $website_num = $key;
 if($website_num)
 {
-	$config= $configs['global'];
+	$config = $configs['global'];
 	if(isset($configs[$website_num]))
-		$config= array_merge($config, $configs[$website_num]);
-	$config['in_charset']= strtolower($config['in_charset']);
-	$config['out_charset']= strtolower($config['out_charset']);
+		$config = array_merge($config, $configs[$website_num]);
+	$config['in_charset'] = strtolower($config['in_charset']);
+	$config['out_charset'] = strtolower($config['out_charset']);
 
-	$website= $websites[$website_num];
+	$website = $websites[$website_num];
 
-	if($config['urldecode']) $requesturi= urldecode($requesturi);
+	if($config['urldecode']) $requesturi = urldecode($requesturi);
 
-	$redirect= $redirects['global'];
+	$redirect = $redirects['global'];
 	if(isset($redirects[$website_num]))
-		$redirect= array_merge($redirect, $redirects[$website_num]);
+		$redirect = array_merge($redirect, $redirects[$website_num]);
 
-	$redirect_to= $requesturi;
+	$redirect_to = $requesturi;
 
 	if($redirect[$redirect_to])
-		$redirect_to= $redirect[$redirect_to];
+		$redirect_to = $redirect[$redirect_to];
 
 	if(is_array($redirect))
 	{
@@ -83,20 +83,20 @@ if($website_num)
 		{
 			if(substr($reg,0,1) == '+')
 			{
-				$reg= substr($reg,1);
+				$reg = substr($reg,1);
 				if(preg_match($reg, $redirect_to)===1)
-					$redirect_to= preg_replace($reg, $foo, $redirect_to);
+					$redirect_to = preg_replace($reg, $foo, $redirect_to);
 			}
 		}
 	}
 
 	if($redirect[$redirect_to])
-		$redirect_to= $redirect[$redirect_to];
+		$redirect_to = $redirect[$redirect_to];
 
-	if($redirect_to == $requesturi) $redirect_to= false;
+	if($redirect_to == $requesturi) $redirect_to = false;
 
 	if( ! $redirect_to && $http.$www.$domain !== $website[0])
-		$redirect_to= $requesturi;
+		$redirect_to = $requesturi;
 
 	if($redirect_to)
 	{
@@ -124,25 +124,27 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module')===false &&
 	file_exists($droot.'/_buran/'.bsm_server())
 ){
-	while(preg_match("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", $querystring, $matches)===1)
+	while(preg_match("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
+		$querystring, $matches)===1)
 	{
 		$querystring
-			= preg_replace("/((&|^)(_openstat|utm_.*)=.*)(&|$)/U", '${4}', $querystring);
-		$bez_utm= true;
+			= preg_replace("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
+				'${4}', $querystring);
+		$bez_utm = true;
 	}
 	if($bez_utm)
 	{
 		if (strpos($querystring,'&') === 0) {
-			$querystring= substr($querystring, 1);
+			$querystring = substr($querystring, 1);
 		}
-		$requesturi= $pageurl . ($querystring ? '?'.$querystring : '');
+		$requesturi = $pageurl . ($querystring ? '?'.$querystring : '');
 	}
 
-	$seopage= $seopages['global'];
+	$seopage = $seopages['global'];
 	if(isset($seopages[$website_num]))
-		$seopage= array_merge($seopage, $seopages[$website_num]);
+		$seopage = array_merge($seopage, $seopages[$website_num]);
 
-	$seopage_row= trim($seopage[$requesturi]);
+	$seopage_row = trim($seopage[$requesturi]);
 
 	if ($seopage_row) {
 		// $logsfile['logs']= fopen($droot.'/_buran/seoModule_logs', 'a');
@@ -1046,5 +1048,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//--------------------------
+//-----------
