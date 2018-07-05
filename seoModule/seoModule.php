@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.3
- * 28.05.2018
+ * @version 3.31
+ * 05.07.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 33000
  */
-$seomoduleversion= '3.3';
+$seomoduleversion= '3.31';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -532,6 +532,7 @@ if( ! file_exists($droot.'/_buran/'.bsm_server()))
 document.onreadystatechange = function(){
 	if (document.readyState != "interactive") return;
 	var tabs = document.getElementById("sssmb_tabs");
+	if ( ! tabs) return;
 	var butts = tabs.getElementsByClassName("sssmbt_butt");
 	Array.prototype.filter.call(butts, function(butt){
 		butt.onclick = function(e){
@@ -1047,5 +1048,4 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------
+//-------------------------------------
