@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.40
- * 08.06.2017
+ * @version 1.41
+ * 22.07.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -1298,6 +1298,15 @@ class BURAN
 			return true;
 		}
 
+		@include_once($this->droot.'/core/docs/version.inc.php');
+		if (isset($v) && $v['code_name']) {
+			$this->cms      = 'revolution';
+			$this->cms_ver  = $v['full_version'];
+			$this->cms_date = '';
+			$this->cms_name = $v['full_appname'];
+			return true;
+		}
+
 		@include_once($this->droot.'/configuration.php');
 		if (class_exists('JConfig')) {
 			$conf = new JConfig();
@@ -1355,6 +1364,16 @@ class BURAN
 			$this->db_pwd     = $database_password;
 			$this->db_name    = trim($dbase,"`");
 			$this->db_method  = $database_connection_method;
+			$this->db_charset = $database_connection_charset;
+		}
+
+		if ($this->cms == 'revolution') {
+			@include_once($this->droot.'/core/config/config.inc.php');
+			$this->db_host    = $database_server;
+			$this->db_user    = $database_user;
+			$this->db_pwd     = $database_password;
+			$this->db_name    = $dbase;
+			$this->db_method  = 'SET NAMES';
 			$this->db_charset = $database_connection_charset;
 		}
 		
