@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.41
- * 22.07.2017
+ * @version 1.42
+ * 26.07.2017
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -421,7 +421,7 @@ br {
 
 class BURAN
 {
-	public $version = '1.4';
+	public $version = '1.42';
 
 	public $conf = array(
 		'maxtime'   => 27,
@@ -432,8 +432,8 @@ class BURAN
 		'flag_files_backup'        => true,
 		'files_backup_maxpartsize' => 262144000, //1024*1024*250
 
-		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/.css/',
-		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/.css/',
+		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/',
+		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/',
 	);
 
 	public $time_start;
@@ -668,7 +668,8 @@ class BURAN
 				if (filetype($this->droot.$nextfolder.$file) == 'link'
 					|| $file == '.' || $file == '..'
 					|| $file == '.th'
-					|| $nextfolder.$file == '/_buran/backup')
+					|| $nextfolder.$file == '/_buran/backup'
+					|| $nextfolder.$file == '/_buran/etalon/files')
 					continue;
 				if (is_dir($this->droot.$nextfolder.$file)) {
 					$queue[] = $nextfolder.$file.'/';
@@ -678,7 +679,7 @@ class BURAN
 					continue;
 				
 				$ii++;
-				if ($ii < $offset) continue;
+				if ($ii <= $offset) continue;
 				$this->itemscounter++;
 				
 				$zip->addFile($this->droot.$nextfolder.$file, 'www.'.$this->domain.$nextfolder.$file);
@@ -842,7 +843,7 @@ class BURAN
 					'/'.substr($file,strrpos($file,'.')).'/') === false)
 					continue;
 
-				$etalonfolder = $folder.'etalon_files'.$nextfolder;
+				$etalonfolder = $folder.'files'.$nextfolder;
 				$etalonfile = $file.'_0';
 
 				if ($create) {
@@ -1026,7 +1027,7 @@ class BURAN
 					continue;
 
 				$ii++;
-				if ($ii < $offset) continue;
+				if ($ii <= $offset) continue;
 				$this->itemscounter++;
 
 				$stat = stat($this->droot.$nextfolder.$file);
@@ -1130,7 +1131,7 @@ class BURAN
 					continue;
 
 				$ii++;
-				if ($ii < $offset) continue;
+				if ($ii <= $offset) continue;
 				$this->itemscounter++;
 
 				$stat = stat($this->droot.$nextfolder.$file);
