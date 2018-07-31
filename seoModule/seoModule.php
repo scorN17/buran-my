@@ -145,7 +145,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 		$logsfile['errors'] = fopen($droot.'/_buran/seoModule_errors', 'a');
 
 		$seopage_row = explode(':', $seopage_row);
-		$seoalias = end($seopage_row);
+		$seoalias    = end($seopage_row);
 
 		$seotype  = $seopage_row[0]=='A'?'A':($seopage_row[0]=='W'?'W':'S');
 
@@ -169,9 +169,9 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 			$donor = $website[0];
 			$donor .= $seotype=='S' ? $website[2] : $requesturi;
 
-			$useragent_flag= false;
-			$requestsheaders= array();
-			$getallheaders= function_exists('getallheaders')
+			$useragent_flag  = false;
+			$requestsheaders = array();
+			$getallheaders   = function_exists('getallheaders')
 				? getallheaders()
 				: bsm_getallheaders();
 			if (is_array($getallheaders)) {
@@ -306,123 +306,115 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					: true;
 				$eti= '//TRANSLIT//IGNORE';
 
-				foreach($st AS $txtk => $txt)
-				{
-					if( ! $encode) break;
-					if(is_array($txt))
-					{
-						foreach($txt AS $key => $row)
-						{
-							if($encode)
-								$st[$txtk][$key]= iconv($config['in_charset'],
+				foreach ($st AS $txtk => $txt) {
+					if ( ! $encode) break;
+					if (is_array($txt)) {
+						foreach ($txt AS $key => $row) {
+							if ($encode)
+								$st[$txtk][$key] = iconv($config['in_charset'],
 									$config['out_charset'].$eti, $row);
 						}
-					}else{
-						if($encode)
-							$st[$txtk]= iconv($config['in_charset'],
+					} else {
+						if ($encode)
+							$st[$txtk] = iconv($config['in_charset'],
 								$config['out_charset'].$eti, $txt);
 					}
 				}
 
-				if($s_text_multi)
-				{
-					$s_text_single= '';
-					foreach($st['s_text'] AS $key => $row)
-					{
-						$foo= "<\!-- sssmodule_start_".($key+1)." -->(.*)<!-- sssmodule_finish_".($key+1)." -->";
-						$template= preg_replace("/".$foo."/s", $row,
+				if ($s_text_multi) {
+					$s_text_single = '';
+					foreach ($st['s_text'] AS $key => $row) {
+						$foo = "<\!-- sssmodule_start_".($key+1)." -->(.*)<!-- sssmodule_finish_".($key+1)." -->";
+						$template = preg_replace("/".$foo."/s", $row,
 							$template, 1, $matches);
-						if( ! $matches) $s_text_single .= $row;
+						if ( ! $matches) $s_text_single .= $row;
 					}
-					$st['s_text']= $s_text_single;
+					$st['s_text'] = $s_text_single;
 				}
 
-				$content_finish_my= $content_finish['global'];
-				if(isset($content_finish[$website_num]))
-					$content_finish_my= array_merge($content_finish_my, $content_finish[$website_num]);
-				if(is_array($content_finish_my))
-				{
-					foreach($content_finish_my AS $cf)
-					{
-						$cftype= substr($cf,0,1);
-						if($cftype!=='@' && $cftype!=='#')
-							$cftype= '%';
+				$content_finish_my = $content_finish['global'];
+				if (isset($content_finish[$website_num])) {
+					$content_finish_my = array_merge($content_finish_my, $content_finish[$website_num]);
+				}
+				if (is_array($content_finish_my)) {
+					foreach ($content_finish_my AS $cf) {
+						$cftype = substr($cf,0,1);
+						if($cftype !== '@' && $cftype !== '#')
+							$cftype = '%';
 						$cf    = substr($cf,1);
 						$cf2   = preg_quote($cf,"/");
 						$cf2   = str_replace("\n", '\n', $cf2);
 						$cf2   = str_replace("\r", '', $cf2);
 						$cf2   = str_replace("\t", '\t', $cf2);
 						$cf_cc = preg_match("/".$cf2."/s", $template);
-						if($cf_cc===1) break;
+						if ($cf_cc===1) break;
 					}
 				}
 
-				if($cf_cc===1 && $st['s_text'])
-				{
+				if ($cf_cc===1 && $st['s_text']) {
 					$st['s_text'] .= '<br>';
-					$st['s_text']= str_replace('<p>[img]</p>', '[img]', $st['s_text']);
-					$st['s_text']= str_replace('<p>[col]</p>', '[col]', $st['s_text']);
+					$st['s_text'] = str_replace('<p>[img]</p>', '[img]', $st['s_text']);
+					$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 
-					$seoimages= array();
-					$imgs= glob($droot.$config['img_path'].'/'.$seoalias.'[0-9]*.{jpg,png}', GLOB_BRACE);
-					if(is_array($imgs))
-					{
-						foreach($imgs AS $key => $row)
-						{
+					$seoimages = array();
+					$imgs = glob($droot.$config['img_path'].'/'.$seoalias.'[0-9]*.{jpg,png}', GLOB_BRACE);
+					if (is_array($imgs)) {
+						foreach ($imgs AS $key => $row) {
 							$crop= str_replace($droot, '', $row);
-							if($config['img_crop'])
-								$crop= bsm_imgcrop($crop, $config['img_width'],
+							if ($config['img_crop']) {
+								$crop = bsm_imgcrop($crop, $config['img_width'],
 									$config['img_height'], $droot);
-							$seoimages[]= array(
+							}
+							$seoimages[] = array(
 								'src' => $crop,
 								'alt' => $st['pic'.($key+1)],
 							);
 						}
 					}
 
-					$seoimages_cc= count($seoimages);
+					$seoimages_cc = count($seoimages);
 					preg_match_all("/\[img\]/U", $st['s_text'], $imgtags);
 					$imgtags= is_array($imgtags) ? count($imgtags[0]) : 0;
-					if( ! $imgtags)
-					{
-						$seoimages_cc_1= floor($seoimages_cc/2);
-						$seoimages_cc_2= $seoimages_cc - $seoimages_cc_1;
-						if( ! $seoimages_cc_1 && $seoimages_cc_2)
-						{
-							$seoimages_cc_1= 1;
-							$seoimages_cc_2= 0;
+					if ( ! $imgtags) {
+						$seoimages_cc_1 = floor($seoimages_cc/2);
+						$seoimages_cc_2 = $seoimages_cc - $seoimages_cc_1;
+						if ( ! $seoimages_cc_1 && $seoimages_cc_2) {
+							$seoimages_cc_1 = 1;
+							$seoimages_cc_2 = 0;
 						}
-					}else{
-						$seoimages_cc_2= $seoimages_cc - $imgtags;
+					} else {
+						$seoimages_cc_2 = $seoimages_cc - $imgtags;
 					}
-					if($seoimages_cc_1 == 1) $imgtags= 1;
-					if($seoimages_cc_1)
-					{
-						if($seoimages_cc_1 > 1)
-							$st['s_text']= '<div class="sssmb_clr"></div></div>' .$st['s_text'];
-						for($ii=1; $ii <= $seoimages_cc_1; $ii++)
-							$st['s_text']= '[img]' ."\n" .$st['s_text'];
-						if($seoimages_cc_1 > 1)
-							$st['s_text']= '<div class="sssmb_imgs sssmb_imgs_1">' .$st['s_text'];
+					if ($seoimages_cc_1 == 1) $imgtags= 1;
+					if ($seoimages_cc_1) {
+						if ($seoimages_cc_1 > 1){
+							$st['s_text'] = '<div class="sssmb_clr"></div></div>' .$st['s_text'];
+						}
+						for ($ii=1; $ii <= $seoimages_cc_1; $ii++) {
+							$st['s_text'] = '[img]' ."\n" .$st['s_text'];
+						}
+						if ($seoimages_cc_1 > 1) {
+							$st['s_text'] = '<div class="sssmb_imgs sssmb_imgs_1">' .$st['s_text'];
+						}
 					}
-					if($seoimages_cc_2)
-					{
+					if ($seoimages_cc_2) {
 						$st['s_text'] .= '<div class="sssmb_imgs sssmb_imgs_2">';
-						for($ii=1; $ii <= $seoimages_cc_2; $ii++)
+						for ($ii=1; $ii <= $seoimages_cc_2; $ii++) {
 							$st['s_text'] .= "\n". '[img]';
+						}
 						$st['s_text'] .= '<div class="sssmb_clr"></div></div>';
 					}
 
 					$ii= 0;
-					do{
+					do {
 						$img= array_shift($seoimages);
 
-						if( ! $img['src']) $imgp= '';
-						else{
+						if ( ! $img['src']) $imgp = '';
+						else {
 							$ii++;
-							$img['attr']= $img['alt'].
+							$img['attr'] = $img['alt'].
 								' ('.($ii==1 ? 'рисунок' : 'фото').')';
-							$imgp= '
+							$imgp = '
 	<div class="sssmb_img '.($ii==1?'sssmb_ir':'').' '.($ii<=$imgtags?'sssmb_img1':'sssmb_img2').'">
 		<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
 		<div class="sssmb_bck">
@@ -432,9 +424,9 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 	</div>';
 						}
 
-						$st['s_text']= preg_replace("/\[img\]/U",
+						$st['s_text'] = preg_replace("/\[img\]/U",
 							$imgp, $st['s_text'], 1, $cc);
-					}while($cc);
+					} while ($cc);
 
 					preg_match_all("/\[col\]/U", $st['s_text'], $coltags);
 					$coltags= is_array($coltags) ? count($coltags[0]) : 0;
