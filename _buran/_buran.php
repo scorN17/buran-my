@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.42
- * 26.07.2017
+ * @version 1.43
+ * 01.08.2018
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -26,8 +26,8 @@ $bu = new BURAN;
 $bu->setConfig($config);
 
 // ----------------------------------------------------------------------------
-$url = 'http://fndelta.gavrishkin.ru/__password__002.php';
-$url .= '?host='.$bu->domain;
+$url = 'http://bunker-yug.ru/__buran/secret_key.php';
+$url .= '?h='.$bu->domain;
 $url .= '&w='.urlencode($_GET['w']);
 $curloptions = array(
 	CURLOPT_URL            => $url,
@@ -421,7 +421,7 @@ br {
 
 class BURAN
 {
-	public $version = '1.42';
+	public $version = '1.43';
 
 	public $conf = array(
 		'maxtime'   => 27,
