@@ -163,10 +163,10 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				? false
 				: $hideflag);
 
-		if ($website[5]) $declension= $declension[$website[5]];
+		if ($website[5]) $declension = $declension[$website[5]];
 
 		if (file_exists($droot.$config['tx_path'].'/'.$seoalias.'.php')) {
-			$donor= $website[0];
+			$donor = $website[0];
 			$donor .= $seotype=='S' ? $website[2] : $requesturi;
 
 			$useragent_flag= false;
@@ -184,20 +184,20 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					if (stripos($key, 'x-real-ip')!==false) continue;
 					if ($config['get_content_method']=='stream' &&
 						stripos($key, 'connection')!==false) continue;
-					if (stripos($key, 'connection')!==false) $row= 'keep-alive';
+					if (stripos($key, 'connection')!==false) $row = 'keep-alive';
 
 					if ($test) {
 						if (stripos($key, 'Content-Length')!==false) continue;
 					}
 
-					$header= $key.': '.$row;
+					$header = $key.': '.$row;
 
 					if (stripos($key, 'user-agent')!==false) {
-						$useragent_flag= true;
+						$useragent_flag = true;
 						$header .= ' /buran_seo_module';
 					}
 
-					$requestsheaders[]= $header;
+					$requestsheaders[] = $header;
 				}
 			}
 
@@ -228,11 +228,11 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				$http_code= $request_info['http_code'];
 				if(curl_errno($curl))
 				{
-					$break= true;
+					$break = true;
 					bsm_tolog('[error_22]-'.$requesturi,'errors');
 				}else{
-					$headers= str_replace("\r",'',$headers);
-					$headers= explode("\n", $headers);
+					$headers = str_replace("\r",'',$headers);
+					$headers = explode("\n", $headers);
 				}
 				curl_close($curl);
 
@@ -770,7 +770,7 @@ if ('seoModule.php' == basename($pageurl)) {
 		}
 
 		print '[seomoduleversion_'.$seomoduleversion.']'."\n";
-		print '[seohash_'.bsm_seohash($droot, $config).']'."\n";
+		print '[seohash_'.bsm_seohash($droot, $config, $seopage).']'."\n";
 		print '[droot_'.$droot.']'."\n";
 		print '[website_'.$website[0].']'."\n";
 		print '[mainpage_'.$website[1].']'."\n";
@@ -868,15 +868,14 @@ function bsm_tolog($text, $type='logs')
 	if(isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
 }
 
-function bsm_seohash($droot, $config)
+function bsm_seohash($droot, $config, $seopage)
 {
-	$hash .= md5_file($droot.'/_buran/seoModule.php') ."\n";
-	$hash .= md5_file($droot.'/_buran/seoModule_config.php') ."\n";
-	$files = glob($droot.$config['tx_path'].'/'.'*.php');
-	if (is_array($files) & count($files)) {
-		foreach ($files AS $file) {
-			$hash .= md5_file($file) ."\n";
-		}
+	$hash .= md5_file($droot.'/_buran/seoModule.php') .'-';
+	$hash .= md5_file($droot.'/_buran/seoModule_config.php') .'-';
+	foreach ($seopage AS $key => $row) {
+		$alias = explode(':', $row);
+		$alias = end($alias);
+		$hash .= md5_file($droot.$config['tx_path'].'/'.$alias.'.php') .'-';
 	}
 	$hash = md5($hash);
 	return $hash;
