@@ -166,6 +166,31 @@ $configs['global']['styles']= '<style>
 		padding:0;
 	}
 	
+	.sssmodulebox .sssmb_articles {
+	}
+		.sssmodulebox .sssmb_articles .sssmba_itm {
+			display: flex;
+		}
+			.sssmodulebox .sssmb_articles .sssmba_itm+.sssmba_itm {
+				margin-top: 20px;
+			}
+		.sssmodulebox .sssmb_articles .sssmba_img {
+			flex: 0 0 100px;
+		}
+			.sssmodulebox .sssmb_articles .sssmba_img img {
+				max-width: 100%;
+			}
+		.sssmodulebox .sssmb_articles .sssmba_inf {
+			flex: 1 1 auto;
+			margin-left: 30px;
+		}
+		.sssmodulebox .sssmb_articles .sssmba_tit {
+			font-size: 120%;
+		}
+		.sssmodulebox .sssmb_articles .sssmba_txt {
+			margin-top: 13px;
+		}
+	
 	.sssmodulebox .sssmb_tabs {
 	}
 		.sssmodulebox .sssmb_tabs .sssmbt_butts {
