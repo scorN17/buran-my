@@ -5,22 +5,22 @@
  * 01.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 33000
+ * @filesize 35555
  */
-$seomoduleversion= '3.32';
+$seomoduleversion = '3.32';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
 
 include_once('seoModule_config.php');
 
-$http= (
-	$_SERVER['SERVER_PORT']=='443' ||
-	$_SERVER['HTTP_PORT']=='443' ||
-	$_SERVER['HTTP_HTTPS']=='on' ||
-	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS'])=='on') ||
+$http = (
+	$_SERVER['SERVER_PORT'] == '443' ||
+	$_SERVER['HTTP_PORT']   == '443' ||
+	$_SERVER['HTTP_HTTPS']  == 'on' ||
+	(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on') ||
 	(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
-		$_SERVER['HTTP_X_FORWARDED_PROTO']=='https')
+		$_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
 		? 'https://' : 'http://');
 $domain      = isset($_SERVER['HTTP_HOST'])
 				? $_SERVER['HTTP_HOST']
@@ -28,7 +28,7 @@ $domain      = isset($_SERVER['HTTP_HOST'])
 $domain      = explode(':', $domain);
 $domain      = $domain[0];
 $www         = strpos($domain,'www.')===0 ? 'www.' : '';
-if($www=='www.') $domain= substr($domain,4);
+if($www=='www.') $domain = substr($domain,4);
 $scriptname  = isset($_SERVER['SCRIPT_NAME'])
 				? $_SERVER['SCRIPT_NAME']
 				: $_SERVER['PHP_SELF'];
@@ -202,30 +202,30 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 			}
 
 			if ($config['get_content_method'] == 'curl') {
-				$curloptions= array(
-					CURLOPT_URL               => $donor,
-					CURLOPT_HTTPHEADER        => $requestsheaders,
-					CURLOPT_HEADER            => true,
-					CURLOPT_RETURNTRANSFER    => true,
-					CURLOPT_CONNECTTIMEOUT    => 10,
-					CURLOPT_TIMEOUT           => 10,
+				$curloptions = array(
+					CURLOPT_URL            => $donor,
+					CURLOPT_HTTPHEADER     => $requestsheaders,
+					CURLOPT_HEADER         => true,
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_CONNECTTIMEOUT => 10,
+					CURLOPT_TIMEOUT        => 10,
 				);
-				if ($http=='https://' && $config['https_test']) {
-					$curloptions[CURLOPT_SSL_VERIFYHOST]= false;
-					$curloptions[CURLOPT_SSL_VERIFYPEER]= true;
+				if ($http == 'https://' && $config['https_test']) {
+					$curloptions[CURLOPT_SSL_VERIFYHOST] = false;
+					$curloptions[CURLOPT_SSL_VERIFYPEER] = true;
 				}
 				if ( ! $useragent_flag) {
-					$curloptions[CURLOPT_USERAGENT]= ' /buran_seo_module';
+					$curloptions[CURLOPT_USERAGENT] = ' /buran_seo_module';
 				}
 
-				$curl= curl_init();
+				$curl = curl_init();
 				curl_setopt_array($curl, $curloptions);
-				$template= $config['curl_auto_redirect']
+				$template = $config['curl_auto_redirect']
 					? curl_exec_followlocation($curl, $donor)
 					: curl_exec($curl);
-				$request_info= curl_getinfo($curl);
-				list($headers, $template)= explode("\n\r", $template, 2);
-				$http_code= $request_info['http_code'];
+				$request_info = curl_getinfo($curl);
+				list($headers, $template) = explode("\n\r", $template, 2);
+				$http_code = $request_info['http_code'];
 				if(curl_errno($curl))
 				{
 					$break = true;
@@ -237,25 +237,24 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				curl_close($curl);
 
 			} elseif ($config['get_content_method'] == 'stream') {
-				$options= array(
+				$options = array(
 					'http' => array(
-						'method'        => 'GET',
-						'header'        => $requestsheaders,
+						'method' => 'GET',
+						'header' => $requestsheaders,
 					)
 				);
 				if( ! $useragent_flag)
-					$options['http']['user_agent']= ' /buran_seo_module';
-				$context= stream_context_create($options);
-				$stream= fopen($donor, 'r', false, $context);
-				if($stream)
-				{
-					$template= stream_get_contents($stream);
-					$headers= stream_get_meta_data($stream);
+					$options['http']['user_agent'] = ' /buran_seo_module';
+				$context = stream_context_create($options);
+				$stream  = fopen($donor, 'r', false, $context);
+				if ($stream) {
+					$template = stream_get_contents($stream);
+					$headers  = stream_get_meta_data($stream);
 					fclose($stream);
-					$headers= $headers['wrapper_data'];
-					$http_code= 200;
+					$headers   = $headers['wrapper_data'];
+					$http_code = 200;
 
-				}else bsm_tolog('[error_23]-'.$requesturi,'errors');
+				} else bsm_tolog('[error_23]-'.$requesturi,'errors');
 			}
 
 			if ($http_code != 200) {
@@ -263,9 +262,9 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				bsm_tolog('[error_24]-'.$requesturi,'errors');
 			}
 
-			$template= trim($template);
+			$template = trim($template);
 			if ($break){}elseif($template) {
-				if ($seotype=='S') {
+				if ($seotype == 'S') {
 					header($protocol .' 200 OK');
 				}
 
@@ -279,32 +278,32 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					}
 				}
 
-				$optfile = $droot.$config['tx_path'].'/'.$seoalias.'.php';
+				$optfile   = $droot.$config['tx_path'].'/'.$seoalias.'.php';
 				$optfile_d = filectime($optfile);
 				@include_once($optfile);
 
 				$st = array(
-					'title' => $title,
+					'title'       => $title,
 					'description' => $description,
-					'keywords' => $keywords,
-					's_title' => $s_title,
-					's_text' => $s_text,
+					'keywords'    => $keywords,
+					's_title'     => $s_title,
+					's_text'      => $s_text,
 				);
 				for ($pic=1; $pic<=99; $pic++) {
 					if ( ! ${'pic'.$pic}) break;
-					$st['pic'.$pic]= ${'pic'.$pic};
+					$st['pic'.$pic] = ${'pic'.$pic};
 				}
 
 				if ($test) {
 					$st['s_text'] = $_POST['seomodule_s_text'];
 				}
 
-				$s_text_multi= is_array($st['s_text']) ? true : false;
+				$s_text_multi = is_array($st['s_text']) ? true : false;
 
-				$encode= $config['in_charset'] === $config['out_charset']
+				$encode = $config['in_charset'] === $config['out_charset']
 					? false
 					: true;
-				$eti= '//TRANSLIT//IGNORE';
+				$eti = '//TRANSLIT//IGNORE';
 
 				foreach ($st AS $txtk => $txt) {
 					if ( ! $encode) break;
@@ -339,8 +338,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				if (is_array($content_finish_my)) {
 					foreach ($content_finish_my AS $cf) {
 						$cftype = substr($cf,0,1);
-						if($cftype !== '@' && $cftype !== '#')
-							$cftype = '%';
+						if ($cftype !== '@' && $cftype !== '#') $cftype = '%';
 						$cf    = substr($cf,1);
 						$cf2   = preg_quote($cf,"/");
 						$cf2   = str_replace("\n", '\n', $cf2);
@@ -349,6 +347,35 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 						$cf_cc = preg_match("/".$cf2."/s", $template);
 						if ($cf_cc===1) break;
 					}
+				}
+
+				if ($requesturi == $website[3]) {
+					$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">';
+					foreach ($seopage AS $key => $row) {
+						$row = explode(':', $row);
+						$row = end($row);
+						if ($key == $website[3]) continue;
+						$img = false;
+						for ($k=1; $k<=10; $k++) {
+							$img = $config['img_path'].'/'.$row.$k.'.jpg';
+							if ( ! file_exists($droot.$img)) continue;
+							if ($config['img_crop']) {
+								$img = bsm_imgcrop($img, $config['img_width'],
+									$config['img_height'], $droot);
+							}
+							break;
+						}
+						@include_once($droot.$config['tx_path'].'/'.$row.'.php');
+						$txt .= '<div class="sssmba_itm">
+							<div class="sssmba_img"><img src="'.$img.'" alt="" /></div>
+							<div class="sssmba_inf">
+								<div class="sssmba_tit"><a href="'.$key.'">'.$s_title.'</a></div>
+								<div class="sssmba_txt">'.$description.'</div>
+							</div>
+						</div>';
+					}
+					$txt .= '</div>';
+					$st['s_text'] .= $txt;
 				}
 
 				if ($cf_cc===1 && $st['s_text']) {
@@ -360,7 +387,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					$imgs = glob($droot.$config['img_path'].'/'.$seoalias.'[0-9]*.{jpg,png}', GLOB_BRACE);
 					if (is_array($imgs)) {
 						foreach ($imgs AS $key => $row) {
-							$crop= str_replace($droot, '', $row);
+							$crop = str_replace($droot, '', $row);
 							if ($config['img_crop']) {
 								$crop = bsm_imgcrop($crop, $config['img_width'],
 									$config['img_height'], $droot);
@@ -374,7 +401,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 
 					$seoimages_cc = count($seoimages);
 					preg_match_all("/\[img\]/U", $st['s_text'], $imgtags);
-					$imgtags= is_array($imgtags) ? count($imgtags[0]) : 0;
+					$imgtags = is_array($imgtags) ? count($imgtags[0]) : 0;
 					if ( ! $imgtags) {
 						$seoimages_cc_1 = floor($seoimages_cc/2);
 						$seoimages_cc_2 = $seoimages_cc - $seoimages_cc_1;
@@ -385,9 +412,9 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					} else {
 						$seoimages_cc_2 = $seoimages_cc - $imgtags;
 					}
-					if ($seoimages_cc_1 == 1) $imgtags= 1;
+					if ($seoimages_cc_1 == 1) $imgtags = 1;
 					if ($seoimages_cc_1) {
-						if ($seoimages_cc_1 > 1){
+						if ($seoimages_cc_1 > 1) {
 							$st['s_text'] = '<div class="sssmb_clr"></div></div>' .$st['s_text'];
 						}
 						for ($ii=1; $ii <= $seoimages_cc_1; $ii++) {
@@ -405,9 +432,9 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 						$st['s_text'] .= '<div class="sssmb_clr"></div></div>';
 					}
 
-					$ii= 0;
+					$ii = 0;
 					do {
-						$img= array_shift($seoimages);
+						$img = array_shift($seoimages);
 
 						if ( ! $img['src']) $imgp = '';
 						else {
@@ -415,13 +442,13 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 							$img['attr'] = $img['alt'].
 								' ('.($ii==1 ? 'рисунок' : 'фото').')';
 							$imgp = '
-	<div class="sssmb_img '.($ii==1?'sssmb_ir':'').' '.($ii<=$imgtags?'sssmb_img1':'sssmb_img2').'">
-		<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
-		<div class="sssmb_bck">
-			<div class="sssmb_ln"></div>
-			<div class="sssmb_alt">'.$img['alt'].'</div>
-		</div>
-	</div>';
+<div class="sssmb_img '.($ii==1?'sssmb_ir':'').' '.($ii<=$imgtags?'sssmb_img1':'sssmb_img2').'">
+	<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
+	<div class="sssmb_bck">
+		<div class="sssmb_ln"></div>
+		<div class="sssmb_alt">'.$img['alt'].'</div>
+	</div>
+</div>';
 						}
 
 						$st['s_text'] = preg_replace("/\[img\]/U",
@@ -429,24 +456,23 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					} while ($cc);
 
 					preg_match_all("/\[col\]/U", $st['s_text'], $coltags);
-					$coltags= is_array($coltags) ? count($coltags[0]) : 0;
-					$ii= 0;
-					do{
-						$ii= $ii == 3 ? 1 : $ii+1;
-						if($ii == 1)
-						{
-							$colp= '<div class="sssmb_clr"></div>
+					$coltags = is_array($coltags) ? count($coltags[0]) : 0;
+					$ii = 0;
+					do {
+						$ii = $ii == 3 ? 1 : $ii+1;
+						if($ii == 1) {
+							$colp = '<div class="sssmb_clr"></div>
 							<div class="sssmb_col sssmb_col_l">';
-						}elseif($ii == 2){
-							$colp= '</div>
+						} elseif ($ii == 2) {
+							$colp = '</div>
 							<div class="sssmb_col sssmb_col_r">';
-						}else{
-							$colp= '</div>
+						} else {
+							$colp = '</div>
 							<div class="sssmb_clr"></div>';
 						}
-						$st['s_text']= preg_replace("/\[col\]/U",
+						$st['s_text'] = preg_replace("/\[col\]/U",
 							$colp, $st['s_text'], 1, $cc);
-					}while($cc);
+					} while ($cc);
 
 					preg_match_all("/\[tab(.*)\]/U", $st['s_text'], $tabtags);
 					if (is_array($tabtags[0])) {
@@ -455,7 +481,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 
 						$first = true;
 						foreach ($tabtags[0] AS $key => $row) {
-							$st['s_text']= str_replace('<p>'.$row.'</p>', $row, $st['s_text']);
+							$st['s_text'] = str_replace('<p>'.$row.'</p>', $row, $st['s_text']);
 
 							if ($key+1 != count($tabtags[0])) {
 								$butt = trim($tabtags[1][$key]);
@@ -482,7 +508,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 						$st['s_text'] = str_replace('[tabs_buttons]', $tabs, $st['s_text']);
 					}
 
-					$body= $config['styles'];
+					$body = $config['styles'];
 
 					if ($hideflag) {
 						$body .= '
@@ -521,45 +547,50 @@ document.onreadystatechange = function(){
 					}
 
 					$body .= '
-	<section id="sssmodulebox" class="sssmodulebox turbocontainer" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-		<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
-		<div class="sssmb_clr">&nbsp;</div>';
+<section id="sssmodulebox" class="sssmodulebox turbocontainer" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
+	<div class="sssmb_clr">&nbsp;</div>';
 
-					if($test)
-						$st['s_title']= $_POST['seomodule_s_title'];
+					if ($test) {
+						$st['s_title'] = $_POST['seomodule_s_title'];
+					}
 
-					if($seotype=='A' || $seotype=='W')
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					if ($seotype == 'A' || $seotype == 'W') {
+						$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 							'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
-					else
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					} else {
+						$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 							'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
 							$template, -1, $hcc);
+					}
 
-					if($hcc >= 2)
-						$template= preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					if ($hcc >= 2) {
+						$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 							'', $template);
+					}
 
-					if($seotype=='A' || $seotype=='W' || ! $hcc)
+					if ($seotype == 'A' || $seotype == 'W' || ! $hcc) {
 						$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+					}
 
 					list($foo_width, $foo_height, $foo_1, $foo_2)
 						= getimagesize($droot.$website[8]);
+
 					$body .= '
-	<div class="sssmb_cinf">
-		<p itemprop="author">Автор: '.$website[7].'</p>
-		<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
-			<meta itemprop="name" content="'.$domain.'" />
-			<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-				<img itemprop="url" itemprop="image" src="'.$website[8].'" />
-				<meta itemprop="width" content="'.$foo_width.'" />
-				<meta itemprop="height" content="'.$foo_height.'" />
-			</div>
+<div class="sssmb_cinf">
+	<p itemprop="author">Автор: '.$website[7].'</p>
+	<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
+		<meta itemprop="name" content="'.$domain.'" />
+		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
+			<img itemprop="url" itemprop="image" src="'.$website[8].'" />
+			<meta itemprop="width" content="'.$foo_width.'" />
+			<meta itemprop="height" content="'.$foo_height.'" />
 		</div>
-		<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($website[6])).'</time></p>
-		<p>Дата изменения: <time itemprop="dateModified">'.date('Y-m-d',$optfile_d).'</time></p>
-		<noindex><p itemprop="headline">'.$st['title'].'</p></noindex>
-	</div>';
+	</div>
+	<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($website[6])).'</time></p>
+	<p>Дата изменения: <time itemprop="dateModified">'.date('Y-m-d',$optfile_d).'</time></p>
+	<noindex><p itemprop="headline">'.$st['title'].'</p></noindex>
+</div>';
 
 					$body .= '<div class="sssmb_stext">';
 
@@ -570,187 +601,178 @@ document.onreadystatechange = function(){
 						$body .= '<div class="yasharebox">'.$config['share_code'].'</div>';
 					$body .= '</section>';
 
-					if($seotype=='A')
-					{
-						$template= preg_replace("/".$cf2."/s",
+					if ($seotype == 'A') {
+						$template = preg_replace("/".$cf2."/s",
 							($cftype=='#'?$cf:'').$body.($cftype=='%'?$cf:''),
 							$template, 1);
 
-					}elseif($seotype=='S' || $seotype=='W'){
-						$content_start_my= $content_start['global'];
-						if(isset($content_start[$website_num]))
-							$content_start_my= array_merge($content_start_my, $content_start[$website_num]);
-						if(is_array($content_start_my))
-						{
-							foreach($content_start_my AS $cs)
-							{
+					} elseif ($seotype == 'S' || $seotype == 'W') {
+						$content_start_my = $content_start['global'];
+						if (isset($content_start[$website_num])) {
+							$content_start_my = array_merge($content_start_my, $content_start[$website_num]);
+						}
+						if (is_array($content_start_my)) {
+							foreach ($content_start_my AS $cs) {
 								$cstype = substr($cs,0,1);
-								if($cstype!=='@' && $cstype!=='#')
-									$cstype= '%';
+								if ($cstype!=='@' && $cstype!=='#') $cstype = '%';
 								$cs     = substr($cs,1);
 								$cs2    = preg_quote($cs,"/");
 								$cs2    = str_replace("\n", '\n', $cs2);
 								$cs2    = str_replace("\r", '', $cs2);
 								$cs2    = str_replace("\t", '\t', $cs2);
 								$cs_cc  = preg_match("/".$cs2."/s", $template);
-								if($cs_cc===1) break;
+								if ($cs_cc===1) break;
 							}
-							if($cs_cc===1)
-							{
-								$template= preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
+							if ($cs_cc===1) {
+								$template = preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
 								
-							}else bsm_tolog('[error_08]-'.$requesturi,'errors');
+							} else bsm_tolog('[error_08]-'.$requesturi,'errors');
 						}
 					}
-				}else bsm_tolog('[error_06]-'.$requesturi,'errors');
+				} else bsm_tolog('[error_06]-'.$requesturi,'errors');
 
 				// meta
-				if($config['meta']=='replace_or_add' ||
-					$config['meta']=='replace_if_exists' ||
-					$config['meta']=='delete')
-				{
-					$meta_title= '<title>'.$st['title'].'</title>';
-					$meta_description= '<meta name="description" content="'.$st['description'].'" />';
-					$meta_keywords= '<meta name="keywords" content="'.$st['keywords'].'" />';
-					if($config['meta']=='replace_or_add')
+				if ($config['meta'] == 'replace_or_add' ||
+					$config['meta'] == 'replace_if_exists' ||
+					$config['meta'] == 'delete') {
+					$meta_title = '<title>'.$st['title'].'</title>';
+					$meta_description = '<meta name="description" content="'.$st['description'].'" />';
+					$meta_keywords = '<meta name="keywords" content="'.$st['keywords'].'" />';
+					if ($config['meta'] == 'replace_or_add')
 						$meta_title .= "\n\t".$meta_description."\n\t".$meta_keywords."\n";
-					if($config['meta']=='delete' ||
-						$config['meta']=='replace_or_add')
-					{
-						if($config['meta']=='delete') $meta_title= '';
-						$meta_description= '';
-						$meta_keywords= '';
+					if ($config['meta'] == 'delete' ||
+						$config['meta'] == 'replace_or_add') {
+						if ($config['meta'] == 'delete') $meta_title = '';
+						$meta_description = '';
+						$meta_keywords = '';
 					}
-					$template= preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template);
-					$template= preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template);
-					$template= preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template);
+					$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template);
+					$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template);
+					$template = preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template);
 				}
 
 				// base
-				if($config['base']=='replace_or_add' ||
-					$config['base']=='replace_if_exists' ||
-					$config['base']=='delete')
-				{
-					$base= '<base href="'.$website[0].'/" />';
-					if($config['base']=='replace_or_add' ||
-						$config['base']=='delete')
-						$template= preg_replace("/<base (.*)>/iU", '', $template,1);
+				if ($config['base'] == 'replace_or_add' ||
+					$config['base'] == 'replace_if_exists' ||
+					$config['base'] == 'delete') {
+					$base = '<base href="'.$website[0].'/" />';
+					if ($config['base'] == 'replace_or_add' ||
+						$config['base'] == 'delete')
+						$template = preg_replace("/<base (.*)>/iU", '', $template,1);
 					
-					if($config['base']=='replace_or_add')
-						$template= preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
+					if ($config['base'] == 'replace_or_add')
+						$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
 					
-					if($config['base']=='replace_if_exists')
-						$template= preg_replace("/<base (.*)>/iU", $base, $template,1);
+					if ($config['base'] == 'replace_if_exists')
+						$template = preg_replace("/<base (.*)>/iU", $base, $template,1);
 				}
 
 				// canonical
-				if($config['canonical']=='replace_or_add' ||
-					$config['canonical']=='replace_if_exists' ||
-					$config['canonical']=='delete')
-				{
-					$canonical= '<link rel="canonical" href="'.$website[0].$requesturi.'" />';
-					if($config['canonical']=='replace_or_add' ||
-						$config['canonical']=='delete')
-						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
+				if ($config['canonical'] == 'replace_or_add' ||
+					$config['canonical'] == 'replace_if_exists' ||
+					$config['canonical'] == 'delete') {
+					$canonical = '<link rel="canonical" href="'.$website[0].$requesturi.'" />';
+					if ($config['canonical'] == 'replace_or_add' ||
+						$config['canonical'] == 'delete')
+						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
 					
-					if($config['canonical']=='replace_or_add')
-						$template= preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
+					if ($config['canonical'] == 'replace_or_add')
+						$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
 					
-					if($config['canonical']=='replace_if_exists')
-						$template= preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
+					if ($config['canonical'] == 'replace_if_exists')
+						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
 					
 				}
 
-				if($config['city_replace'])
-				{
-					$template= preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
+				if ($config['city_replace']) {
+					$template = preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
 					foreach ($declension AS $deklkey => $decl) {
-						$template= preg_replace("/\[city_{$deklkey}\](.*?)\[city\]/U", $decl, $template);
+						$template = preg_replace("/\[city_{$deklkey}\](.*?)\[city\]/U", $decl, $template);
 					}
 				}
 
 				print $template;
 				exit();
 
-			}else bsm_tolog('[error_03]-'.$requesturi,'errors');
-		}else bsm_tolog('[error_01]-'.$requesturi,'errors');
+			} else bsm_tolog('[error_03]-'.$requesturi,'errors');
+		} else bsm_tolog('[error_01]-'.$requesturi,'errors');
 	}
 }
 
 if ('seoModule.php' == basename($pageurl)) {
+	if ( ! bsm_auth($domain, $_GET['w'])) exit();
+
 	if ('list' == $_GET['a']) {
 		header('Content-type: text/html; charset=utf-8');
 
-		$green= '#089c29';
-		$red= '#d41717';
+		$green = '#089c29';
+		$red   = '#d41717';
 
 		print bsm_server().'<br><br>';
 
-		$files= glob($droot.$config['tx_path'].'/'.'*.php');
+		$files = glob($droot.$config['tx_path'].'/'.'*.php');
 		print '<div>Кол-во файлов: '.count($files).'</div><br>';
-		if(is_array($files) && count($files))
-		{
-			foreach($files AS $key => $file)
-			{
-				$filename= basename($file);
+		if (is_array($files) && count($files)) {
+			foreach ($files AS $key => $file) {
+				$filename = basename($file);
 				print '<div>Файл '.($key+1).' | '.$filename;
-				$target= false;
-				$s_text= array();
+				$target = false;
+				$s_text = array();
 				include_once($file);
-				$seotype= ! trim($target) ? 'S' : 'A';
-				if($seotype == 'S')
-					$target= '/'.substr($filename,0,-4) . $config['s_page_suffix'];
+				$seotype = ! trim($target) ? 'S' : 'A';
+				if ($seotype == 'S') {
+					$target = '/'.substr($filename,0,-4) . $config['s_page_suffix'];
+				}
 
 				$pagesurl[$seotype] .= '<div><a style="text-decoration:none;" target="_blank" href="'.$target.'">'.$target.'</a></div>';
 				print '</div>';
 
-				if(strlen($target) > $max)
+				if (strlen($target) > $max) {
 					$max= strlen($target);
+				}
 				$printarray[$seotype] .= "\t\t'{$target}'[".strlen($target)."]=> '{$seotype}:".substr($filename,0,-4)."',\n\n";
 			}
 			print '<div style="font-weight:bold;color:#47ad00;">OK</div>';
 			print '<br>';
 
-			$printarray= $printarray['A'] . $printarray['S'];
+			$printarray = $printarray['A'] . $printarray['S'];
 			preg_match_all("/\[([0-9]+)\]=>/U", $printarray, $matches);
-			if(is_array($matches[1]))
-			{
-				foreach($matches[1] AS $row)
-				{
-					$tmp= $max - $row + 2;
-					$printarray= str_replace('['.$row.']=>', str_repeat(' ',$tmp).'=>', $printarray);
+			if (is_array($matches[1])) {
+				foreach ($matches[1] AS $row) {
+					$tmp = $max - $row + 2;
+					$printarray = str_replace('['.$row.']=>', str_repeat(' ',$tmp).'=>', $printarray);
 				}
 			}
 		}
 
-		$flag= version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
+		$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
 		print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
 
-		$flag= $http.$www.$domain === $website[0] ? true : false;
+		$flag = $http.$www.$domain === $website[0] ? true : false;
 		print '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$http.$www.$domain.' == '.$website[0].'</span></div>';
 
-		$flag= $website[4] ? true : false;
+		$flag = $website[4] ? true : false;
 		print '<div>ID в бункере: <span style="color:'.($flag ? $green : $red).'">'.$website[4].'</span></div>';
 
-		$flag= extension_loaded('gd') ? true : false;
+		$flag = extension_loaded('gd') ? true : false;
 		print '<div>Кроп картинок: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
-		$flag= extension_loaded('iconv') ? true : false;
+		$flag = extension_loaded('iconv') ? true : false;
 		print '<div>Перекодировка текстов: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
-		$flag= extension_loaded('openssl') ? true : false;
+		$flag = extension_loaded('openssl') ? true : false;
 		print '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
 
-		$flag= extension_loaded('curl') && function_exists('curl_init') ? true : false;
+		$flag = extension_loaded('curl') && function_exists('curl_init') ? true : false;
 		print '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
-		$flag= function_exists('stream_get_contents') ? true : false;
+		$flag = function_exists('stream_get_contents') ? true : false;
 		print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		print '<br><br>';
 		print $pagesurl['A'].$pagesurl['S'];
 		print '<br>';
-		print "<pre>\t=array(\n".$printarray."\t);</pre>";
+		print "<pre>\tarray(\n".$printarray."\t);</pre>";
 
 		print '<br><br><br>';
 	}
@@ -844,6 +866,26 @@ if ('seoModule.php' == basename($pageurl)) {
 			unlink($droot.'/_buran/'.$bsm_server);
 		}
 	}
+
+	if ('update' == $_GET['a']) {
+		$url = 'http://bunker-yug.ru/__buran/update/seoModule';
+		$curloptions = array(
+			CURLOPT_URL            => $url,
+			CURLOPT_RETURNTRANSFER => true,
+		);
+		$curl = curl_init();
+		curl_setopt_array($curl, $curloptions);
+		$code = curl_exec($curl);
+		if ( ! $code ||
+			strpos($code, "<?php\n/**\n * seoModule") !== 0)
+			exit();
+		$fh = fopen(__FILE__, 'wb');
+		if ( ! $fh) exit();
+		$res = fwrite($fh, $code);
+		if ( ! $res) exit();
+		fclose($fh);
+		exit('ok');
+	}
 }
 
 /*
@@ -853,11 +895,29 @@ if ('seoModule.php' == basename($pageurl)) {
  *
  */
 // ------------------------------------------------------------------
+function bsm_auth($h, $w)
+{
+	$url = 'http://bunker-yug.ru/__buran/secret_key.php';
+	$url .= '?h='.$h;
+	$url .= '&w='.$w;
+	$curloptions = array(
+		CURLOPT_URL            => $url,
+		CURLOPT_RETURNTRANSFER => true,
+	);
+	$curl = curl_init();
+	curl_setopt_array($curl, $curloptions);
+	$ww = curl_exec($curl);
+	if ($ww && $_GET['w'] && $_GET['w'] == $ww) {
+		return true;
+	}
+	return false;
+}
+
 function bsm_tolog($text, $type='logs')
 {
 	global $logsfile;
-	if($type=='errors') $text= date('Y-m-d-H-i-s-').$text;
-	if(isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
+	if ($type == 'errors') $text = date('Y-m-d-H-i-s-').$text;
+	if (isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
 }
 
 function bsm_seohash($droot, $config, $seopage)
@@ -1025,4 +1085,6 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//------------
