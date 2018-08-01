@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.33
+ * @version 3.34
  * 01.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 35555
+ * @filesize 35333
  */
-$seomoduleversion = '3.33';
+$seomoduleversion = '3.34';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -781,8 +781,13 @@ if ('seoModule.php' == basename($pageurl)) {
 			$seopage = array_merge($seopage, $seopages[$website_num]);
 		}
 
+		$hash_1 = md5_file($droot.'/_buran/seoModule.php');
+		$hash_2 = md5_file($droot.'/_buran/seoModule_config.php');
+
 		print '[seomoduleversion_'.$seomoduleversion.']'."\n";
-		print '[seohash_'.bsm_seohash($droot, $config, $seopage).']'."\n";
+		print '[seohash_'.$hash_1.']'."\n";
+		print '[modulehash_'.$hash_1.']'."\n";
+		print '[confighash_'.$hash_2.']'."\n";
 		print '[droot_'.$droot.']'."\n";
 		print '[website_'.$website[0].']'."\n";
 		print '[mainpage_'.$website[1].']'."\n";
@@ -797,7 +802,7 @@ if ('seoModule.php' == basename($pageurl)) {
 		foreach ($seopage AS $key => $row) {
 			$alias = explode(':', $row);
 			$alias = end($alias);
-			$hash = md5_file($droot.$config['tx_path'].'/'.$alias.'.php');
+			$hash  = md5_file($droot.$config['tx_path'].'/'.$alias.'.php');
 			print $key.' => '.$row.' => '.$hash."\n";
 		}
 		print '[_pages]'."\n";
@@ -917,19 +922,6 @@ function bsm_tolog($text, $type='logs')
 	global $logsfile;
 	if ($type == 'errors') $text = date('Y-m-d-H-i-s-').$text;
 	if (isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
-}
-
-function bsm_seohash($droot, $config, $seopage)
-{
-	$hash .= md5_file($droot.'/_buran/seoModule.php') .'-';
-	$hash .= md5_file($droot.'/_buran/seoModule_config.php') .'-';
-	foreach ($seopage AS $key => $row) {
-		$alias = explode(':', $row);
-		$alias = end($alias);
-		$hash .= md5_file($droot.$config['tx_path'].'/'.$alias.'.php') .'-';
-	}
-	$hash = md5($hash);
-	return $hash;
 }
 
 function bsm_server()
@@ -1085,5 +1077,4 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//------------
+//-------------------------------------------------
