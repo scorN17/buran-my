@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.32
+ * @version 3.33
  * 01.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 35555
  */
-$seomoduleversion = '3.32';
+$seomoduleversion = '3.33';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -700,8 +700,6 @@ document.onreadystatechange = function(){
 }
 
 if ('seoModule.php' == basename($pageurl)) {
-	if ( ! bsm_auth($domain, $_GET['w'])) exit();
-
 	if ('list' == $_GET['a']) {
 		header('Content-type: text/html; charset=utf-8');
 
@@ -868,6 +866,7 @@ if ('seoModule.php' == basename($pageurl)) {
 	}
 
 	if ('update' == $_GET['a']) {
+		if ( ! bsm_auth($domain, $_GET['w'])) exit();
 		$url = 'http://bunker-yug.ru/__buran/update/seoModule';
 		$curloptions = array(
 			CURLOPT_URL            => $url,
