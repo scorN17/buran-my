@@ -79,6 +79,7 @@ $configs= array(
 		'set_header'         => true, // возвращать заголовки
 		'urldecode'          => true, // декодировать адреса
 		'city_replace'       => false, // подставлять город
+		'redirect'           => true, // переадресовывать
 	),
 );
 
