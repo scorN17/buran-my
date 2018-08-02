@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.34
- * 01.08.2018
+ * @version 3.35
+ * 02.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 35333
+ * @filesize 35555
  */
-$seomoduleversion = '3.34';
+$seomoduleversion = '3.35';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -49,6 +49,7 @@ $test = isset($_POST['seomodule_test']) &&
 	isset($_POST['seomodule_s_title']) &&
 	isset($_POST['seomodule_s_text'])
 		? true : false;
+$logsfile = array();
 // ------------------------------------------------------------------
 $website_num = 1;
 foreach ($websites AS $key => $ws) {
@@ -102,10 +103,7 @@ if ($website_num) {
 	}
 }
 // ------------------------------------------------------------------
-if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
-	$logsfile['errors'] = fopen($droot.'/_buran/seoModule_errors', 'a');
-	bsm_tolog('[error_26]','errors');
-} elseif (
+if (
 	$website_num &&
 	basename($pageurl) != 'seoModule.php' &&
 	(
@@ -142,8 +140,6 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 	$seopage_row = trim($seopage[$requesturi]);
 
 	if ($seopage_row) {
-		$logsfile['errors'] = fopen($droot.'/_buran/seoModule_errors', 'a');
-
 		$seopage_row = explode(':', $seopage_row);
 		$seoalias    = end($seopage_row);
 
@@ -192,7 +188,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 
 					$header = $key.': '.$row;
 
-					if (stripos($key, 'user-agent')!==false) {
+					if (stripos($key, 'user-agent') !== false) {
 						$useragent_flag = true;
 						$header .= ' /buran_seo_module';
 					}
@@ -201,7 +197,7 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				}
 			}
 
-			if ($config['get_content_method'] == 'curl') {
+			if ('curl' == $config['get_content_method']) {
 				$curloptions = array(
 					CURLOPT_URL            => $donor,
 					CURLOPT_HTTPHEADER     => $requestsheaders,
@@ -226,25 +222,25 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 				$request_info = curl_getinfo($curl);
 				list($headers, $template) = explode("\n\r", $template, 2);
 				$http_code = $request_info['http_code'];
-				if(curl_errno($curl))
-				{
+				if (curl_errno($curl)) {
 					$break = true;
-					bsm_tolog('[error_22]-'.$requesturi,'errors');
-				}else{
+					bsm_tolog('[10]');
+				} else {
 					$headers = str_replace("\r",'',$headers);
 					$headers = explode("\n", $headers);
 				}
 				curl_close($curl);
 
-			} elseif ($config['get_content_method'] == 'stream') {
+			} elseif ('stream' == $config['get_content_method']) {
 				$options = array(
 					'http' => array(
 						'method' => 'GET',
 						'header' => $requestsheaders,
 					)
 				);
-				if( ! $useragent_flag)
+				if( ! $useragent_flag) {
 					$options['http']['user_agent'] = ' /buran_seo_module';
+				}
 				$context = stream_context_create($options);
 				$stream  = fopen($donor, 'r', false, $context);
 				if ($stream) {
@@ -254,12 +250,12 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					$headers   = $headers['wrapper_data'];
 					$http_code = 200;
 
-				} else bsm_tolog('[error_23]-'.$requesturi,'errors');
+				} else bsm_tolog('[11]');
 			}
 
 			if ($http_code != 200) {
 				$break = true;
-				bsm_tolog('[error_24]-'.$requesturi,'errors');
+				bsm_tolog('[20]');
 			}
 
 			$template = trim($template);
@@ -280,7 +276,11 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 
 				$optfile   = $droot.$config['tx_path'].'/'.$seoalias.'.php';
 				$optfile_d = filectime($optfile);
-				@include_once($optfile);
+				if ( ! (include($optfile))) {
+					bsm_tolog('[21]');
+					print $template;
+					exit();
+				}
 
 				$st = array(
 					'title'       => $title,
@@ -331,24 +331,6 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					$st['s_text'] = $s_text_single;
 				}
 
-				$content_finish_my = $content_finish['global'];
-				if (isset($content_finish[$website_num])) {
-					$content_finish_my = array_merge($content_finish_my, $content_finish[$website_num]);
-				}
-				if (is_array($content_finish_my)) {
-					foreach ($content_finish_my AS $cf) {
-						$cftype = substr($cf,0,1);
-						if ($cftype !== '@' && $cftype !== '#') $cftype = '%';
-						$cf    = substr($cf,1);
-						$cf2   = preg_quote($cf,"/");
-						$cf2   = str_replace("\n", '\n', $cf2);
-						$cf2   = str_replace("\r", '', $cf2);
-						$cf2   = str_replace("\t", '\t', $cf2);
-						$cf_cc = preg_match("/".$cf2."/s", $template);
-						if ($cf_cc===1) break;
-					}
-				}
-
 				if ($requesturi == $website[3]) {
 					$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">';
 					foreach ($seopage AS $key => $row) {
@@ -376,6 +358,24 @@ if ( ! file_exists($droot.'/_buran/'.bsm_server())) {
 					}
 					$txt .= '</div>';
 					$st['s_text'] .= $txt;
+				}
+
+				$content_finish_my = $content_finish['global'];
+				if (isset($content_finish[$website_num])) {
+					$content_finish_my = array_merge($content_finish_my, $content_finish[$website_num]);
+				}
+				if (is_array($content_finish_my)) {
+					foreach ($content_finish_my AS $cf) {
+						$cftype = substr($cf,0,1);
+						if ($cftype !== '@' && $cftype !== '#') $cftype = '%';
+						$cf    = substr($cf,1);
+						$cf2   = preg_quote($cf,"/");
+						$cf2   = str_replace("\n", '\n', $cf2);
+						$cf2   = str_replace("\r", '', $cf2);
+						$cf2   = str_replace("\t", '\t', $cf2);
+						$cf_cc = preg_match("/".$cf2."/s", $template);
+						if ($cf_cc===1) break;
+					}
 				}
 
 				if ($cf_cc===1 && $st['s_text']) {
@@ -626,10 +626,10 @@ document.onreadystatechange = function(){
 							if ($cs_cc===1) {
 								$template = preg_replace("/".$cs2."(.*)".$cf2."/s", ($cstype=='#'?$cs:'').$body.($cftype=='%'?$cf:''), $template,1);
 								
-							} else bsm_tolog('[error_08]-'.$requesturi,'errors');
-						}
+							} else bsm_tolog('[32]');
+						} else bsm_tolog('[31]');
 					}
-				} else bsm_tolog('[error_06]-'.$requesturi,'errors');
+				} else bsm_tolog('[30]');
 
 				// meta
 				if ($config['meta'] == 'replace_or_add' ||
@@ -646,9 +646,12 @@ document.onreadystatechange = function(){
 						$meta_description = '';
 						$meta_keywords = '';
 					}
-					$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template);
-					$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template);
-					$template = preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template);
+					$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $meta_description, $template, 2, $count1);
+					$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $meta_keywords, $template, 2, $count2);
+					$template = preg_replace("/<title>(.*)<\/title>/isU", $meta_title, $template, 2, $count3);
+					if ($count1 !== 1 || $count2 !== 1 || $count3 !== 1) {
+						bsm_tolog('[50]');
+					}
 				}
 
 				// base
@@ -657,14 +660,17 @@ document.onreadystatechange = function(){
 					$config['base'] == 'delete') {
 					$base = '<base href="'.$website[0].'/" />';
 					if ($config['base'] == 'replace_or_add' ||
-						$config['base'] == 'delete')
-						$template = preg_replace("/<base (.*)>/iU", '', $template,1);
-					
-					if ($config['base'] == 'replace_or_add')
-						$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template,1);
-					
-					if ($config['base'] == 'replace_if_exists')
-						$template = preg_replace("/<base (.*)>/iU", $base, $template,1);
+						$config['base'] == 'delete') {
+						$template = preg_replace("/<base (.*)>/iU", '', $template);
+					}
+					if ($config['base'] == 'replace_or_add') {
+						$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template, 2, $count);
+						if ($count !== 1) bsm_tolog('[51]');
+
+					} elseif ($config['base'] == 'replace_if_exists') {
+						$template = preg_replace("/<base (.*)>/iU", $base, $template, 2, $count);
+						if ($count === 2) bsm_tolog('[52]');
+					}
 				}
 
 				// canonical
@@ -673,15 +679,17 @@ document.onreadystatechange = function(){
 					$config['canonical'] == 'delete') {
 					$canonical = '<link rel="canonical" href="'.$website[0].$requesturi.'" />';
 					if ($config['canonical'] == 'replace_or_add' ||
-						$config['canonical'] == 'delete')
-						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template,1);
-					
-					if ($config['canonical'] == 'replace_or_add')
-						$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template,1);
-					
-					if ($config['canonical'] == 'replace_if_exists')
-						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template,1);
-					
+						$config['canonical'] == 'delete') {
+						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
+					}
+					if ($config['canonical'] == 'replace_or_add') {
+						$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template, 2, $count);
+						if ($count !== 1) bsm_tolog('[53]');
+
+					} elseif ($config['canonical'] == 'replace_if_exists') {
+						$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
+						if ($count === 2) bsm_tolog('[54]');
+					}
 				}
 
 				if ($config['city_replace']) {
@@ -694,8 +702,8 @@ document.onreadystatechange = function(){
 				print $template;
 				exit();
 
-			} else bsm_tolog('[error_03]-'.$requesturi,'errors');
-		} else bsm_tolog('[error_01]-'.$requesturi,'errors');
+			} else bsm_tolog('[41]');
+		} else bsm_tolog('[40]');
 	}
 }
 
@@ -917,11 +925,21 @@ function bsm_auth($h, $w)
 	return false;
 }
 
-function bsm_tolog($text, $type='logs')
+function bsm_tolog($text, $type='errors')
 {
+	global $droot;
 	global $logsfile;
-	if ($type == 'errors') $text = date('Y-m-d-H-i-s-').$text;
-	if (isset($logsfile[$type])) fwrite($logsfile[$type], $text."\n");
+	global $requesturi;
+	if ( ! isset($logsfile[$type])) {
+		$file               = $droot.'/_buran/seoModule_'.$type;
+		$logsfile[$type][0] = $file;
+		$logsfile[$type][1] = fopen($file, 'ab');
+	}
+	$data  = time() ."\t";
+	$data .= date('Y-m-d-H-i-s') ."\t";
+	$data .= $text ."\t";
+	$data .= $requesturi;
+	fwrite($logsfile[$type][1], $data."\n");
 }
 
 function bsm_server()
@@ -1076,5 +1094,4 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-------------------------------------------------
+//------------------------------------------
