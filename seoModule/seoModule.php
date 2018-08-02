@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.35
+ * @version 3.4
  * 02.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 35555
+ * @filesize 36000
  */
-$seomoduleversion = '3.35';
+$seomoduleversion = '3.4';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -101,7 +101,7 @@ if ($website_num) {
 		header('Location: '.$website[0].$redirect_to, true, 301);
 		exit();
 	}
-}
+}bsm_tolog('[test]');
 // ------------------------------------------------------------------
 if (
 	$website_num &&
@@ -930,16 +930,34 @@ function bsm_tolog($text, $type='errors')
 	global $droot;
 	global $logsfile;
 	global $requesturi;
-	if ( ! isset($logsfile[$type])) {
-		$file               = $droot.'/_buran/seoModule_'.$type;
-		$logsfile[$type][0] = $file;
-		$logsfile[$type][1] = fopen($file, 'ab');
+	$fh = $logsfile[$type];
+	if ( ! $fh) {
+		$file = $droot.'/_buran/seoModule_'.$type;
+		if (filesize($file) >= 1024*64) {
+			$fh = fopen($file, 'c+b');
+			if ($fh) {
+				fseek($fh, -1024*8, SEEK_END);
+				while ($line = fgets($fh)) {
+					$data .= $line;
+				}
+				$data .= time() ."\t";
+				$data .= date('Y-m-d-H-i-s') ."\t";
+				$data .= '(truncate)' ."\n";
+				ftruncate($fh, 0);
+				rewind($fh);
+				fwrite($fh, $data."\n");
+				fclose($fh);
+			}
+		}
+		$fh = fopen($file, 'ab');
+		if ( ! $fh) return false;
+		$logsfile[$type] = $fh;
 	}
 	$data  = time() ."\t";
 	$data .= date('Y-m-d-H-i-s') ."\t";
 	$data .= $text ."\t";
 	$data .= $requesturi;
-	fwrite($logsfile[$type][1], $data."\n");
+	fwrite($fh, $data."\n");
 }
 
 function bsm_server()
@@ -1094,4 +1112,6 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------
