@@ -5,7 +5,7 @@
  * 02.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 36000
+ * @filesize 36666
  */
 $seomoduleversion = '3.4';
 
@@ -51,25 +51,26 @@ $test = isset($_POST['seomodule_test']) &&
 		? true : false;
 $logsfile = array();
 // ------------------------------------------------------------------
-$website_num = 1;
+$website_num = false;
 foreach ($websites AS $key => $ws) {
 	if (
 		strpos($ws[0].'/', '//'.$domain.'/') ||
 		strpos($ws[0].'/', '//www.'.$domain.'/')
 	) $website_num = $key;
 }
+
 if ($website_num) {
 	$config = $configs['global'];
 	if (isset($configs[$website_num])) {
 		$config = array_merge($config, $configs[$website_num]);
 	}
-	$config['in_charset'] = strtolower($config['in_charset']);
+	$config['in_charset']  = strtolower($config['in_charset']);
 	$config['out_charset'] = strtolower($config['out_charset']);
-
 	$website = $websites[$website_num];
-
 	if ($config['urldecode']) $requesturi = urldecode($requesturi);
+}
 
+if ($config['redirect']) {
 	$redirect = $redirects['global'];
 	if (isset($redirects[$website_num])) {
 		$redirect = array_merge($redirect, $redirects[$website_num]);
@@ -105,7 +106,10 @@ if ($website_num) {
 // ------------------------------------------------------------------
 if (
 	$website_num &&
+	$http.$www.$domain === $website[0] &&
 	basename($pageurl) != 'seoModule.php' &&
+	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module') === false &&
+	file_exists($droot.'/_buran/'.bsm_server()) &&
 	(
 		$config['module_enabled'] === true ||
 		$_SERVER['REMOTE_ADDR'] === $config['module_enabled'] ||
@@ -114,9 +118,8 @@ if (
 		strpos($config['requets_methods'],
 			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false ||
 		$test
-	) &&
-	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module') === false &&
-	file_exists($droot.'/_buran/'.bsm_server())
+	)
+	// не забудь настроить ELSE
 ) {
 	while (preg_match("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
 		$querystring, $matches)===1) {
@@ -705,6 +708,16 @@ document.onreadystatechange = function(){
 			} else bsm_tolog('[41]');
 		} else bsm_tolog('[40]');
 	}
+} elseif (
+	basename($pageurl) != 'seoModule.php' &&
+	strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module') === false &&
+	(
+		strpos($config['requets_methods'],
+			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false ||
+		$test
+	)
+) {
+	bsm_tolog('[01]'); // основная ошибка запуска оптимизации
 }
 
 if ('seoModule.php' == basename($pageurl)) {
@@ -930,6 +943,7 @@ function bsm_tolog($text, $type='errors')
 	global $droot;
 	global $logsfile;
 	global $requesturi;
+	global $website_num;
 	$fh = $logsfile[$type];
 	if ( ! $fh) {
 		$file = $droot.'/_buran/seoModule_'.$type;
@@ -937,9 +951,11 @@ function bsm_tolog($text, $type='errors')
 			$fh = fopen($file, 'c+b');
 			if ($fh) {
 				fseek($fh, -1024*8, SEEK_END);
+				$data = '';
 				while ($line = fgets($fh)) {
 					$data .= $line;
 				}
+				$data .= '['.$website_num.']' ."\t";
 				$data .= time() ."\t";
 				$data .= date('Y-m-d-H-i-s') ."\t";
 				$data .= '(truncate)' ."\n";
@@ -953,7 +969,8 @@ function bsm_tolog($text, $type='errors')
 		if ( ! $fh) return false;
 		$logsfile[$type] = $fh;
 	}
-	$data  = time() ."\t";
+	$data  = '['.$website_num.']' ."\t";
+	$data .= time() ."\t";
 	$data .= date('Y-m-d-H-i-s') ."\t";
 	$data .= $text ."\t";
 	$data .= $requesturi;
@@ -1114,4 +1131,6 @@ function bsm_getallheaders()
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
