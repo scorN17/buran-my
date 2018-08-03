@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.4
- * 02.08.2018
+ * @version 3.5
+ * 03.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 36666
  */
-$seomoduleversion = '3.4';
+$seomoduleversion = '3.5';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -550,7 +550,7 @@ document.onreadystatechange = function(){
 					}
 
 					$body .= '
-<section id="sssmodulebox" class="sssmodulebox turbocontainer" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$config['classname'].'" '.($hideflag?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
 	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$website[0].$requesturi.'" />
 	<div class="sssmb_clr">&nbsp;</div>';
 
@@ -584,6 +584,8 @@ document.onreadystatechange = function(){
 	<p itemprop="author">Автор: '.$website[7].'</p>
 	<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
 		<meta itemprop="name" content="'.$domain.'" />
+		<meta itemprop="telephone" content="'.$website[9].'" />
+		<meta itemprop="address" content="'.addslashes($website[10]).'" />
 		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
 			<img itemprop="url" itemprop="image" src="'.$website[8].'" />
 			<meta itemprop="width" content="'.$foo_width.'" />
@@ -592,10 +594,10 @@ document.onreadystatechange = function(){
 	</div>
 	<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($website[6])).'</time></p>
 	<p>Дата изменения: <time itemprop="dateModified">'.date('Y-m-d',$optfile_d).'</time></p>
-	<noindex><p itemprop="headline">'.$st['title'].'</p></noindex>
+	<noindex><p itemprop="headline" itemprop="description">'.$st['title'].'</p></noindex>
 </div>';
 
-					$body .= '<div class="sssmb_stext">';
+					$body .= '<div class="sssmb_stext" itemprop="articleBody">';
 
 					$body .= $st['s_text'];
 
@@ -1129,8 +1131,4 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
+//-------------------------------------------------
