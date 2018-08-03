@@ -49,6 +49,8 @@ $websites= array(
 		'2011-11-13'                          - Дата публикации
 		''                                    - Наименование организации
 		'/path/name.jpg'                      - Относительный путь к логотипу
+		'+7 000 000-00-00'                    - Телефон с +7
+		'000000, Россия, Ростовская об ...'   - Полный адрес
 	),
 );
 */
@@ -61,12 +63,17 @@ $websites= array(
 		'Ростов-на-Дону',
 		'2017-11-13',
 		'ООО «Наименование»',
-		'/images/logo.png'
+		'/images/logo.png',
+		'+7 918 643-50-25',
+		'352630, Россия, Краснодарский край, г. Белореченск, пер. Химиков, 19',
 	),
 );
 
 $seopages= array(
 	'global' => array(
+		'/articles.html'
+		=> 'S:articles',
+
 		'/xxxxxxxxxxxxxx' 			=> 'A:xxxxxxxxxxxxxx',
 		'/xxxxxxxxxxxxxx' 			=> 'S:xxxxxxxxxxxxxx',
 		'/xxxxxxxxxxxxxx' 			=> 'W:xxxxxxxxxxxxxx',
@@ -98,6 +105,7 @@ $configs= array(
 		'urldecode'          => true, // декодировать адреса
 		'city_replace'       => false, // подставлять город
 		'redirect'           => true, // переадресовывать
+		'classname'          => '', // имя класса для контейнера опимизации
 	),
 );
 
@@ -198,6 +206,9 @@ $configs['global']['styles']= '<style>
 		}
 			.sssmodulebox .sssmb_articles .sssmba_img img {
 				max-width: 100%;
+				border: 1px solid #ddd;
+				border-radius: 3px;
+				padding: 3px;
 			}
 		.sssmodulebox .sssmb_articles .sssmba_inf {
 			flex: 1 1 auto;
