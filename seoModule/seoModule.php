@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.5
- * 03.08.2018
+ * @version 3.51
+ * 06.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 36666
+ * @filesize 37000
  */
-$seomoduleversion = '3.5';
+$seomoduleversion = '3.51';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -304,22 +304,19 @@ if (
 				$s_text_multi = is_array($st['s_text']) ? true : false;
 
 				$encode = $config['in_charset'] === $config['out_charset']
-					? false
-					: true;
+					? false : true;
 				$eti = '//TRANSLIT//IGNORE';
 
 				foreach ($st AS $txtk => $txt) {
 					if ( ! $encode) break;
-					if (is_array($txt)) {
-						foreach ($txt AS $key => $row) {
-							if ($encode)
-								$st[$txtk][$key] = iconv($config['in_charset'],
-									$config['out_charset'].$eti, $row);
-						}
-					} else {
-						if ($encode)
-							$st[$txtk] = iconv($config['in_charset'],
-								$config['out_charset'].$eti, $txt);
+					if ( ! is_array($txt)) {
+						$st[$txtk] = iconv($config['in_charset'],
+							$config['out_charset'].$eti, $txt);
+						continue;
+					}
+					foreach ($txt AS $key => $row) {
+						$st[$txtk][$key] = iconv($config['in_charset'],
+							$config['out_charset'].$eti, $row);
 					}
 				}
 
@@ -340,7 +337,6 @@ if (
 						$row = explode(':', $row);
 						$row = end($row);
 						if ($key == $website[3]) continue;
-						$img = false;
 						for ($k=1; $k<=10; $k++) {
 							$img = $config['img_path'].'/'.$row.$k.'.jpg';
 							if ( ! file_exists($droot.$img)) continue;
@@ -350,9 +346,19 @@ if (
 							}
 							break;
 						}
+						if ( ! file_exists($droot.$img)) $img = false;
+						unset($s_text);
 						@include_once($droot.$config['tx_path'].'/'.$row.'.php');
+						if ($encode) {
+							$description = iconv($config['in_charset'],
+								$config['out_charset'].$eti, $description);
+							$s_title = iconv($config['in_charset'],
+								$config['out_charset'].$eti, $s_title);
+						}
 						$txt .= '<div class="sssmba_itm">
-							<div class="sssmba_img"><img src="'.$img.'" alt="" /></div>
+							<div class="sssmba_img">';
+						if ($img) $txt .= '<img src="'.$img.'" alt="" />';
+						$txt .= '</div>
 							<div class="sssmba_inf">
 								<div class="sssmba_tit"><a href="'.$key.'">'.$s_title.'</a></div>
 								<div class="sssmba_txt">'.$description.'</div>
@@ -1131,4 +1137,5 @@ function bsm_getallheaders()
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-------------------------------------------------
+//-----------------------------------------------
+//--------------------------------------------------
