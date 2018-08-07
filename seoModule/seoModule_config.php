@@ -24,6 +24,7 @@
 [52] | Ошибка base
 [53] | Ошибка canonical
 [54] | Ошибка canonical
+[55] | meta robots noindex|nofollow
 */
 
 // Redirects --------------------------------------------------------
