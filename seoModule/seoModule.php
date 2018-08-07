@@ -1,13 +1,13 @@
 <?php
 /**
  * seoModule
- * @version 3.51
- * 06.08.2018
+ * @version 3.52
+ * 07.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 37000
  */
-$seomoduleversion = '3.51';
+$seomoduleversion = '3.52';
 
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', 'off');
@@ -703,6 +703,10 @@ document.onreadystatechange = function(){
 					}
 				}
 
+				if (preg_match("/<meta (.*)name(.*)robots(.*) content(.*)(noindex|nofollow)(.*)>/isU", $template) === 1) {
+					bsm_tolog('[55]');
+				}
+
 				if ($config['city_replace']) {
 					$template = preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
 					foreach ($declension AS $deklkey => $decl) {
@@ -1136,6 +1140,4 @@ function bsm_getallheaders()
 	return $headers;
 }
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//--------------------------------------------------
+//--------
