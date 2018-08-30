@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.0
- * 29.08.2018
+ * @version 4.01
+ * 30.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 37000
+ * @filesize 38500
  */
 
-$bsm = new buran_seoModule('4.0');
+$bsm = new buran_seoModule('4.01');
 $bsm->init();
 
 if (
@@ -55,6 +55,8 @@ if (
 		$bsm->text_parse();
 		if ($bsm->requesturi == $bsm->c[1]['articles'] && ! $bsm->test) {
 			$bsm->articles_parse();
+		} elseif ($bsm->c[2]['re_linking']) {
+			$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
 		}
 		$bsm->template_parse();
 		$bsm->meta_parse();
@@ -171,9 +173,11 @@ if ('update' == $_GET['a']) {
 	$bsm->htaccess();
 	$code = $_POST['c'];
 	if ( ! in_array($_GET['t'],
-		array('module','config','style','head','body','text'))) {
+		array('module','config','style','head','body','text','imgs'))) {
 		exit('er');
 	}
+	$alias = $_GET['n'];
+	$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
 	switch ($_GET['t']) {
 		case 'module':
 			$code = base64_decode($code);
@@ -198,13 +202,28 @@ if ('update' == $_GET['a']) {
 			$delete_if_null = true;
 			break;
 		case 'text':
-			if ( ! file_exists($bsm->droot.'/_buran/seoModule/t/')) {
-				mkdir($bsm->droot.'/_buran/seoModule/t/', 0755, true);
+			$folder = $bsm->droot.'/_buran/seoModule/t/';
+			if ( ! file_exists($folder)) {
+				mkdir($folder, 0755, true);
 			}
-			$alias = $_GET['n'];
-			$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
-			$file = $bsm->droot.'/_buran/seoModule/t/txt_'.$alias.'.txt';
+			$file = $folder.'txt_'.$alias.'.txt';
 			break;
+		case 'imgs':
+			$folder = $bsm->droot.'/_buran/seoModule/i/';
+			if ( ! file_exists($folder)) {
+				mkdir($folder, 0755, true);
+			}
+			$cc = intval($_POST['fs']);
+			if ( ! $cc) exit('ok');
+			for ($k=1; $k<=$cc; $k++) {
+				$file = $_FILES['f'.$k];
+				$ext = substr($file['name'], strpos($file['name'],'.'));
+				if ($ext != '.jpg' && $ext != '.png') continue;
+				$tofile = $folder.$alias.'_'.$k.$ext;
+				$res = move_uploaded_file($file['tmp_name'], $tofile);
+				if ( ! $res) exit('er');
+			}
+			exit('ok');
 	}
 	if ($delete_if_null && ! $code) {
 		unlink($file);
@@ -332,6 +351,8 @@ class buran_seoModule
 			if ($this->c) {
 				$this->c = base64_decode($this->c);
 				$this->c = unserialize($this->c);
+
+				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
 
 				$this->c[2]['in_charset']  = strtolower($this->c[2]['in_charset']);
 				$this->c[2]['out_charset'] = strtolower($this->c[2]['out_charset']);
@@ -758,12 +779,23 @@ class buran_seoModule
 		}
 	}
 
-	function articles_parse()
+	function articles_parse($alias_start=false, $limit=0)
 	{
 		$imgs = '/_buran/seoModule/i/';
-		$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">';
+		$flag = $alias_start ? true : false;
 		foreach ($this->c[3] AS $alias => $row) {
 			if ($row[0] == $this->c[1]['articles']) continue;
+			if ($flag) {
+				if ($alias == $alias_start) {
+					$flag = false;
+					// $a = array_shift($this->c[3]);
+					// print_r($a);
+				}
+				continue;
+			}
+			if ($alias_start && $limit<=0) break;
+			$limit--;
+			$counter++;
 			$text = $this->seofile($alias);
 			if ( ! $text) continue;
 			for ($k=1; $k<=10; $k++) {
@@ -791,9 +823,19 @@ class buran_seoModule
 					<div class="sssmba_txt">'.$text['description'].'</div>
 				</div>
 			</div>';
+			$counter--;
 		}
-		$txt .= '</div>';
-		$this->seotext['s_text'] .= $txt;
+		if ($txt) {
+			if ($alias_start) {
+				$txt = '<div class="sssmb_h2 sssmb_h2_cols">
+					<div class="col"><h2>Статьи</h2></div>
+					<div class="col rght"><a href="'.$this->c[1]['articles'].'">Все статьи</a></div>
+				</div>'.$txt;
+			}
+			$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">'.$txt.'</div>';
+			$this->seotext['s_text'] .= $txt;
+		}
+		if ($counter) $this->log('[12]');
 	}
 
 	function template_parse()
@@ -1229,4 +1271,9 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// -----------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -----------
