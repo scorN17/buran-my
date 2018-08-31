@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.02
+ * @version 4.03
  * 31.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 39000
  */
 
-$bsm = new buran_seoModule('4.02');
+$bsm = new buran_seoModule('4.03');
 $bsm->init();
 
 if (
@@ -219,8 +219,7 @@ if ('update' == $_GET['a']) {
 				$file = $_FILES['f'.$k];
 				$ext = substr($file['name'], strpos($file['name'],'.'));
 				if ($ext != '.jpg' && $ext != '.png') continue;
-				$tofile = $folder.$alias.'_'.$k.$ext;
-				$res = move_uploaded_file($file['tmp_name'], $tofile);
+				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
 				if ( ! $res) exit('er');
 			}
 			exit('ok');
@@ -1297,4 +1296,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -----------
+// ---------------------------------------
