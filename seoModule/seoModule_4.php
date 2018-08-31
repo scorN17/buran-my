@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.01
- * 30.08.2018
+ * @version 4.02
+ * 31.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
- * @filesize 38500
+ * @filesize 39000
  */
 
-$bsm = new buran_seoModule('4.01');
+$bsm = new buran_seoModule('4.02');
 $bsm->init();
 
 if (
@@ -244,6 +244,12 @@ if ('deactivate' == $_GET['a']) {
 		unlink($module_hash);
 	}
 	exit('ok');
+}
+
+if ('clearlog' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit('er');
+	$type = $_GET['t'];
+	$bsm->log('', $type, true);
 }
 }
 
@@ -1052,11 +1058,22 @@ window.onload = function(){
 
 // ------------------------------------------------------------------
 
-	function log($text, $type='errors')
+	function log($text, $type='errors', $clear=false)
 	{
 		$fh = $this->logs_files[$type];
 		if ( ! $fh) {
 			$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
+			if ($clear) {
+				$fh = fopen($file, 'wb');
+				if ($fh) {
+					$data .= time() ."\t";
+					$data .= date('Y-m-d-H-i-s') ."\t";
+					$data .= '(truncate)' ."\n";
+					fwrite($fh, $data."\n");
+					fclose($fh);
+				}
+				return true;
+			}
 			if (filesize($file) >= 1024*64) {
 				$fh = fopen($file, 'c+b');
 				if ($fh) {
@@ -1076,11 +1093,13 @@ window.onload = function(){
 			if ( ! $fh) return false;
 			$this->logs_files[$type] = $fh;
 		}
-		$data .= time() ."\t";
-		$data .= date('Y-m-d-H-i-s') ."\t";
-		$data .= $text ."\t";
-		$data .= $this->requesturi;
-		fwrite($fh, $data."\n");
+		if ($text) {
+			$data .= time() ."\t";
+			$data .= date('Y-m-d-H-i-s') ."\t";
+			$data .= $text ."\t";
+			$data .= $this->requesturi;
+			fwrite($fh, $data."\n");
+		}
 	}
 
 	function module_hash()
@@ -1271,6 +1290,8 @@ window.onload = function(){
 		return $headers;
 	}
 }
+// ----------------------------------------------
+// ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
