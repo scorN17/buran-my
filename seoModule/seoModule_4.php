@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.03
+ * @version 4.04
  * 31.08.2018
  * DELTA
  * sergey.it@delta-ltd.ru
  * @filesize 39000
  */
 
-$bsm = new buran_seoModule('4.03');
+$bsm = new buran_seoModule('4.04');
 $bsm->init();
 
 if (
@@ -241,7 +241,13 @@ if ('deactivate' == $_GET['a']) {
 	$module_hash = $bsm->droot.'/_buran/seoModule/'.$bsm->module_hash();
 	if (file_exists($module_hash)) {
 		unlink($module_hash);
+		$this->log('[07]');
 	}
+	exit('ok');
+}
+if ('transform' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit('er');
+
 	exit('ok');
 }
 
@@ -451,7 +457,7 @@ class buran_seoModule
 			return false;
 		}
 		$seotext_alias = false;
-		$seotext_tp    = 'a';
+		$seotext_tp    = 's';
 		$seotext_sh    = 's';
 		foreach ($this->c[3] AS $alias => $prms) {
 			if ($this->requesturi == $prms[0]) {
@@ -464,22 +470,8 @@ class buran_seoModule
 
 		if ( ! $seotext_alias) return false;
 		$this->seotext_alias = $seotext_alias;
-
-		if ($this->requesturi == $this->c[1]['articles']) {
-			$text = array(
-				'title'       => 'Статьи',
-				'description' => '',
-				'keywords'    => '',
-				's_title'     => 'Статьи',
-				's_text'      => '',
-			);
-		} else {
-			$text = $this->seofile($seotext_alias);
-			if ( ! $text) {
-				return false;
-			}
-		}
-
+		$text = $this->seofile($seotext_alias);
+		if ( ! $text) return false;
 		$this->seotext = $text;
 
 		$this->seotext_date = date('Y-m-d', filectime($text['file']));
@@ -970,10 +962,6 @@ window.onload = function(){
 			$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/s", $foo, $template, 1);
 		}
 
-		if (preg_match("/<meta (.*)name=(.*)robots(.*) content=(.*)(noindex|nofollow)(.*)>/isU", $template) === 1) {
-			$this->log('[60]');
-		}
-
 		if ($this->c[2]['city_replace']) {
 			$template = preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
 			foreach ($this->declension AS $key => $decl) {
@@ -1081,7 +1069,7 @@ window.onload = function(){
 					while ($line = fgets($fh)) $data .= $line;
 					$data .= time() ."\t";
 					$data .= date('Y-m-d-H-i-s') ."\t";
-					$data .= '(truncate)' ."\n";
+					$data .= '(truncated)' ."\n";
 					ftruncate($fh, 0);
 					rewind($fh);
 					fwrite($fh, $data."\n");
@@ -1296,4 +1284,10 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ---------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ---------------------------
