@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.04
- * 31.08.2018
- * DELTA
- * sergey.it@delta-ltd.ru
- * @filesize 39000
+ * @version 4.05
+ * @date 03.09.2018
+ * @author <sergey.it@delta-ltd.ru>
+ * @copyright 2018 DELTA http://delta-ltd.ru/
+ * @size 40444
  */
 
-$bsm = new buran_seoModule('4.04');
+$bsm = new buran_seoModule('4.05');
 $bsm->init();
 
 if (
@@ -30,41 +30,55 @@ if (
 		$bsm->redirects();
 	}
 
-	$res1 = false;
-	if (strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module') === false) {
+	if (strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seomodule') === false) {
 		$bsm->clear_request();
-		$res1 = $bsm->seotext();
-	}
-	$res2 = false;
-	if ($res1) {
-		$res2 = $bsm->get_content();
-	}
-	$res3 = false;
-	if ($res2) {
-		$res3 = $bsm->get_tag('finish');
-		$res4 = true;
-		if ($res3 && (
-			$bsm->seotext_tp == 'S' ||
-			$bsm->seotext_tp == 'W'
-		)) {
-			$res4 = false;
-			$res4 = $bsm->get_tag('start');
+
+		$output = false;
+		if ($bsm->module_hash) {
+			$seotext = $bsm->seotext();
+		} else {
+			$bsm->log('[02]');
 		}
-	}
-	if ($res3 && $res4) {
-		$bsm->text_parse();
-		if ($bsm->requesturi == $bsm->c[1]['articles'] && ! $bsm->test) {
-			$bsm->articles_parse();
-		} elseif ($bsm->c[2]['re_linking']) {
-			$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
+		$template = false;
+		if ($seotext || $bsm->c[2]['all_pages']) {
+			$template = $bsm->get_content();
 		}
-		$bsm->template_parse();
-		$bsm->meta_parse();
-		$bsm->output_content();
+		$tags = false;
+		if ($template) {
+			$tags = $bsm->get_tag('finish');
+			if ($tags && (
+				$bsm->seotext_tp == 'S' ||
+				$bsm->seotext_tp == 'W'
+			)) {
+				$tags = $bsm->get_tag('start');
+			}
+
+			if ($bsm->c[2]['all_pages']) {
+				$output = true;
+			}
+		}
+		if ($seotext && $tags) {
+			$bsm->text_parse();
+			if ($bsm->requesturi == $bsm->c[1]['articles']) {
+				$bsm->articles_parse();
+			} elseif ($bsm->c[2]['re_linking']) {
+				$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
+			}
+			$bsm->template_parse();
+			$bsm->tdk_parse();
+			$output = true;
+		}
+		if ($output) {
+			if ($bsm->module_hash) {
+				$bsm->meta_parse();
+			}
+			$bsm->head_body_parse();
+			$bsm->output_content();
+		}
 	}
 } elseif (
 	basename($bsm->pageurl) !== 'seoModule.php'
-	&& strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seo_module') === false
+	&& strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seomodule') === false
 	&& (
 		strpos($bsm->c[2]['requets_methods'],
 			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false
@@ -265,6 +279,7 @@ class buran_seoModule
 	public $version;
 
 	public $c = false;
+	public $module_hash = false;
 
 	public $droot;
 	public $website;
@@ -284,7 +299,7 @@ class buran_seoModule
 
 	public $declension;
 
-	public $seotext;
+	public $seotext = false;
 	public $seotext_alias;
 	public $seotext_tp;
 	public $seotext_hide = false;
@@ -300,6 +315,7 @@ class buran_seoModule
 	public $headers;
 	public $tag_s = false;
 	public $tag_f = false;
+	public $code = array();
 
 	public $logs_files;
 
@@ -343,14 +359,17 @@ class buran_seoModule
 				? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL']
 					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1');
 		}
-		if ( ! file_exists($this->droot.'/_buran/seoModule/'.$this->module_hash())) {
-			return;
-		}
 		if (isset($_POST['seomodule_test']) &&
 			isset($_POST['s_title']) && isset($_POST['s_text'])) {
 			$this->test        = true;
 			$this->test_stitle = $_POST['s_title'];
 			$this->test_stext  = $_POST['s_text'];
+		}
+
+		if (file_exists($this->droot.'/_buran/seoModule/'.$this->module_hash())) {
+			$this->module_hash = true;
+		} else {
+			$this->log('[02]');
 		}
 
 		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
@@ -488,15 +507,15 @@ class buran_seoModule
 				? false : $flag);
 		$this->seotext_hide = $flag;
 
-		$this->donor = $this->c[1]['website'];
-		$this->donor .= $this->seotext_tp == 'S'
-			? $this->c[1]['donor'] : $this->requesturi;
-
 		return true;
 	}
 
 	function get_content()
 	{
+		$this->donor = $this->c[1]['website'];
+		$this->donor .= $this->seotext_tp == 'S'
+			? $this->c[1]['donor'] : $this->requesturi;
+
 		$allheaders     = function_exists('getallheaders')
 			? getallheaders() : $this->getallheaders_bsm();
 		$useragent_flag = false;
@@ -521,7 +540,7 @@ class buran_seoModule
 
 				if (stripos($key, 'user-agent') !== false) {
 					$useragent_flag = true;
-					$header .= ' /buran_seo_module';
+					$header .= ' /buran_seomodule';
 				}
 
 				$headers[] = $header;
@@ -542,7 +561,7 @@ class buran_seoModule
 				$curloptions[CURLOPT_SSL_VERIFYPEER] = true;
 			}
 			if ( ! $useragent_flag) {
-				$curloptions[CURLOPT_USERAGENT] = ' /buran_seo_module';
+				$curloptions[CURLOPT_USERAGENT] = ' /buran_seomodule';
 			}
 
 			$curl = curl_init();
@@ -571,7 +590,7 @@ class buran_seoModule
 				)
 			);
 			if( ! $useragent_flag) {
-				$options['http']['user_agent'] = ' /buran_seo_module';
+				$options['http']['user_agent'] = ' /buran_seomodule';
 			}
 			$context = stream_context_create($options);
 			$stream  = fopen($this->donor, 'rb', false, $context);
@@ -581,8 +600,10 @@ class buran_seoModule
 				fclose($stream);
 				$headers_req = $headers_req['wrapper_data'];
 				$http_code   = 200;
-
-			} else $this->log('[21]');
+			} else {
+				$fail = true;
+				$this->log('[21]');
+			}
 		}
 
 		$this->headers = array();
@@ -602,6 +623,17 @@ class buran_seoModule
 		if ($http_code != 200) {
 			$fail = true;
 			$this->log('[30]');
+		}
+
+		if (
+			$http_code == 404
+			&& $this->seotext
+			&& $this->seotext_tp != 'S'
+		) {
+			$this->log('[31]');
+			$this->seotext_tp = 'S';
+			$res = $this->get_content();
+			return $res;
 		}
 
 		if ($fail) {
@@ -970,7 +1002,7 @@ window.onload = function(){
 		}
 	}
 
-	function meta_parse()
+	function tdk_parse()
 	{
 		$template = &$this->template;
 		$st       = $this->seotext;
@@ -996,6 +1028,13 @@ window.onload = function(){
 				$this->log('[61]');
 			}
 		}
+	}
+
+	function meta_parse()
+	{
+		$template = &$this->template;
+		$st       = $this->seotext;
+		$c        = $this->c[2];
 
 		if (in_array($c['base'],
 			array('replace_or_add', 'replace_if_exists', 'delete'))) {
@@ -1028,6 +1067,54 @@ window.onload = function(){
 			} elseif ($c['canonical'] == 'replace_if_exists') {
 				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
 				if ($count === 2) $this->log('[65]');
+			}
+		}
+	}
+
+	function get_code($type)
+	{
+		$type = $type == 'head' ? 'head' : 'body';
+		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
+		$fh = fopen($file, 'rb');
+		if ($fh) {
+			$code = '';
+			while ( ! feof($fh)) $code .= fread($fh, 1024*8);
+			fclose($fh);
+			if ($code) {
+				$code = base64_decode($code);
+				$this->code[$type] = $code;
+				return true;
+			}
+		} else {
+			$this->log('[00]');
+		}
+		return false;
+	}
+
+	function head_body_parse()
+	{
+		$template = &$this->template;
+		$c        = $this->c[2];
+
+		if ($this->c[2]['use_head']) {
+			$head = $this->get_code('head');
+			if ($head) {
+				$head = "\n".'<!--bsm_head_code-->'."\n".$this->code['head']."\n".'</head>';
+				$template = preg_replace("/<\/head>/i", $head, $template, 1, $count);
+				if ( ! $count) {
+					$this->log('[70]');
+				}
+			}
+		}
+
+		if ($this->c[2]['use_body']) {
+			$body = $this->get_code('body');
+			if ($body) {
+				$body = "\n".'<!--bsm_body_code-->'."\n".$this->code['body']."\n".'</body>';
+				$template = preg_replace("/<\/body>/i", $body, $template, 1, $count);
+				if ( ! $count) {
+					$this->log('[71]');
+				}
 			}
 		}
 	}
@@ -1281,13 +1368,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ---------------------------
+// --------------
