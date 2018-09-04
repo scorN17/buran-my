@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.05
- * @date 03.09.2018
+ * @version 4.06
+ * @date 04.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 40444
+ * @size 38000
  */
 
-$bsm = new buran_seoModule('4.05');
+$bsm = new buran_seoModule('4.06');
 $bsm->init();
 
 if (
@@ -267,8 +267,8 @@ if ('transform' == $_GET['a']) {
 
 if ('clearlog' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
-	$type = $_GET['t'];
-	$bsm->log('', $type, true);
+	$bsm->log('', $_GET['t'], true);
+	exit('ok');
 }
 }
 
@@ -384,10 +384,11 @@ class buran_seoModule
 
 				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
 
-				$this->c[2]['in_charset']  = strtolower($this->c[2]['in_charset']);
 				$this->c[2]['out_charset'] = strtolower($this->c[2]['out_charset']);
-				$this->encode = $this->c[2]['in_charset'] === $this->c[2]['out_charset']
-					? false : true;
+				$this->encode = $this->c[2]['out_charset']
+					&& $this->c[2]['out_charset'] != 'utf-8'
+					&& $this->c[2]['out_charset'] != 'utf8'
+					? true : false;
 				$this->encode_e = '//TRANSLIT//IGNORE';
 
 				if ($this->c[2]['urldecode']) {
@@ -395,6 +396,8 @@ class buran_seoModule
 				}
 
 				$this->declension = $this->c[7][$this->c[1]['city']];
+
+				$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
 			}
 		}
 	}
@@ -686,12 +689,12 @@ class buran_seoModule
 		if ($this->encode) {
 			foreach ($st AS $txtk => $txt) {
 				if ( ! is_array($txt)) {
-					$st[$txtk] = iconv($this->c[2]['in_charset'],
+					$st[$txtk] = iconv('utf-8',
 						$this->c[2]['out_charset'].$this->encode_e, $txt);
 					continue;
 				}
 				foreach ($txt AS $key => $row) {
-					$st[$txtk][$key] = iconv($this->c[2]['in_charset'],
+					$st[$txtk][$key] = iconv('utf-8',
 						$this->c[2]['out_charset'].$this->encode_e, $row);
 				}
 			}
@@ -705,13 +708,9 @@ class buran_seoModule
 		$st['s_img_f'] = array();
 		if (is_array($imgs)) {
 			foreach ($imgs AS $key => $row) {
-				$crop = str_replace($this->droot, '', $row);
-				if ($this->c[2]['img_crop']) {
-					$crop = $this->imgcrop($crop, $this->c[2]['img_width'],
-						$this->c[2]['img_height']);
-				}
+				$img = str_replace($this->droot, '', $row);
 				$st['s_img_f'][] = array(
-					'src' => $crop,
+					'src' => $img,
 					'alt' => $st['s_img'][$key],
 				);
 			}
@@ -817,8 +816,6 @@ class buran_seoModule
 			if ($flag) {
 				if ($alias == $alias_start) {
 					$flag = false;
-					// $a = array_shift($this->c[3]);
-					// print_r($a);
 				}
 				continue;
 			}
@@ -829,18 +826,13 @@ class buran_seoModule
 			if ( ! $text) continue;
 			for ($k=1; $k<=10; $k++) {
 				$img = $imgs.$alias.'_'.$k.'.jpg';
-				if ( ! file_exists($this->droot.$img)) continue;
-				if ($this->c[2]['img_crop']) {
-					$img = $this->imgcrop($img, $this->c[2]['img_width'],
-						$this->c[2]['img_height']);
-				}
-				break;
+				if (file_exists($this->droot.$img)) break;
+				$img = false;
 			}
-			if ( ! file_exists($this->droot.$img)) $img = false;
 			if ($this->encode) {
-				$text['description'] = iconv($this->c[2]['in_charset'],
+				$text['description'] = iconv('utf-8',
 					$this->c[2]['out_charset'].$this->encode_e, $text['description']);
-				$text['s_title'] = iconv($this->c[2]['in_charset'],
+				$text['s_title'] = iconv('utf-8',
 					$this->c[2]['out_charset'].$this->encode_e, $text['s_title']);
 			}
 			$txt .= '<div class="sssmba_itm">
@@ -1134,6 +1126,12 @@ window.onload = function(){
 
 	function log($text, $type='errors', $clear=false)
 	{
+		if ($this->c[2]['ignore_errors'] && $type == 'errors' && ! $clear) {
+			$foo = str_replace(array('[',']'), '', $text);
+			if (stripos(','.$this->c[2]['ignore_errors'].',', ','.$foo.',') !== false) {
+				return;
+			}
+		}
 		$fh = $this->logs_files[$type];
 		if ( ! $fh) {
 			$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
@@ -1250,76 +1248,6 @@ window.onload = function(){
 		return $response;
 	}
 
-	function imgcrop($img, $w, $h)
-	{
-		$w = intval($w);
-		$h = intval($h);
-		$img = trim(urldecode($img));
-		$slashflag = strpos($img, '/')===0 ? true : false;
-		if ($slashflag) $img = ltrim($img, '/');
-		$root = $this->droot.'/';
-		if ( ! file_exists($root.$img) || ! is_file($root.$img)) return false;
-		$imgrassh = substr($img, strrpos($img,'.'));
-		$newimg = '_th'.md5($img.$w.$h).$imgrassh;
-		$newimg_dir = dirname($img).'/th/';
-		if ( ! file_exists($root.$newimg_dir)) mkdir($root.$newimg_dir, 0755);
-		$newimg_path = $root.$newimg_dir.$newimg;
-		$newimg_path_return = ($slashflag?'/':'').$newimg_dir.$newimg;
-		if ( ! file_exists($newimg_path) || filectime($root.$img)>filectime($newimg_path)) $refresh = true;
-		if (filesize($root.$img)>1024*1024*10) return $img;
-		//------------------------
-		if($refresh)
-		{
-			$img1_info = getimagesize($root.$img);
-			$srcW= $img1_info[0];
-			$srcH= $img1_info[1];
-			if( ! $srcH) return false;
-			$ot= $srcW /$srcH;
-			$dstW= ($w >0 ? $w : $srcW);
-			$dstH= ($h >0 ? $h : $srcH);
-			if(($srcW>$w && $w>0) || ($srcH>$h && $h>0))
-			{
-				$dstH= round($dstW /$ot);
-				if($dstH>$h && $h>0)
-				{
-					$dstH= $h;
-					$dstW= round($dstH *$ot);
-				}
-			}else{
-				$dstW= $srcW;
-				$dstH= $srcH;
-			}
-			$crW= $dstW;
-			$crH= $dstH;
-			//----------------
-			if($img1_info[2] ==1) $img1= imagecreatefromgif($root.$img);
-			elseif($img1_info[2] ==2) $img1= imagecreatefromjpeg($root.$img);
-			elseif($img1_info[2] ==6) $img1= imagecreatefromwbmp($root.$img);
-			elseif($img1_info[2] ==3){ $img1= imagecreatefrompng($root.$img); $png= true; }
-			$img2= ImageCreateTrueColor($crW, $crH);
-			if($png)
-			{
-				imagealphablending($img2, true);
-				imagesavealpha($img2, true);
-				$col= imagecolorallocatealpha($img2, 255,255,255,127);
-			}else{
-				$col= imagecolorallocate($img2, 255,255,255);
-			}
-			imagefill($img2, 0,0, $col);
-			imagecopyresampled($img2, $img1, 0,0,0,0, $dstW,$dstH, $srcW,$srcH);
-			//------
-			if($png) imagepng($img2, $newimg_path);
-			elseif($img1_info[2] == 1) imagegif($img2, $newimg_path, 80);
-			elseif($img1_info[2] == 2) imagejpeg($img2, $newimg_path, 80);
-			elseif($img1_info[2] == 6) imagewbmp($img2, $newimg_path);
-				
-			chmod($newimg_path, 0755);
-			imagedestroy($img1);
-			imagedestroy($img2);
-		}
-		return $newimg_path_return;
-	}
-
 	/**
 	 * https://github.com/ralouphie/getallheaders
 	 * 23.12.2016
@@ -1368,4 +1296,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// --------------
+// --------------------------------------------
