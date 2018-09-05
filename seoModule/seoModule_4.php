@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.06
- * @date 04.09.2018
+ * @version 4.07
+ * @date 05.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 38000
+ * @size 40000
  */
 
-$bsm = new buran_seoModule('4.06');
+$bsm = new buran_seoModule('4.07');
 $bsm->init();
 
 if (
@@ -30,7 +30,7 @@ if (
 		$bsm->redirects();
 	}
 
-	if (strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seomodule') === false) {
+	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
 		$bsm->clear_request();
 
 		$output = false;
@@ -58,11 +58,13 @@ if (
 			}
 		}
 		if ($seotext && $tags) {
-			$bsm->text_parse();
-			if ($bsm->requesturi == $bsm->c[1]['articles']) {
-				$bsm->articles_parse();
-			} elseif ($bsm->c[2]['re_linking']) {
-				$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
+			if ( ! $bsm->seotext_cache) {
+				$bsm->text_parse();
+				if ($bsm->requesturi == $bsm->c[1]['articles']) {
+					$bsm->articles_parse();
+				} elseif ($bsm->c[2]['re_linking']) {
+					$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
+				}
 			}
 			$bsm->template_parse();
 			$bsm->tdk_parse();
@@ -78,7 +80,7 @@ if (
 	}
 } elseif (
 	basename($bsm->pageurl) !== 'seoModule.php'
-	&& strpos($_SERVER['HTTP_USER_AGENT'], 'buran_seomodule') === false
+	&& strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false
 	&& (
 		strpos($bsm->c[2]['requets_methods'],
 			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false
@@ -151,11 +153,18 @@ if ('info' == $_GET['a']) {
 	$hash_1 = md5_file($bsm->droot.'/_buran/seoModule.php');
 	$hash_2 = md5_file($bsm->droot.'/_buran/seoModule/config_'.$bsm->domain_h.'.txt');
 	$hash_3 = md5_file($bsm->droot.'/_buran/seoModule/style_'.$bsm->domain_h.'.css');
+	$hash_4 = md5_file($bsm->droot.'/_buran/seoModule/head_'.$bsm->domain_h.'.txt');
+	$hash_5 = md5_file($bsm->droot.'/_buran/seoModule/body_'.$bsm->domain_h.'.txt');
+
+	if (isset($_GET['pre'])) print '<pre>';
 
 	print '[seomoduleversion_'.$bsm->version.']'."\n";
 	print '[modulehash_'.$hash_1.']'."\n";
 	print '[confighash_'.$hash_2.']'."\n";
 	print '[stylehash_'.$hash_3.']'."\n";
+	print '[headhash_'.$hash_4.']'."\n";
+	print '[bodyhash_'.$hash_5.']'."\n";
+	print '[datetime_'.date('d.m.Y, H:i:s').']'."\n";
 	print '[droot_'.$bsm->droot.']'."\n";
 	print '[incfiles_]'."\n";
 	print $incfiles_hash;
@@ -300,15 +309,14 @@ class buran_seoModule
 	public $declension;
 
 	public $seotext = false;
+	public $seotext_cache = false;
 	public $seotext_alias;
 	public $seotext_tp;
 	public $seotext_hide = false;
 	public $seotext_date;
-	public $seotext_multi = false;
 	public $donor;
 	public $encode;
 	public $encode_e;
-	public $tabs = false;
 
 	public $template;
 	public $body;
@@ -383,6 +391,7 @@ class buran_seoModule
 				$this->c = unserialize($this->c);
 
 				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
+				$this->c[2]['use_cache']  = intval($this->c[2]['use_cache']);
 
 				$this->c[2]['out_charset'] = strtolower($this->c[2]['out_charset']);
 				$this->encode = $this->c[2]['out_charset']
@@ -445,74 +454,6 @@ class buran_seoModule
 		}
 	}
 
-	function seofile($alias)
-	{
-		$file = $this->droot.'/_buran/seoModule/t/txt_'.$alias.'.txt';
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) {
-			$this->log('[10]');
-			return false;
-		}
-		$text = '';
-		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
-		fclose($fh);
-		$text = base64_decode($text);
-		$text = unserialize($text);
-		$text['file'] = $file;
-		if (
-			! is_array($text)
-			|| ! isset($text['title'])
-			|| ! isset($text['description'])
-			|| ! isset($text['keywords'])
-			|| ! isset($text['s_title'])
-			|| ! isset($text['s_text'])
-		) {
-			$this->log('[11]');
-			return false;
-		}
-		return $text;
-	}
-
-	function seotext()
-	{
-		if ( ! is_array($this->c[3])) {
-			return false;
-		}
-		$seotext_alias = false;
-		$seotext_tp    = 's';
-		$seotext_sh    = 's';
-		foreach ($this->c[3] AS $alias => $prms) {
-			if ($this->requesturi == $prms[0]) {
-				$seotext_alias = $alias;
-				$seotext_tp    = $prms[1];
-				$seotext_sh    = $prms[2];
-				break;
-			}
-		}
-
-		if ( ! $seotext_alias) return false;
-		$this->seotext_alias = $seotext_alias;
-		$text = $this->seofile($seotext_alias);
-		if ( ! $text) return false;
-		$this->seotext = $text;
-
-		$this->seotext_date = date('Y-m-d', filectime($text['file']));
-
-		$this->seotext_tp = $seotext_tp=='a'?'A':($seotext_tp=='w'?'W':'S');
-
-		$flag = $this->c['hide_opt'] === '1'
-			? true : ($this->c['hide_opt'] === '0'
-				? false
-				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
-					? true : false));
-		$flag = $seotext_sh === 'h'
-			? true : ($seotext_sh === 's'
-				? false : $flag);
-		$this->seotext_hide = $flag;
-
-		return true;
-	}
-
 	function get_content()
 	{
 		$this->donor = $this->c[1]['website'];
@@ -543,7 +484,7 @@ class buran_seoModule
 
 				if (stripos($key, 'user-agent') !== false) {
 					$useragent_flag = true;
-					$header .= ' /buran_seomodule';
+					$header .= ' BuranSeoModule/'.$this->version;
 				}
 
 				$headers[] = $header;
@@ -564,7 +505,7 @@ class buran_seoModule
 				$curloptions[CURLOPT_SSL_VERIFYPEER] = true;
 			}
 			if ( ! $useragent_flag) {
-				$curloptions[CURLOPT_USERAGENT] = ' /buran_seomodule';
+				$curloptions[CURLOPT_USERAGENT] = ' BuranSeoModule/'.$this->version;
 			}
 
 			$curl = curl_init();
@@ -593,7 +534,7 @@ class buran_seoModule
 				)
 			);
 			if( ! $useragent_flag) {
-				$options['http']['user_agent'] = ' /buran_seomodule';
+				$options['http']['user_agent'] = ' BuranSeoModule/'.$this->version;
 			}
 			$context = stream_context_create($options);
 			$stream  = fopen($this->donor, 'rb', false, $context);
@@ -676,10 +617,119 @@ class buran_seoModule
 		return false;
 	}
 
+	function seofile($alias, $cache=true)
+	{
+		$folder = $this->droot.'/_buran/seoModule/';
+		$file   = 'txt_'.$alias.'.txt';
+
+		if ( ! $this->c[2]['use_cache']) {
+			$cache = false;
+		}
+		$ft_o = $this->filetime($folder.'t/'.$file);
+		$ft_c = $this->filetime($folder.'c/'.$file);
+		if ($cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_o) {
+			$file = $folder.'c/'.$file;
+			$this->seotext_cache = true;
+		} else {
+			$file = $folder.'t/'.$file;
+		}
+
+		$fh = fopen($file, 'rb');
+		if ( ! $fh) {
+			if ( ! $this->seotext_cache) {
+				$this->log('[10]');
+			}
+			return false;
+		}
+		$text = '';
+		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
+		fclose($fh);
+		$text = base64_decode($text);
+		$text = unserialize($text);
+		if ( ! $text['file']) {
+			$text['file'] = $file;
+		}
+		if (
+			! is_array($text)
+			|| ! isset($text['title'])
+			|| ! isset($text['description'])
+			|| ! isset($text['keywords'])
+			|| ! isset($text['s_title'])
+			|| ! isset($text['s_text'])
+		) {
+			if ( ! $this->seotext_cache) {
+				$this->log('[11]');
+			}
+			return false;
+		}
+		return $text;
+	}
+
+	function seotext()
+	{
+		if ( ! is_array($this->c[3])) {
+			return false;
+		}
+		$seotext_alias = false;
+		$seotext_tp    = 's';
+		$seotext_sh    = 's';
+		foreach ($this->c[3] AS $alias => $prms) {
+			if ($this->requesturi == $prms[0]) {
+				$seotext_alias = $alias;
+				$seotext_tp    = $prms[1];
+				$seotext_sh    = $prms[2];
+				break;
+			}
+		}
+		if ( ! $seotext_alias) return false;
+		$this->seotext_alias = $seotext_alias;
+
+		$text = $this->seofile($seotext_alias);
+		if ( ! $text && $this->seotext_cache) {
+			$text = $this->seofile($seotext_alias, false);
+		}
+		if ( ! $text) return false;
+
+		$this->seotext = $text;
+
+		$this->seotext_date = date('Y-m-d', filectime($text['file']));
+
+		$this->seotext_tp = $seotext_tp=='a'?'A':($seotext_tp=='w'?'W':'S');
+
+		$flag = $this->c['hide_opt'] === '1'
+			? true : ($this->c['hide_opt'] === '0'
+				? false
+				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
+					? true : false));
+		$flag = $seotext_sh === 'h'
+			? true : ($seotext_sh === 's'
+				? false : $flag);
+		$this->seotext_hide = $flag;
+
+		return true;
+	}
+
+	function seotext_cache($alias, $text)
+	{
+		$folder = $this->droot.'/_buran/seoModule/c/';
+		if ( ! file_exists($folder)) {
+			mkdir($folder, 0755, true);
+		}
+		$file = $folder.'txt_'.$alias.'.txt';
+		$text['cache'] = time();
+		$text = serialize($text);
+		$text = base64_encode($text);
+		$fh   = fopen($file, 'wb');
+		if ( ! $fh) return false;
+		$res = fwrite($fh, $text);
+		if ($res === false) return false;
+		fclose($fh);
+		return true;
+	}
+
 	function text_parse()
 	{
-		$template = &$this->template;
-		$st       = &$this->seotext;
+		$st = &$this->seotext;
 
 		if ($this->test) {
 			$st['s_title'] = $this->test_stitle;
@@ -699,6 +749,9 @@ class buran_seoModule
 				}
 			}
 		}
+
+		$st['flag_multitext'] = strpos($st['s_text'], '[part]') !== false
+			? true : false;
 
 		$st['s_text'] = str_replace('<p>[img]</p>', '[img]', $st['s_text']);
 		$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
@@ -742,9 +795,10 @@ class buran_seoModule
 			}
 		}
 		if ($flag_dopimgs) {
-			$st['s_text'] .= '</div>'; //.sssmb_dopimgs
+			$st['s_text'] .= '</div>';
 		}
 		$st['s_text'] = str_replace('[img]', '', $st['s_text']);
+		unset($st['s_img_f']);
 
 		$i = 0;
 		do {
@@ -764,7 +818,7 @@ class buran_seoModule
 
 		preg_match_all("/\[tab(.*)\]/U", $st['s_text'], $tabtags);
 		if (is_array($tabtags[0])) {
-			$this->tabs = true;
+			$st['flag_tabs'] = true;
 			$tabs = '';
 			$first = true;
 			foreach ($tabtags[0] AS $key => $row) {
@@ -787,23 +841,6 @@ class buran_seoModule
 				$st['s_text'] = str_replace($row, $replace, $st['s_text']);
 			}
 			$st['s_text'] = str_replace('[tabs_buttons]', $tabs, $st['s_text']);
-		}
-
-		$this->seotext_multi = strpos($st['s_text'], '[part]') !== false
-			? true : false;
-		if ($this->seotext_multi) {
-			$st['s_text'] = explode('[part]', $st['s_text']);
-		}
-		if ($this->seotext_multi) {
-			$s_text_single = '';
-			foreach ($st['s_text'] AS $key => $row) {
-				$row = trim($row);
-				$foo = "<\!--bsm_start_".($key+1)."-->(.*)<!--bsm_finish_".($key+1)."-->";
-				$template = preg_replace("/".$foo."/s", $row,
-					$template, 1, $matches);
-				if ( ! $matches) $s_text_single .= $row;
-			}
-			$st['s_text'] = $s_text_single;
 		}
 	}
 
@@ -864,6 +901,24 @@ class buran_seoModule
 		$template = &$this->template;
 		$body     = &$this->body;
 		$st       = $this->seotext;
+print_r($st);
+		if ( ! $st['cache'] && $this->c[2]['use_cache']) {
+			$this->seotext_cache($this->seotext_alias, $st);
+		}
+
+		if ($st['flag_multitext']) {
+			$st['s_text'] = explode('[part]', $st['s_text']);
+			$s_text_single = '';
+			foreach ($st['s_text'] AS $key => $row) {
+				$row = trim($row);
+				$foo = "<\!--bsm_start_".($key+1)."-->(.*)";
+				$foo .= "<!--bsm_finish_".($key+1)."-->";
+				$template = preg_replace("/".$foo."/s", $row,
+					$template, 1, $matches);
+				if ( ! $matches) $s_text_single .= $row;
+			}
+			$st['s_text'] = $s_text_single;
+		}
 
 		$body = '<link rel="stylesheet" href="/_buran/seoModule/style_'.$this->domain_h.'.css" />';
 
@@ -879,7 +934,7 @@ class buran_seoModule
 <article onclick="sssmb_chpoktext()">&rarr;</article>';
 		}
 
-		if ($this->tabs) {
+		if ($st['flag_tabs']) {
 			$body .= '
 <script>
 document.onreadystatechange = function(){
@@ -1179,6 +1234,16 @@ window.onload = function(){
 		return md5(__FILE__);
 	}
 
+	function filetime($file, $type='c')
+	{
+		switch ($type) {
+			case 'a': $time = fileatime($file); break;
+			case 'm': $time = filemtime($file); break;
+			default: $time = filectime($file);
+		}
+		return $time ? $time : false;
+	}
+
 	function htaccess()
 	{
 		$htaccess  = '<FilesMatch "\.txt$">'. "\n";
@@ -1296,4 +1361,8 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// --------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------
