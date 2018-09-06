@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.43
- * 01.08.2018
+ * @version 1.44
+ * 06.09.2018
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -421,7 +421,7 @@ br {
 
 class BURAN
 {
-	public $version = '1.43';
+	public $version = '1.44';
 
 	public $conf = array(
 		'maxtime'   => 27,
@@ -432,8 +432,8 @@ class BURAN
 		'flag_files_backup'        => true,
 		'files_backup_maxpartsize' => 262144000, //1024*1024*250
 
-		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/',
-		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/',
+		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/.tpl/',
+		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/.tpl/',
 	);
 
 	public $time_start;
@@ -1474,3 +1474,5 @@ class BURAN
 		fclose($h);
 	}
 }
+// ----------------------------------------------
+// -------------
