@@ -1,21 +1,21 @@
 <?php
 /**
  * seoModule
- * @version 4.07
- * @date 05.09.2018
+ * @version 4.08
+ * @date 10.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 40000
  */
 
-$bsm = new buran_seoModule('4.07');
+$bsm = new buran_seoModule('4.08');
 $bsm->init();
 
 if (
 	$bsm->c
 	&& basename($bsm->pageurl) !== 'seoModule.php'
 	&& (
-		$bsm->c[2]['module_enabled']
+		$bsm->c[2]['module_enabled'] === '1'
 		|| $_SERVER['REMOTE_ADDR'] === $bsm->c[2]['module_enabled']
 		|| $bsm->test
 	)
@@ -135,9 +135,13 @@ if ('info' == $_GET['a']) {
 		foreach ($files AS $file) {
 			$file = trim($file);
 			if ( ! $file) continue;
+			if ( ! file_exists($bsm->droot.$file)) {
+				$bsm->log('[05]');
+				continue;
+			}
 			$fh = fopen($bsm->droot.$file, 'rb');
 			if ( ! $fh) {
-				$bsm->log('[05]');
+				$bsm->log('[05.2]');
 				continue;
 			}
 			$incfiles_hash .= md5_file($bsm->droot.$file).' : '.$file."\n";
@@ -264,7 +268,7 @@ if ('deactivate' == $_GET['a']) {
 	$module_hash = $bsm->droot.'/_buran/seoModule/'.$bsm->module_hash();
 	if (file_exists($module_hash)) {
 		unlink($module_hash);
-		$this->log('[07]');
+		$bsm->log('[07]');
 	}
 	exit('ok');
 }
@@ -276,7 +280,7 @@ if ('transform' == $_GET['a']) {
 
 if ('clearlog' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
-	$bsm->log('', $_GET['t'], true);
+	$bsm->log('', '', $_GET['t'], true);
 	exit('ok');
 }
 }
@@ -566,7 +570,9 @@ class buran_seoModule
 
 		if ($http_code != 200) {
 			$fail = true;
-			$this->log('[30]');
+			if ($this->seotext_alias) {
+				$this->log('[30]');
+			}
 		}
 
 		if (
@@ -757,14 +763,20 @@ class buran_seoModule
 		$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 		$st['s_text'] = str_replace('<p>[part]</p>', '[part]', $st['s_text']);
 
-		$imgs = glob($this->droot.'/_buran/seoModule/i/'.$this->seotext_alias.'_[0-9]*.{jpg,png}', GLOB_BRACE);
 		$st['s_img_f'] = array();
-		if (is_array($imgs)) {
-			foreach ($imgs AS $key => $row) {
-				$img = str_replace($this->droot, '', $row);
+		if (is_array($st['s_img'])) {
+			foreach ($st['s_img'] AS $key => $row) {
+				$img = '/_buran/seoModule/i/'.$this->seotext_alias.'_'.($key+1);
+				if (file_exists($this->droot.$img.'.jpg')) {
+					$img .= '.jpg';
+				} elseif (file_exists($this->droot.$img.'.png')) {
+					$img .= '.png';
+				} else {
+					continue;
+				}
 				$st['s_img_f'][] = array(
 					'src' => $img,
-					'alt' => $st['s_img'][$key],
+					'alt' => $row,
 				);
 			}
 		}
@@ -911,7 +923,7 @@ class buran_seoModule
 			$s_text_single = '';
 			foreach ($st['s_text'] AS $key => $row) {
 				$row = trim($row);
-				$foo = "<\!--bsm_start_".($key+1)."-->(.*)";
+				$foo = "<!--bsm_start_".($key+1)."-->(.*)";
 				$foo .= "<!--bsm_finish_".($key+1)."-->";
 				$template = preg_replace("/".$foo."/s", $row,
 					$template, 1, $matches);
@@ -1096,7 +1108,7 @@ window.onload = function(){
 
 			} elseif ($c['base'] == 'replace_if_exists') {
 				$template = preg_replace("/<base (.*)>/iU", $base, $template, 2, $count);
-				if ($count === 2) $this->log('[63]');
+				if ($count === 2) $this->log('[62.2]');
 			}
 		}
 
@@ -1113,7 +1125,7 @@ window.onload = function(){
 
 			} elseif ($c['canonical'] == 'replace_if_exists') {
 				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
-				if ($count === 2) $this->log('[65]');
+				if ($count === 2) $this->log('[64.2]');
 			}
 		}
 	}
@@ -1122,6 +1134,7 @@ window.onload = function(){
 	{
 		$type = $type == 'head' ? 'head' : 'body';
 		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
+		if ( ! file_exists($file)) return false;
 		$fh = fopen($file, 'rb');
 		if ($fh) {
 			$code = '';
@@ -1132,8 +1145,6 @@ window.onload = function(){
 				$this->code[$type] = $code;
 				return true;
 			}
-		} else {
-			$this->log('[00]');
 		}
 		return false;
 	}
@@ -1151,6 +1162,8 @@ window.onload = function(){
 				if ( ! $count) {
 					$this->log('[70]');
 				}
+			} else {
+				$this->log('[72]');
 			}
 		}
 
@@ -1162,6 +1175,8 @@ window.onload = function(){
 				if ( ! $count) {
 					$this->log('[71]');
 				}
+			} else {
+				$this->log('[73]');
 			}
 		}
 	}
@@ -1179,7 +1194,7 @@ window.onload = function(){
 
 // ------------------------------------------------------------------
 
-	function log($text, $type='errors', $clear=false)
+	function log($text, $description=false, $type='errors', $clear=false)
 	{
 		if ($this->c[2]['ignore_errors'] && $type == 'errors' && ! $clear) {
 			$foo = str_replace(array('[',']'), '', $text);
@@ -1225,6 +1240,9 @@ window.onload = function(){
 			$data .= date('Y-m-d-H-i-s') ."\t";
 			$data .= $text ."\t";
 			$data .= $this->requesturi;
+			if ($description) {
+				$data .= "\t". $description;
+			}
 			fwrite($fh, $data."\n");
 		}
 	}
@@ -1358,12 +1376,4 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ---
+// -------
