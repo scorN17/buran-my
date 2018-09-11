@@ -1,1379 +1,962 @@
 <?php
-/**
- * seoModule
- * @version 4.08
- * @date 10.09.2018
- * @author <sergey.it@delta-ltd.ru>
- * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 40000
- */
+// Буран
+	// if( ! isset($_GET['test'])) exit();
+	
+	error_reporting(0);
+	
+	$root = $_SERVER['DOCUMENT_ROOT'];
+	$root = '/home/u333528/bunker-yug.ru/www';
+	
+	$raz_v        = 60*60*12;
+	$errors_raz_v = 60*60*1;
+	$pages_raz_v  = 60*60*24;
+	$limit        = 1;
+	
+	$table1 = 'customer AS c';
+	$table2 = 'website_satellit AS ws';
+	$table3 = 'website_param AS wp';
+	$table4 = 'fn_delta';
+	$table5 = 'custmworks AS cw';
+	$table6 = 'workers AS w';
+	$table8 = 'extracts AS e';
+	$table9 = 'reports AS r';
+	
+	$bsm   = "seomodule";
+	$bsm_l = "seomodule_log";
+	$bsm_p = "seomodule_page";
+	$bsm_c = "seomodule_config";
+	
+	@include_once($root."/db.php");
+	@include_once($root."/idn/idna_convert.class.php");
+	
+	$idn = new idna_convert();
+	
+//=======================================================================
 
-$bsm = new buran_seoModule('4.08');
-$bsm->init();
 
-if (
-	$bsm->c
-	&& basename($bsm->pageurl) !== 'seoModule.php'
-	&& (
-		$bsm->c[2]['module_enabled'] === '1'
-		|| $_SERVER['REMOTE_ADDR'] === $bsm->c[2]['module_enabled']
-		|| $bsm->test
-	)
-	&& (
-		strpos($bsm->c[2]['requets_methods'],
-			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false
-		|| $bsm->test
-	)
-	// не забудь настроить ELSE
-) {
-	if ($bsm->c[2]['redirect']) {
-		$bsm->redirects();
-	}
 
-	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
-		$bsm->clear_request();
+	$rr = mysql_query("SELECT c.id idc, c.url, b3.info, bc.config
+		FROM {$table1}
+		INNER JOIN {$table8} ON e.idc=c.id
+		INNER JOIN {$table9} ON r.idc=c.id
+		LEFT JOIN {$bsm} AS b3 ON b3.idc=c.id
+		LEFT JOIN {$bsm_c} AS bc ON bc.idc=c.id
+			WHERE
+			(
+				(
+					r.`status`<>4 AND r.`status`<>8
+					AND (e.ntoday>0 OR r.`status`=9)
+				)
+				OR r.treatment='y'
+			)
+			AND (
+				".time()."-b3.dt>{$raz_v} OR b3.dt IS NULL
+				OR (ii>=2 AND ".time()."-b3.dt>{$errors_raz_v})
+			)
+				ORDER BY b3.dt, c.id LIMIT {$limit}");
 
-		$output = false;
-		if ($bsm->module_hash) {
-			$seotext = $bsm->seotext();
-		} else {
-			$bsm->log('[02]');
-		}
-		$template = false;
-		if ($seotext || $bsm->c[2]['all_pages']) {
-			$template = $bsm->get_content();
-		}
-		$tags = false;
-		if ($template) {
-			$tags = $bsm->get_tag('finish');
-			if ($tags && (
-				$bsm->seotext_tp == 'S' ||
-				$bsm->seotext_tp == 'W'
-			)) {
-				$tags = $bsm->get_tag('start');
+	if ($rr && mysql_num_rows($rr)) {
+		while ($row = mysql_fetch_assoc($rr)) {
+			if ($row['config']) {
+				$config = base64_decode($row['config']);
+				$config = unserialize($config);
+				$website = $config[1]['website'];
 			}
-
-			if ($bsm->c[2]['all_pages']) {
-				$output = true;
+			if ( ! $website) {
+				$website = 'http://'.site_from_url(trim($row['url']));
 			}
-		}
-		if ($seotext && $tags) {
-			if ( ! $bsm->seotext_cache) {
-				$bsm->text_parse();
-				if ($bsm->requesturi == $bsm->c[1]['articles']) {
-					$bsm->articles_parse();
-				} elseif ($bsm->c[2]['re_linking']) {
-					$bsm->articles_parse($bsm->seotext_alias, $bsm->c[2]['re_linking']);
-				}
-			}
-			$bsm->template_parse();
-			$bsm->tdk_parse();
-			$output = true;
-		}
-		if ($output) {
-			if ($bsm->module_hash) {
-				$bsm->meta_parse();
-			}
-			$bsm->head_body_parse();
-			$bsm->output_content();
-		}
-	}
-} elseif (
-	basename($bsm->pageurl) !== 'seoModule.php'
-	&& strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false
-	&& (
-		strpos($bsm->c[2]['requets_methods'],
-			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false
-		|| $bsm->test
-	)
-) {
-	$bsm->log('[01]');
-}
+			$website_encoded = $idn->encode($website);
+			$website_decoded = $idn->decode($website_encoded);
 
-if ('seoModule.php' === basename($bsm->pageurl)) {
+			$website_to = '';
+			$status     = 'er';
+			$m_status   = 'er';
 
-if ('list' == $_GET['a']) {
-	header('Content-type: text/html; charset=utf-8');
-
-	$green = '#089c29';
-	$red   = '#d41717';
-
-	print $bsm->module_hash().'<br><br>';
-
-	$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
-	print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
-
-	$flag = $bsm->website === $bsm->c[1]['website'] ? true : false;
-	print '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$bsm->website.' == '.$bsm->c[1]['website'].'</span></div>';
-
-	$flag = $bsm->c[1]['bunker_id'] ? true : false;
-	print '<div>ID в бункере: <span style="color:'.($flag ? $green : $red).'">'.$bsm->c[1]['bunker_id'].'</span></div>';
-
-	$flag = extension_loaded('gd') ? true : false;
-	print '<div>Кроп картинок: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = extension_loaded('iconv') ? true : false;
-	print '<div>Перекодировка текстов: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = extension_loaded('openssl') ? true : false;
-	print '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
-
-	$flag = extension_loaded('curl') && function_exists('curl_init') ? true : false;
-	print '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = function_exists('stream_get_contents') ? true : false;
-	print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	print '<br><br><br>';
-	exit();
-}
-
-if ('info' == $_GET['a']) {
-	$files = $bsm->c[2]['include_files'];
-	$files = explode('  ', $files);
-	if (is_array($files)) {
-		foreach ($files AS $file) {
-			$file = trim($file);
-			if ( ! $file) continue;
-			if ( ! file_exists($bsm->droot.$file)) {
-				$bsm->log('[05]');
-				continue;
-			}
-			$fh = fopen($bsm->droot.$file, 'rb');
-			if ( ! $fh) {
-				$bsm->log('[05.2]');
-				continue;
-			}
-			$incfiles_hash .= md5_file($bsm->droot.$file).' : '.$file."\n";
-			$code = '';
-			while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-			fclose($fh);
-			if ( ! strpos($code, '_buran/seoModule.php')) {
-				$bsm->log('[06]');
-			}
-		}
-	}
-
-	$hash_1 = md5_file($bsm->droot.'/_buran/seoModule.php');
-	$hash_2 = md5_file($bsm->droot.'/_buran/seoModule/config_'.$bsm->domain_h.'.txt');
-	$hash_3 = md5_file($bsm->droot.'/_buran/seoModule/style_'.$bsm->domain_h.'.css');
-	$hash_4 = md5_file($bsm->droot.'/_buran/seoModule/head_'.$bsm->domain_h.'.txt');
-	$hash_5 = md5_file($bsm->droot.'/_buran/seoModule/body_'.$bsm->domain_h.'.txt');
-
-	if (isset($_GET['pre'])) print '<pre>';
-
-	print '[seomoduleversion_'.$bsm->version.']'."\n";
-	print '[modulehash_'.$hash_1.']'."\n";
-	print '[confighash_'.$hash_2.']'."\n";
-	print '[stylehash_'.$hash_3.']'."\n";
-	print '[headhash_'.$hash_4.']'."\n";
-	print '[bodyhash_'.$hash_5.']'."\n";
-	print '[datetime_'.date('d.m.Y, H:i:s').']'."\n";
-	print '[droot_'.$bsm->droot.']'."\n";
-	print '[incfiles_]'."\n";
-	print $incfiles_hash;
-	print '[_incfiles]'."\n";
-	print '[pages_]'."\n";
-	if (is_array($bsm->c[3])) {
-		foreach ($bsm->c[3] AS $alias => $row) {
-			if ($row[0] == $bsm->c[1]['articles']) continue;
-			$text = $bsm->seofile($alias);
-			$hash = md5_file($text['file']);
-			print $hash.' : '.$alias."\n";
-		}
-	}
-	print '[_pages]'."\n";
-	print '[errors_]'."\n";
-	$fh = fopen($bsm->droot.'/_buran/seoModule/errors_'.$bsm->domain_h.'.txt','rb');
-	if ($fh) {
-		$content = '';
-		while ( ! feof($fh)) $content .= fread($fh, 1024*8);
-		fclose($fh);
-		print $content;
-	}
-	print '[_errors]'."\n";
-	exit();
-}
-
-if ('update' == $_GET['a']) {
-	if ( ! ($bsm->auth())) exit('er');
-	$bsm->htaccess();
-	$code = $_POST['c'];
-	if ( ! in_array($_GET['t'],
-		array('module','config','style','head','body','text','imgs'))) {
-		exit('er');
-	}
-	$alias = $_GET['n'];
-	$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
-	switch ($_GET['t']) {
-		case 'module':
-			$code = base64_decode($code);
-			if (strpos($code, "<?php\n/**\n * seoModule") !== 0) {
-				exit('er');
-			}
-			$file = __FILE__;
-			break;
-		case 'config':
-			$file = $bsm->droot.'/_buran/seoModule/config_'.$bsm->domain_h.'.txt';
-			break;
-		case 'style':
-			$code = base64_decode($code);
-			$file = $bsm->droot.'/_buran/seoModule/style_'.$bsm->domain_h.'.css';
-			break;
-		case 'head':
-			$file = $bsm->droot.'/_buran/seoModule/head_'.$bsm->domain_h.'.txt';
-			$delete_if_null = true;
-			break;
-		case 'body':
-			$file = $bsm->droot.'/_buran/seoModule/body_'.$bsm->domain_h.'.txt';
-			$delete_if_null = true;
-			break;
-		case 'text':
-			$folder = $bsm->droot.'/_buran/seoModule/t/';
-			if ( ! file_exists($folder)) {
-				mkdir($folder, 0755, true);
-			}
-			$file = $folder.'txt_'.$alias.'.txt';
-			break;
-		case 'imgs':
-			$folder = $bsm->droot.'/_buran/seoModule/i/';
-			if ( ! file_exists($folder)) {
-				mkdir($folder, 0755, true);
-			}
-			$cc = intval($_POST['fs']);
-			if ( ! $cc) exit('ok');
-			for ($k=1; $k<=$cc; $k++) {
-				$file = $_FILES['f'.$k];
-				$ext = substr($file['name'], strpos($file['name'],'.'));
-				if ($ext != '.jpg' && $ext != '.png') continue;
-				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
-				if ( ! $res) exit('er');
-			}
-			exit('ok');
-	}
-	if ($delete_if_null && ! $code) {
-		unlink($file);
-		exit('ok');
-	}
-	$fh = fopen($file, 'wb');
-	if ( ! $fh) exit('er');
-	$res = fwrite($fh, $code);
-	if ($res === false) exit('er');
-	fclose($fh);
-	exit('ok');
-}
-
-if ('deactivate' == $_GET['a']) {
-	if ( ! ($bsm->auth())) exit('er');
-	$module_hash = $bsm->droot.'/_buran/seoModule/'.$bsm->module_hash();
-	if (file_exists($module_hash)) {
-		unlink($module_hash);
-		$bsm->log('[07]');
-	}
-	exit('ok');
-}
-if ('transform' == $_GET['a']) {
-	if ( ! ($bsm->auth())) exit('er');
-
-	exit('ok');
-}
-
-if ('clearlog' == $_GET['a']) {
-	if ( ! ($bsm->auth())) exit('er');
-	$bsm->log('', '', $_GET['t'], true);
-	exit('ok');
-}
-}
-
-// ------------------------------------------------------------------
-
-class buran_seoModule
-{
-	public $version;
-
-	public $c = false;
-	public $module_hash = false;
-
-	public $droot;
-	public $website;
-	public $http;
-	public $www;
-	public $domain;
-	public $domain_h;
-	public $scriptname;
-	public $requesturi;
-	public $pageurl;
-	public $querystring;
-	public $protocol;
-
-	public $test = false;
-	public $test_stitle;
-	public $test_stext;
-
-	public $declension;
-
-	public $seotext = false;
-	public $seotext_cache = false;
-	public $seotext_alias;
-	public $seotext_tp;
-	public $seotext_hide = false;
-	public $seotext_date;
-	public $donor;
-	public $encode;
-	public $encode_e;
-
-	public $template;
-	public $body;
-	public $headers;
-	public $tag_s = false;
-	public $tag_f = false;
-	public $code = array();
-
-	public $logs_files;
-
-	function __construct($version)
-	{
-		$this->version = $version;
-	}
-
-	function init()
-	{
-		$this->droot = dirname(dirname(__FILE__));
-		$this->http = (
-			$_SERVER['SERVER_PORT'] == '443' || $_SERVER['HTTP_PORT']   == '443' ||
-			$_SERVER['HTTP_HTTPS']  == 'on' ||
-			(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on') ||
-			(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
-				$_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
-				? 'https://' : 'http://');
-		$domain = isset($_SERVER['HTTP_HOST'])
-				? $_SERVER['HTTP_HOST'] : $_SERVER['SERVER_NAME'];
-		$domain = explode(':', $domain);
-		$domain = $domain[0];
-		$this->www = '';
-		if (strpos($domain,'www.') === 0) {
-			$this->www = 'www.';
-			$domain = substr($domain, 4);
-		}
-		$this->domain   = $domain;
-		$this->domain_h = md5($domain);
-		$this->website  = $this->http . $this->www . $this->domain;
-		$this->scriptname = isset($_SERVER['SCRIPT_NAME'])
-			? $_SERVER['SCRIPT_NAME'] : $_SERVER['PHP_SELF'];
-		$this->requesturi  = $_SERVER['REQUEST_URI'];
-		$this->pageurl     = parse_url($this->requesturi, PHP_URL_PATH);
-		$this->querystring = substr($this->requesturi, strpos($this->requesturi, '?')+1);
-		$sapi_type   = php_sapi_name();
-		if (substr($sapi_type,0,3) == 'cgi') {
-			$this->protocol = 'Status:';
-		} else {
-			$this->protocol = $_SERVER['HTTP_X_PROTOCOL']
-				? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL']
-					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1');
-		}
-		if (isset($_POST['seomodule_test']) &&
-			isset($_POST['s_title']) && isset($_POST['s_text'])) {
-			$this->test        = true;
-			$this->test_stitle = $_POST['s_title'];
-			$this->test_stext  = $_POST['s_text'];
-		}
-
-		if (file_exists($this->droot.'/_buran/seoModule/'.$this->module_hash())) {
-			$this->module_hash = true;
-		} else {
-			$this->log('[02]');
-		}
-
-		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
-		$fh = fopen($file, 'rb');
-		if ($fh) {
-			$this->c = '';
-			while ( ! feof($fh)) $this->c .= fread($fh, 1024*8);
-			fclose($fh);
-			if ($this->c) {
-				$this->c = base64_decode($this->c);
-				$this->c = unserialize($this->c);
-
-				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
-				$this->c[2]['use_cache']  = intval($this->c[2]['use_cache']);
-
-				$this->c[2]['out_charset'] = strtolower($this->c[2]['out_charset']);
-				$this->encode = $this->c[2]['out_charset']
-					&& $this->c[2]['out_charset'] != 'utf-8'
-					&& $this->c[2]['out_charset'] != 'utf8'
-					? true : false;
-				$this->encode_e = '//TRANSLIT//IGNORE';
-
-				if ($this->c[2]['urldecode']) {
-					$this->requesturi = urldecode($this->requesturi);
-				}
-
-				$this->declension = $this->c[7][$this->c[1]['city']];
-
-				$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
-			}
-		}
-	}
-
-	function redirects()
-	{
-		if ( ! is_array($this->c[4])) {
-			return;
-		}
-		$redirect_to = $this->requesturi;
-		if ($this->c[4][$redirect_to]) {
-			$redirect_to = $this->c[4][$redirect_to];
-		}
-		foreach ($this->c[4] AS $from => $to) {
-			if (substr($from,0,1) !== '+') continue;
-			$from = substr($from,1);
-			if (preg_match($from, $redirect_to) === 1) {
-				$redirect_to = preg_replace($from, $to, $redirect_to);
-			}
-		}
-		if ($this->c[4][$redirect_to]) {
-			$redirect_to = $this->c[4][$redirect_to];
-		}
-		if ($redirect_to == $this->requesturi) $redirect_to = false;
-		if ( ! $redirect_to && $this->website !== $this->c[1]['website']) {
-			$redirect_to = $this->requesturi;
-		}
-		if ($redirect_to) {
-			header('Location: '.$this->c[1]['website'].$redirect_to, true, 301);
-			exit();
-		}
-	}
-
-	function clear_request()
-	{
-		while (preg_match("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-			$this->querystring, $matches) === 1) {
-			$this->querystring
-				= preg_replace("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-					'${4}', $this->querystring);
-			if (strpos($this->querystring,'&') === 0) {
-				$this->querystring = substr($this->querystring, 1);
-			}
-			$this->requesturi = $this->pageurl . ($this->querystring ? '?'.$this->querystring : '');
-		}
-	}
-
-	function get_content()
-	{
-		$this->donor = $this->c[1]['website'];
-		$this->donor .= $this->seotext_tp == 'S'
-			? $this->c[1]['donor'] : $this->requesturi;
-
-		$allheaders     = function_exists('getallheaders')
-			? getallheaders() : $this->getallheaders_bsm();
-		$useragent_flag = false;
-		$headers        = array();
-		if (is_array($allheaders)) {
-			foreach ($allheaders AS $key => $row) {
-				if ( ! $this->c[2]['cookie'] && stripos($key, 'cookie') !== false)
-					continue;
-
-				if (stripos($key, 'x-forwarded') !== false) continue;
-				if (stripos($key, 'accept-encoding') !== false) continue;
-				if (stripos($key, 'x-real-ip') !== false) continue;
-				if ($this->c[2]['get_content_method'] == 'stream' &&
-					stripos($key, 'connection') !== false) continue;
-				if (stripos($key, 'connection') !== false) $row = 'keep-alive';
-
-				if ($this->test) {
-					if (stripos($key, 'Content-Length') !== false) continue;
-				}
-
-				$header = $key.': '.$row;
-
-				if (stripos($key, 'user-agent') !== false) {
-					$useragent_flag = true;
-					$header .= ' BuranSeoModule/'.$this->version;
-				}
-
-				$headers[] = $header;
-			}
-		}
-
-		if ('curl' == $this->c[2]['get_content_method']) {
-			$curloptions = array(
-				CURLOPT_URL            => $this->donor,
-				CURLOPT_HTTPHEADER     => $headers,
-				CURLOPT_HEADER         => true,
+			$options = array(
+				CURLOPT_URL => $website_encoded.'/_buran/seoModule.php?a=info',
 				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_FRESH_CONNECT  => true,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS      => 10,
 				CURLOPT_CONNECTTIMEOUT => 10,
 				CURLOPT_TIMEOUT        => 10,
 			);
-			if ($http == 'https://' && $this->c[2]['https_test']) {
-				$curloptions[CURLOPT_SSL_VERIFYHOST] = false;
-				$curloptions[CURLOPT_SSL_VERIFYPEER] = true;
-			}
-			if ( ! $useragent_flag) {
-				$curloptions[CURLOPT_USERAGENT] = ' BuranSeoModule/'.$this->version;
-			}
-
 			$curl = curl_init();
-			curl_setopt_array($curl, $curloptions);
-			$template = $this->c[2]['curl_auto_redirect']
-				? $this->curl_exec_followlocation($curl, $this->donor)
-				: curl_exec($curl);
+			curl_setopt_array($curl, $options);
+			$response = curl_exec($curl);
 			$request_info = curl_getinfo($curl);
-			list($headers_req, $template) = explode("\n\r", $template, 2);
-			$http_code = $request_info['http_code'];
-			if (curl_errno($curl)) {
-				$fail = true;
-				$this->log('[20]');
-			} else {
-				$headers_req = str_replace("\r",'',$headers_req);
-				$headers_req = explode("\n", $headers_req);
-			}
 			curl_close($curl);
-		}
+			if ( ! curl_errno($curl) && $request_info['http_code'] == 200) {
+				$status = 'ok';
+				if (stripos($response, '[seomoduleversion_') !== false) {
+					$m_status = 'ok';
+				}
+			}
 
-		if ('stream' == $this->c[2]['get_content_method']) {
+			if ($status != 'ok') {
+				$options = array(
+					CURLOPT_URL => $website_encoded,
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_FRESH_CONNECT  => true,
+					CURLOPT_FOLLOWLOCATION => true,
+					CURLOPT_MAXREDIRS      => 10,
+					CURLOPT_CONNECTTIMEOUT => 10,
+					CURLOPT_TIMEOUT        => 10,
+				);
+				$curl = curl_init();
+				curl_setopt_array($curl, $options);
+				$response = curl_exec($curl);
+				$request_info = curl_getinfo($curl);
+				curl_close($curl);
+				if ( ! curl_errno($curl) && $request_info['http_code'] == 200
+					&& $response) {
+					$status = 'ok';
+				}
+			}
+
+
+
+
+			$time = time();
+
+
+
+			if ($m_status == 'ok') {
+				if (preg_match("/\[seomoduleversion_(.*)\]/iU", $response, $matches) === 1) {
+					$version = $matches[1];
+					$version = preg_replace("/0-9\./", '', $version);
+					$version = floatval($version);
+				}
+
+				if (preg_match("/\[website_(.*)\]/iU", $response, $matches) === 1) {
+					$website_to = $matches[1];
+				}
+
+				$o_seohash = false;
+				if (preg_match("/\[seohash_(.*)\]/U", $row['info'], $matches) === 1) {
+					$o_seohash = $matches[1];
+				}
+				$o_modulehash = false;
+				if (preg_match("/\[modulehash_(.*)\]/U", $row['info'], $matches) === 1) {
+					$o_modulehash = $matches[1];
+				}
+				$o_confighash = false;
+				if (preg_match("/\[confighash_(.*)\]/U", $row['info'], $matches) === 1) {
+					$o_confighash = $matches[1];
+				}
+				$o_stylehash = false;
+				if (preg_match("/\[stylehash_(.*)\]/U", $row['info'], $matches) === 1) {
+					$o_stylehash = $matches[1];
+				}
+
+				$seohash = false;
+				if (preg_match("/\[seohash_(.*)\]/U", $response, $matches) === 1) {
+					$seohash = $matches[1];
+				}
+				$modulehash = false;
+				if (preg_match("/\[modulehash_(.*)\]/U", $response, $matches) === 1) {
+					$modulehash = $matches[1];
+				}
+				$confighash = false;
+				if (preg_match("/\[confighash_(.*)\]/U", $response, $matches) === 1) {
+					$confighash = $matches[1];
+				}
+				$stylehash = false;
+				if (preg_match("/\[stylehash_(.*)\]/U", $response, $matches) === 1) {
+					$stylehash = $matches[1];
+				}
+
+				if ($o_modulehash || $modulehash) {
+					if ($modulehash != $o_modulehash) {
+						mysql_query("INSERT INTO {$bsm_l} SET
+							idc = {$row['idc']},
+							txt = 'Модуль изменен',
+							dth = '".date('Y-m-d-H-i-s')."',
+							dt  = '{$time}'");
+					}
+					if ($confighash != $o_confighash) {
+						mysql_query("INSERT INTO {$bsm_l} SET
+							idc = {$row['idc']},
+							txt = 'Конфигурация изменена',
+							dth = '".date('Y-m-d-H-i-s')."',
+							dt  = '{$time}'");
+					}
+					if ($stylehash != $o_stylehash) {
+						mysql_query("INSERT INTO {$bsm_l} SET
+							idc = {$row['idc']},
+							txt = 'Стиль изменен',
+							dth = '".date('Y-m-d-H-i-s')."',
+							dt  = '{$time}'");
+					}
+
+				} elseif ($o_seohash || $seohash) {
+					if ($seohash != $o_seohash) {
+						mysql_query("INSERT INTO {$bsm_l} SET
+							idc = {$row['idc']},
+							txt = 'Модуль изменен',
+							dth = '".date('Y-m-d-H-i-s')."',
+							dt  = '{$time}'");
+					}
+				}
+
+				preg_match("/\[pages_\](.*)\[_pages\]/s", $row['info'], $matches);
+				$pages = str_replace("\r", '', $matches[1]);
+				$pages = explode("\n", $pages);
+				$o_pages = array();
+				if (is_array($pages)) {
+					foreach ($pages AS $page) {
+						if ($version >= 4) {
+							$page = explode(' : ', $page);
+							$o_pages[$page[0]] = $page;
+						} else {
+							$page = explode(' => ', $page);
+							if ( ! $page[1]) continue;
+							$o_pages[$page[0]] = $page;
+						}
+					}
+				}
+
+				preg_match("/\[pages_\](.*)\[_pages\]/s", $response, $matches);
+				$pages = str_replace("\r", '', $matches[1]);
+				$pages = explode("\n", $pages);
+				if (is_array($pages)) {
+					foreach ($pages AS $page) {
+						$page = explode(' => ', $page);
+						if ( ! $page[1]) continue;
+
+						$url  = mysql_real_escape_string($page[0]);
+						$file = explode(':', $page[1]);
+						$tp   = $file[0];
+						$sh   = $file[1];
+						$file = end($file);
+						$file = mysql_real_escape_string($file);
+
+						$rrr = mysql_query("SELECT * FROM {$bsm_p}
+							WHERE idc={$row['idc']} AND url='{$url}' LIMIT 1");
+
+						if ($rrr && mysql_num_rows($rrr)) {
+							mysql_query("UPDATE {$bsm_p} SET
+								tp   = '{$tp}',
+								file = '{$file}',
+								sh   = '{$sh}',
+								dth  = '".date('Y-m-d-H-i-s')."',
+								dt   = '{$time}'
+							WHERE idc={$row['idc']} AND url='{$url}' LIMIT 1");
+
+						} elseif ($rrr) {
+							mysql_query("INSERT INTO {$bsm_p} SET
+								idc  = {$row['idc']},
+								tp   = '{$tp}',
+								url  = '{$url}',
+								file = '{$file}',
+								sh   = '{$sh}',
+								ii   = 1,
+								dth  = '".date('Y-m-d-H-i-s')."',
+								dt   = '{$time}'
+							");
+						}
+
+						if ($page[2] !== $o_pages[$page[0]][2]) {
+							mysql_query("INSERT INTO {$bsm_l} SET
+								idc  = {$row['idc']},
+								file = '{$file}',
+								txt  = 'Файл изменен',
+								dth  = '".date('Y-m-d-H-i-s')."',
+								dt   = '{$time}'");
+						}
+					}
+				}
+			}
+
+			if ( ! $website_to) $website_to = $website_encoded;
+
+			$website_to = mysql_real_escape_string($website_to);
+			$response   = mysql_real_escape_string($response);
+
+			$rrr = mysql_query("SELECT id, ii, status, m_status FROM {$bsm}
+				WHERE idc='{$row[idc]}' LIMIT 1");
+			if ($rrr && mysql_num_rows($rrr)) {
+				$my = mysql_fetch_assoc($rrr);
+
+				$qq = '';
+				if ($status != $my['status'] || $m_status != $my['m_status']) {
+					if ($my['ii'] >= 3) {
+						$qq .= "ii=1,";
+						$qq .= "status='{$status}',";
+						$qq .= "m_status='{$m_status}',";
+					} else {
+						$qq .= "ii=ii+1,";
+					}
+				} else {
+					$qq .= "ii=1,";
+				}
+
+				mysql_query("UPDATE {$bsm} SET
+					".($m_status == 'ok'
+						? "website_to='{$website_to}', info='{$response}'," : "")."
+					{$qq}
+					website = '{$website_decoded}',
+					dth     = '".date('Y-m-d-H-i-s')."',
+					dt      = '{$time}'
+					WHERE idc='{$row['idc']}' LIMIT 1");
+				
+			} elseif ($rrr) {
+				mysql_query("INSERT INTO {$bsm} SET
+					".($m_status == 'ok'
+						? "website_to='{$website_to}', info='{$response}'," : "")."
+					idc      = '{$row[idc]}',
+					website  = '{$website_decoded}',
+					ii       = '1',
+					status   = '{$status}',
+					m_status = '{$m_status}',
+					dth      = '".date('Y-m-d-H-i-s')."',
+					dt       = '{$time}'
+				");
+			}
+		}
+	}
+
+	$rr = mysql_query("SELECT c.id AS idc, c.url, b3.website, b3.validation_cc
+		FROM {$table1}
+		INNER JOIN {$table8} ON e.idc=c.id
+		INNER JOIN {$table9} ON r.idc=c.id
+		LEFT JOIN {$bsm} AS b3 ON b3.idc=c.id
+			WHERE r.`status`<>4 AND r.`status`<>8 AND e.ntoday>0
+			AND b3.m_status='ok' AND ".time()."-b3.dt_validation>{$raz_v}
+				ORDER BY b3.dt_validation, c.id LIMIT {$limit}");
+
+	if ($rr && mysql_num_rows($rr)) {
+		while ($row = mysql_fetch_assoc($rr)) {
+			$flag = true;
+			$rr2 = mysql_query("SELECT * FROM cust_dostup WHERE
+				idc={$row[idc]} AND (type='ftp' OR type='sftp' OR type='ssh')
+					AND deleted=0");
+			if ($rr2 && mysql_num_rows($rr2)) {
+				$flag = false;
+				while ($row2 = mysql_fetch_assoc($rr2)) {
+					if ($row2['check']>0 && $row2['flag'] == 1) {
+						$flag = true;
+						break;
+					}
+				}
+			}
+			
+			mysql_query("UPDATE {$bsm} SET
+				validation_cc  = ".($flag ? "0" : "validation_cc+1").",
+				dth_validation = '".date('Y-m-d-H-i-s')."',
+				dt_validation  = ".time()."
+				WHERE idc='{$row[idc]}' LIMIT 1");
+
+			if ( ! $flag && $row['validation_cc'] >= 2 && $row['validation_cc'] <= 10) {
+				if ($row['website']) $website = $row['website'];
+				else $website = 'http://'.site_from_url(trim($row['url']));
+				$website_encoded = $idn->encode($website);
+				$website_decoded = $idn->decode($website_encoded);
+				
+				$host = site_from_url($row['website_to']);
+				$w = @file_get_contents('http://bunker-yug.ru/__buran/secret_key.php?s=V_s68g_Kw79eRYL6EsST&h='.$host);
+
+				$curl = curl_init();
+				curl_setopt($curl, CURLOPT_URL, $website_encoded.'/_buran/seoModule.php?a=validation');
+				curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+				$response = curl_exec($curl);
+				curl_close($curl);
+
+				$curl = curl_init();
+				curl_setopt($curl, CURLOPT_URL, $website_encoded.'/_buran/seoModule.php?a=deactivate&w='.$w);
+				curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+				$response = curl_exec($curl);
+				curl_close($curl);
+			}
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+	$rr = mysql_query("SELECT
+		mm.idc, mm.website_to, pp.id, pp.url, pp.file
+		FROM {$bsm_p} pp
+		INNER JOIN {$bsm} mm ON mm.idc=pp.idc
+		WHERE ".time()."-pp.dt_check>={$pages_raz_v} AND mm.m_status='ok' AND mm.ii=1
+		ORDER BY pp.dt LIMIT 5");
+	if ($rr && mysql_num_rows($rr)) {
+		while ($row = mysql_fetch_assoc($rr)) {
 			$options = array(
-				'http' => array(
-					'method' => 'GET',
-					'header' => $headers,
-				)
+				CURLOPT_URL => $row['website_to'] . $row['url'],
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_FRESH_CONNECT  => true,
+				CURLOPT_FOLLOWLOCATION => false,
+				CURLOPT_CONNECTTIMEOUT => 10,
+				CURLOPT_TIMEOUT        => 10,
 			);
-			if( ! $useragent_flag) {
-				$options['http']['user_agent'] = ' BuranSeoModule/'.$this->version;
-			}
-			$context = stream_context_create($options);
-			$stream  = fopen($this->donor, 'rb', false, $context);
-			if ($stream) {
-				$template    = stream_get_contents($stream);
-				$headers_req = stream_get_meta_data($stream);
-				fclose($stream);
-				$headers_req = $headers_req['wrapper_data'];
-				$http_code   = 200;
+			$curl = curl_init();
+			curl_setopt_array($curl, $options);
+			$response = curl_exec($curl);
+			$request_info = curl_getinfo($curl);
+			curl_close($curl);
+			if ( ! curl_errno($curl) && $response
+				&& $request_info['http_code'] == 200) {
+				$status = 'ok';
+				$pagecode = $response;
 			} else {
-				$fail = true;
-				$this->log('[21]');
+				$status = 'er';
+				$pagecode = false;
 			}
-		}
 
-		$this->headers = array();
-		if ($this->c[2]['set_header'] && is_array($headers_req)) {
-			foreach ($headers_req AS $key => $header) {
-				if (stripos($header, 'Transfer-Encoding:') !== false)
-					continue;
-				if (stripos($header, 'Content-Length:') !== false)
-					continue;
-				$this->headers[] = $header;
-			}
-		}
-		if ($this->seotext_tp == 'S') {
-			$this->headers[] = $this->protocol .' 200 OK';
-		}
-
-		if ($http_code != 200) {
-			$fail = true;
-			if ($this->seotext_alias) {
-				$this->log('[30]');
-			}
-		}
-
-		if (
-			$http_code == 404
-			&& $this->seotext
-			&& $this->seotext_tp != 'S'
-		) {
-			$this->log('[31]');
-			$this->seotext_tp = 'S';
-			$res = $this->get_content();
-			return $res;
-		}
-
-		if ($fail) {
-			$this->template = false;
-			return false;
-		} else {
-			$this->template = trim($template);
-			return true;
-		}
-	}
-
-	function get_tag($type='finish')
-	{
-		$list = $this->c[6][$type];
-		if ( ! is_array($list)) {
-			return false;
-		}
-		foreach ($list AS $row) {
-			$tag = preg_quote($row[1],"/");
-			$tag = str_replace("\n", '\n', $tag);
-			$tag = str_replace("\r", '', $tag);
-			$tag = str_replace("\t", '\t', $tag);
-			$res = preg_match("/".$tag."/s", $this->template);
-			if ($res === 1) {
-				$foo = array(
-					'p' => $row[0],
-					't' => $row[1],
-					'm' => $tag,
+			$filecode = false;
+			if ($pagecode) {
+				$options = array(
+					CURLOPT_URL => $row['website_to'] .'/_buran/seoModule.php?a=file&f='.$row['file'],
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_FRESH_CONNECT  => true,
+					CURLOPT_FOLLOWLOCATION => false,
+					CURLOPT_CONNECTTIMEOUT => 10,
+					CURLOPT_TIMEOUT        => 10,
 				);
-				if ($type == 'start')  $this->tag_s = $foo;
-				if ($type == 'finish') $this->tag_f = $foo;
-				return true;
-			}
-		}
-		if ($type == 'start')  $this->log('[40]');
-		if ($type == 'finish') $this->log('[41]');
-		return false;
-	}
-
-	function seofile($alias, $cache=true)
-	{
-		$folder = $this->droot.'/_buran/seoModule/';
-		$file   = 'txt_'.$alias.'.txt';
-
-		if ( ! $this->c[2]['use_cache']) {
-			$cache = false;
-		}
-		$ft_o = $this->filetime($folder.'t/'.$file);
-		$ft_c = $this->filetime($folder.'c/'.$file);
-		if ($cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_o) {
-			$file = $folder.'c/'.$file;
-			$this->seotext_cache = true;
-		} else {
-			$file = $folder.'t/'.$file;
-		}
-
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[10]');
-			}
-			return false;
-		}
-		$text = '';
-		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
-		fclose($fh);
-		$text = base64_decode($text);
-		$text = unserialize($text);
-		if ( ! $text['file']) {
-			$text['file'] = $file;
-		}
-		if (
-			! is_array($text)
-			|| ! isset($text['title'])
-			|| ! isset($text['description'])
-			|| ! isset($text['keywords'])
-			|| ! isset($text['s_title'])
-			|| ! isset($text['s_text'])
-		) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[11]');
-			}
-			return false;
-		}
-		return $text;
-	}
-
-	function seotext()
-	{
-		if ( ! is_array($this->c[3])) {
-			return false;
-		}
-		$seotext_alias = false;
-		$seotext_tp    = 's';
-		$seotext_sh    = 's';
-		foreach ($this->c[3] AS $alias => $prms) {
-			if ($this->requesturi == $prms[0]) {
-				$seotext_alias = $alias;
-				$seotext_tp    = $prms[1];
-				$seotext_sh    = $prms[2];
-				break;
-			}
-		}
-		if ( ! $seotext_alias) return false;
-		$this->seotext_alias = $seotext_alias;
-
-		$text = $this->seofile($seotext_alias);
-		if ( ! $text && $this->seotext_cache) {
-			$text = $this->seofile($seotext_alias, false);
-		}
-		if ( ! $text) return false;
-
-		$this->seotext = $text;
-
-		$this->seotext_date = date('Y-m-d', filectime($text['file']));
-
-		$this->seotext_tp = $seotext_tp=='a'?'A':($seotext_tp=='w'?'W':'S');
-
-		$flag = $this->c['hide_opt'] === '1'
-			? true : ($this->c['hide_opt'] === '0'
-				? false
-				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
-					? true : false));
-		$flag = $seotext_sh === 'h'
-			? true : ($seotext_sh === 's'
-				? false : $flag);
-		$this->seotext_hide = $flag;
-
-		return true;
-	}
-
-	function seotext_cache($alias, $text)
-	{
-		$folder = $this->droot.'/_buran/seoModule/c/';
-		if ( ! file_exists($folder)) {
-			mkdir($folder, 0755, true);
-		}
-		$file = $folder.'txt_'.$alias.'.txt';
-		$text['cache'] = time();
-		$text = serialize($text);
-		$text = base64_encode($text);
-		$fh   = fopen($file, 'wb');
-		if ( ! $fh) return false;
-		$res = fwrite($fh, $text);
-		if ($res === false) return false;
-		fclose($fh);
-		return true;
-	}
-
-	function text_parse()
-	{
-		$st = &$this->seotext;
-
-		if ($this->test) {
-			$st['s_title'] = $this->test_stitle;
-			$st['s_text']  = $this->test_stext;
-		}
-
-		if ($this->encode) {
-			foreach ($st AS $txtk => $txt) {
-				if ( ! is_array($txt)) {
-					$st[$txtk] = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $txt);
-					continue;
-				}
-				foreach ($txt AS $key => $row) {
-					$st[$txtk][$key] = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $row);
-				}
-			}
-		}
-
-		$st['flag_multitext'] = strpos($st['s_text'], '[part]') !== false
-			? true : false;
-
-		$st['s_text'] = str_replace('<p>[img]</p>', '[img]', $st['s_text']);
-		$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
-		$st['s_text'] = str_replace('<p>[part]</p>', '[part]', $st['s_text']);
-
-		$st['s_img_f'] = array();
-		if (is_array($st['s_img'])) {
-			foreach ($st['s_img'] AS $key => $row) {
-				$img = '/_buran/seoModule/i/'.$this->seotext_alias.'_'.($key+1);
-				if (file_exists($this->droot.$img.'.jpg')) {
-					$img .= '.jpg';
-				} elseif (file_exists($this->droot.$img.'.png')) {
-					$img .= '.png';
+				$curl = curl_init();
+				curl_setopt_array($curl, $options);
+				$response = curl_exec($curl);
+				$request_info = curl_getinfo($curl);
+				curl_close($curl);
+				if ( ! curl_errno($curl) && $response
+					&& strpos($response, '<?php') !== false) {
+					$filecode = $response;
 				} else {
-					continue;
+					$filecode = false;
 				}
-				$st['s_img_f'][] = array(
-					'src' => $img,
-					'alt' => $row,
-				);
 			}
-		}
 
-		$flag_dopimgs = false;
-		$i = 0;
-		while ($img = array_shift($st['s_img_f'])) {
-			$img_p = '';
-			if ($img['src']) {
-				$i++;
-				$img['attr'] = $img['alt'].' ('.($i==1 ? 'рисунок' : 'фото').')';
-				$img_p = '
-<div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'">
-	<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
-	<div class="sssmb_bck">
-		<div class="sssmb_ln"></div>
-		<div class="sssmb_alt">'.$img['alt'].'</div>
-	</div>
-</div>';
-			}
-			$st['s_text'] = preg_replace("/\[img\]/U", $img_p, $st['s_text'], 1, $cc);
-			if ( ! $cc && $img_p) {
-				if ( ! $flag_dopimgs) {
-					$flag_dopimgs = true;
-					$st['s_text'] .= '<div class="sssmb_dopimgs">';
+			$text_exists = false;
+			if ($filecode !== false) {
+				$pagecode_c = clear_text($pagecode);
+				$filecode_c = clear_text($filecode);
+
+				if (is_array($pagecode_c) && is_array($filecode_c)) {
+					$text_cc = 0;
+					$text_ok = 0;
+					foreach ($filecode_c AS $line) {
+						$text_cc++;
+						if (in_array($pagecode_c, $line) !== false) {
+							$text_ok++;
+						}
+					}
+
+					if ($text_cc) {
+						$text_exists = $text_ok / $text_cc;
+					} else {
+						$text_exists = 1;
+					}
 				}
-				$st['s_text'] .= $img_p;
-			}
-		}
-		if ($flag_dopimgs) {
-			$st['s_text'] .= '</div>';
-		}
-		$st['s_text'] = str_replace('[img]', '', $st['s_text']);
-		unset($st['s_img_f']);
 
-		$i = 0;
-		do {
-			$i = $i == 3 ? 1 : $i+1;
-			if($i == 1) {
-				$colp = '<div class="sssmb_clr"></div>
-				<div class="sssmb_cols">
-				<div class="sssmb_col sssmb_col_l">';
-			} elseif ($i == 2) {
-				$colp = '</div>
-				<div class="sssmb_col sssmb_col_r">';
+				$filecode_f = base64_encode($filecode);
+				$filecode_f = mysql_real_escape_string($filecode_f);
+
+				$res = mysql_query("SELECT id, dt FROM seomodule_text
+					WHERE idc={$row['idc']} AND alias='{$row['file']}' LIMIT 1");
+				$seotext = false;
+				if ($res) {
+					$seotext = true;
+					if (mysql_num_rows($res)) {
+						$seotext = false;
+					}
+				}
+				if ($seotext) {
+					unset($title);
+					unset($description);
+					unset($keywords);
+					unset($s_title);
+					unset($s_text);
+					unset($pic1);
+					unset($pic2);
+					unset($pic3);
+					unset($pic4);
+					unset($pic5);
+					unset($pic6);
+					unset($pic7);
+					unset($pic8);
+					unset($pic9);
+					$evl = str_replace('<?php', '', $filecode);
+					eval($evl);
+					if ($title && $description && $keywords && $s_title && $s_text) {
+						if (is_array($s_text)) {
+							$newtext = '';
+							foreach ($s_text AS $txt) {
+								if ($newtext) $newtext .= '[part]'."\n";
+								$newtext .= $txt."\n";
+							}
+							$s_text = $newtext;
+						}
+						$s_text = str_replace("\t", '', $s_text);
+						$s_text = str_replace("\n\n", "\n", $s_text);
+
+						$s_img = array();
+						for ($pic=1; $pic<=99; $pic++) {
+							if ( ! ${'pic'.$pic}) break;
+							$s_img[] = ${'pic'.$pic};
+						}
+						$s_img = serialize($s_img);
+						$s_img = base64_encode($s_img);
+
+						$title       = mysql_real_escape_string($title);
+						$description = mysql_real_escape_string($description);
+						$keywords    = mysql_real_escape_string($keywords);
+						$s_title     = mysql_real_escape_string($s_title);
+						$s_text      = mysql_real_escape_string($s_text);
+						$s_img       = mysql_real_escape_string($s_img);
+
+						mysql_query("INSERT INTO seomodule_text SET
+							idc         = '{$row['idc']}',
+							alias       = '{$row['file']}',
+							title       = '{$title}',
+							description = '{$description}',
+							keywords    = '{$keywords}',
+							s_title     = '{$s_title}',
+							s_text      = '{$s_text}',
+							s_img       = '{$s_img}',
+							dt          = ".time());
+					}
+				}
+			}
+			
+			mysql_query("UPDATE {$bsm_p} SET
+				".($status == 'ok' ? "ii=1," : "ii=ii+1,")."
+				".($filecode
+					? "filecode='{$filecode_f}',
+						text_exists ='{$text_exists}',
+						dth_text   = '".date('Y-m-d-H-i-s')."',
+						dt_text    = '".time()."',"
+					: '')."
+				status    = '{$status}',
+				dth_check = '".date('Y-m-d-H-i-s')."',
+				dt_check  = '".time()."'
+				WHERE id={$row['id']} LIMIT 1");
+		}
+	}
+
+
+
+
+
+
+
+
+
+	$res = mysql_query("SELECT sc.*, sm.website_to FROM seomodule_config sc
+		INNER JOIN seomodule sm ON sm.idc=sc.idc
+		WHERE sm.m_status='ok' AND sm.ii=1 AND info LIKE '[seomoduleversion_4%'
+		AND (sc.dt_config>sc.upd_config OR sc.dt_style>sc.upd_style OR
+			sc.dt_head>sc.upd_head OR sc.dt_body>sc.upd_body)
+				LIMIT 1");
+	if ($res && mysql_num_rows($res)) {
+		while ($row = mysql_fetch_assoc($res)) {
+			$host = site_from_url($row['website_to']);
+			$w = @file_get_contents('http://bunker-yug.ru/__buran/secret_key.php?s=V_s68g_Kw79eRYL6EsST&h='.$host);
+			
+			if ($row['dt_config'] > $row['upd_config']) {
+				$type = 'config';
+				$data = $row[$type];
+
+			} elseif ($row['dt_style'] > $row['upd_style']) {
+				$type = 'style';
+				$data = $row[$type];
+				$data = base64_decode($data);
+				$data = css_compress($data);
+				$data = base64_encode($data);
+
+			} elseif ($row['dt_head'] > $row['upd_head']) {
+				$type = 'head';
+				$data = $row[$type];
+
+			} elseif ($row['dt_body'] > $row['upd_body']) {
+				$type = 'body';
+				$data = $row[$type];
+
 			} else {
-				$colp = '</div></div>';
-			}
-			$st['s_text'] = preg_replace("/\[col\]/U", $colp, $st['s_text'], 1, $cc);
-		} while ($cc);
-
-		preg_match_all("/\[tab(.*)\]/U", $st['s_text'], $tabtags);
-		if (is_array($tabtags[0])) {
-			$st['flag_tabs'] = true;
-			$tabs = '';
-			$first = true;
-			foreach ($tabtags[0] AS $key => $row) {
-				$st['s_text'] = str_replace('<p>'.$row.'</p>', $row, $st['s_text']);
-				if ($key+1 != count($tabtags[0])) {
-					$butt = trim($tabtags[1][$key]);
-					$tabs .= '<div class="sssmbt_butt '.(!$key?'sssmbt_butt_a':'').'" data-tabid="'.$key.'">'.$butt.'</div>';
-				}
-				if ($first) {
-					$first = false;
-					$replace = '<div id="sssmb_tabs" class="sssmb_tabs">
-						<div class="sssmbt_butts">[tabs_buttons]</div>
-						<div class="sssmbt_itms">
-							<div class="sssmbt_itm sssmbt_itm_'.$key.' sssmbt_itm_a">';
-				} elseif ($key+1 == count($tabtags[0])) {
-					$replace = '<div class="sssmb_clr"></div></div></div></div>';
-				} else {
-					$replace = '<div class="sssmb_clr"></div></div><div class="sssmbt_itm sssmbt_itm_'.$key.'">';
-				}
-				$st['s_text'] = str_replace($row, $replace, $st['s_text']);
-			}
-			$st['s_text'] = str_replace('[tabs_buttons]', $tabs, $st['s_text']);
-		}
-	}
-
-	function articles_parse($alias_start=false, $limit=0)
-	{
-		$imgs = '/_buran/seoModule/i/';
-		$flag = $alias_start ? true : false;
-		foreach ($this->c[3] AS $alias => $row) {
-			if ($row[0] == $this->c[1]['articles']) continue;
-			if ($flag) {
-				if ($alias == $alias_start) {
-					$flag = false;
-				}
 				continue;
 			}
-			if ($alias_start && $limit<=0) break;
-			$limit--;
-			$counter++;
-			$text = $this->seofile($alias);
-			if ( ! $text) continue;
-			for ($k=1; $k<=10; $k++) {
-				$img = $imgs.$alias.'_'.$k.'.jpg';
-				if (file_exists($this->droot.$img)) break;
-				$img = false;
-			}
-			if ($this->encode) {
-				$text['description'] = iconv('utf-8',
-					$this->c[2]['out_charset'].$this->encode_e, $text['description']);
-				$text['s_title'] = iconv('utf-8',
-					$this->c[2]['out_charset'].$this->encode_e, $text['s_title']);
-			}
-			$txt .= '<div class="sssmba_itm">
-				<div class="sssmba_img">';
-			if ($img) $txt .= '<img src="'.$img.'" alt="" />';
-			$txt .= '</div>
-				<div class="sssmba_inf">
-					<div class="sssmba_tit"><a href="'.$row[0].'">'.$text['s_title'].'</a></div>
-					<div class="sssmba_txt">'.$text['description'].'</div>
-				</div>
-			</div>';
-			$counter--;
-		}
-		if ($txt) {
-			if ($alias_start) {
-				$txt = '<div class="sssmb_h2 sssmb_h2_cols">
-					<div class="col"><h2>Статьи</h2></div>
-					<div class="col rght"><a href="'.$this->c[1]['articles'].'">Все статьи</a></div>
-				</div>'.$txt;
-			}
-			$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">'.$txt.'</div>';
-			$this->seotext['s_text'] .= $txt;
-		}
-		if ($counter) $this->log('[12]');
-	}
-
-	function template_parse()
-	{
-		$template = &$this->template;
-		$body     = &$this->body;
-		$st       = $this->seotext;
-
-		if ( ! $st['cache'] && $this->c[2]['use_cache']) {
-			$this->seotext_cache($this->seotext_alias, $st);
-		}
-
-		if ($st['flag_multitext']) {
-			$st['s_text'] = explode('[part]', $st['s_text']);
-			$s_text_single = '';
-			foreach ($st['s_text'] AS $key => $row) {
-				$row = trim($row);
-				$foo = "<!--bsm_start_".($key+1)."-->(.*)";
-				$foo .= "<!--bsm_finish_".($key+1)."-->";
-				$template = preg_replace("/".$foo."/s", $row,
-					$template, 1, $matches);
-				if ( ! $matches) $s_text_single .= $row;
-			}
-			$st['s_text'] = $s_text_single;
-		}
-
-		$body = '<link rel="stylesheet" href="/_buran/seoModule/style_'.$this->domain_h.'.css" />';
-
-		if ($this->seotext_hide) {
-			$body .= '
-<script>
-	function sssmb_chpoktext(){
-		obj= document.getElementById("sssmodulebox");
-		if(obj.style.display=="none") obj.style.display= "";
-		else obj.style.display= "none";
-	}
-</script>
-<article onclick="sssmb_chpoktext()">&rarr;</article>';
-		}
-
-		if ($st['flag_tabs']) {
-			$body .= '
-<script>
-document.onreadystatechange = function(){
-	if (document.readyState != "interactive") return;
-	var tabs = document.getElementById("sssmb_tabs");
-	if ( ! tabs) return;
-	var butts = tabs.getElementsByClassName("sssmbt_butt");
-	Array.prototype.filter.call(butts, function(butt){
-		butt.onclick = function(e){
-			if (butt.classList.contains("sssmbt_butt_a")) {
-				return;
-			}
-			let tabid = butt.dataset.tabid;
-			tabs.getElementsByClassName("sssmbt_butt_a")[0].classList.remove("sssmbt_butt_a");
-			this.classList.add("sssmbt_butt_a");
-			tabs.getElementsByClassName("sssmbt_itm_a")[0].classList.remove("sssmbt_itm_a");
-			tabs.getElementsByClassName("sssmbt_itm_"+tabid)[0].classList.add("sssmbt_itm_a");
-		};
-	});
-};
-</script>';
-		}
-
-		if ($this->test) {
-			$body .= '
-<script>
-window.onload = function(){
-	var e = document.getElementById("sssmodulebox");
-	var h = e.offsetTop + e.offsetHeight + 1000;
-	if (document.body.offsetHeight > h) {
-		h = document.body.offsetHeight;
-	}
-	parent.window.postMessage({
-		a : "body_height",
-		from : "bsm",
-		height : h
-	},"*");
-};
-</script>';
-		}
-
-		$body .= '
-<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" />
-	<div class="sssmb_clr">&nbsp;</div>';
-
-		if ($this->seotext_tp == 'A' || $this->seotext_tp == 'W') {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-				'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
-		} else {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-				'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
-				$template, -1, $hcc);
-		}
-
-		if ($hcc >= 2) {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '', $template);
-			$this->log('[50]');
-		}
-
-		if ($this->seotext_tp == 'A' || $this->seotext_tp == 'W' || ! $hcc) {
-			$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
-		}
-
-		list($logo_w, $logo_h) = getimagesize($this->droot.$this->c[1]['logo']);
-
-		$body .= '
-<div class="sssmb_cinf">
-	<p itemprop="author">Автор: '.$this->c[1]['company_name'].'</p>
-	<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
-		<meta itemprop="name" content="'.$this->domain.'" />
-		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
-		<meta itemprop="address" content="'.addslashes($this->c[1]['address']).'" />
-		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-			<img itemprop="url" itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" />
-			<meta itemprop="width" content="'.$logo_w.'" />
-			<meta itemprop="height" content="'.$logo_h.'" />
-		</div>
-	</div>
-	<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
-	<p>Дата изменения: <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
-	<noindex><p itemprop="headline" itemprop="description">'.$st['title'].'</p></noindex>
-</div>';
-
-		$body .= '<div class="sssmb_stext" itemprop="articleBody">';
-
-		$body .= $st['s_text'];
-
-		$body .= '<div class="sssmb_clr">&nbsp;</div></div>';
-		if($this->c[2]['share_code'])
-			$body .= '<div class="yasharebox">'.$this->c[2]['share_code'].'</div>';
-		$body .= '</section>';
-
-		if ($this->seotext_tp == 'A') {
-			$foo = $this->tag_f['p'] == 'a' ? $this->tag_f['t'] : '';
-			$foo .= $body;
-			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-			$template = preg_replace("/".$this->tag_f['m']."/s", $foo, $template, 1);
-
-		} elseif ($this->seotext_tp == 'S' || $this->seotext_tp == 'W') {
-			$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
-			$foo .= $body;
-			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-			$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/s", $foo, $template, 1);
-		}
-
-		if ($this->c[2]['city_replace']) {
-			$template = preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template);
-			foreach ($this->declension AS $key => $decl) {
-				$template = preg_replace("/\[city_{$key}\](.*?)\[city\]/U", $decl, $template);
-			}
-		}
-	}
-
-	function tdk_parse()
-	{
-		$template = &$this->template;
-		$st       = $this->seotext;
-		$c        = $this->c[2];
-
-		if (in_array($c['meta'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$title = '<title>'.$st['title'].'</title>';
-			$description = '<meta name="description" content="'.$st['description'].'" />';
-			$keywords = '<meta name="keywords" content="'.$st['keywords'].'" />';
-			if ($c['meta'] == 'replace_or_add')
-				$title .= "\n\t".$description."\n\t".$keywords."\n";
-			if ($c['meta'] == 'delete' ||
-				$c['meta'] == 'replace_or_add') {
-				if ($c['meta'] == 'delete') $title = '';
-				$description = '';
-				$keywords = '';
-			}
-			$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $description, $template, 2, $count1);
-			$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $keywords, $template, 2, $count2);
-			$template = preg_replace("/<title>(.*)<\/title>/isU", $title, $template, 2, $count3);
-			if ($count1 !== 1 || $count2 !== 1 || $count3 !== 1) {
-				$this->log('[61]');
-			}
-		}
-	}
-
-	function meta_parse()
-	{
-		$template = &$this->template;
-		$st       = $this->seotext;
-		$c        = $this->c[2];
-
-		if (in_array($c['base'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$base = '<base href="'.$this->c[1]['website'].'/" />';
-			if ($c['base'] == 'replace_or_add' ||
-				$c['base'] == 'delete') {
-				$template = preg_replace("/<base (.*)>/iU", '', $template);
-			}
-			if ($c['base'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template, 2, $count);
-				if ($count !== 1) $this->log('[62]');
-
-			} elseif ($c['base'] == 'replace_if_exists') {
-				$template = preg_replace("/<base (.*)>/iU", $base, $template, 2, $count);
-				if ($count === 2) $this->log('[62.2]');
-			}
-		}
-
-		if (in_array($c['canonical'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$canonical = '<link rel="canonical" href="'.$this->c[1]['website'].$this->requesturi.'" />';
-			if ($c['canonical'] == 'replace_or_add' ||
-				$c['canonical'] == 'delete') {
-				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
-			}
-			if ($c['canonical'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template, 2, $count);
-				if ($count !== 1) $this->log('[64]');
-
-			} elseif ($c['canonical'] == 'replace_if_exists') {
-				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
-				if ($count === 2) $this->log('[64.2]');
-			}
-		}
-	}
-
-	function get_code($type)
-	{
-		$type = $type == 'head' ? 'head' : 'body';
-		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) return false;
-		$fh = fopen($file, 'rb');
-		if ($fh) {
-			$code = '';
-			while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-			fclose($fh);
-			if ($code) {
-				$code = base64_decode($code);
-				$this->code[$type] = $code;
-				return true;
-			}
-		}
-		return false;
-	}
-
-	function head_body_parse()
-	{
-		$template = &$this->template;
-		$c        = $this->c[2];
-
-		if ($this->c[2]['use_head']) {
-			$head = $this->get_code('head');
-			if ($head) {
-				$head = "\n".'<!--bsm_head_code-->'."\n".$this->code['head']."\n".'</head>';
-				$template = preg_replace("/<\/head>/i", $head, $template, 1, $count);
-				if ( ! $count) {
-					$this->log('[70]');
-				}
-			} else {
-				$this->log('[72]');
-			}
-		}
-
-		if ($this->c[2]['use_body']) {
-			$body = $this->get_code('body');
-			if ($body) {
-				$body = "\n".'<!--bsm_body_code-->'."\n".$this->code['body']."\n".'</body>';
-				$template = preg_replace("/<\/body>/i", $body, $template, 1, $count);
-				if ( ! $count) {
-					$this->log('[71]');
-				}
-			} else {
-				$this->log('[73]');
-			}
-		}
-	}
-
-	function output_content()
-	{
-		if (is_array($this->headers)) {
-			foreach ($this->headers AS $key => $header) {
-				header($header);
-			}
-		}
-		print $this->template;
-		exit();
-	}
-
-// ------------------------------------------------------------------
-
-	function log($text, $description=false, $type='errors', $clear=false)
-	{
-		if ($this->c[2]['ignore_errors'] && $type == 'errors' && ! $clear) {
-			$foo = str_replace(array('[',']'), '', $text);
-			if (stripos(','.$this->c[2]['ignore_errors'].',', ','.$foo.',') !== false) {
-				return;
-			}
-		}
-		$fh = $this->logs_files[$type];
-		if ( ! $fh) {
-			$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
-			if ($clear) {
-				$fh = fopen($file, 'wb');
-				if ($fh) {
-					$data .= time() ."\t";
-					$data .= date('Y-m-d-H-i-s') ."\t";
-					$data .= '(truncate)' ."\n";
-					fwrite($fh, $data."\n");
-					fclose($fh);
-				}
-				return true;
-			}
-			if (filesize($file) >= 1024*64) {
-				$fh = fopen($file, 'c+b');
-				if ($fh) {
-					fseek($fh, -1024*8, SEEK_END);
-					$data = '';
-					while ($line = fgets($fh)) $data .= $line;
-					$data .= time() ."\t";
-					$data .= date('Y-m-d-H-i-s') ."\t";
-					$data .= '(truncated)' ."\n";
-					ftruncate($fh, 0);
-					rewind($fh);
-					fwrite($fh, $data."\n");
-					fclose($fh);
-				}
-			}
-			$fh = fopen($file, 'ab');
-			if ( ! $fh) return false;
-			$this->logs_files[$type] = $fh;
-		}
-		if ($text) {
-			$data .= time() ."\t";
-			$data .= date('Y-m-d-H-i-s') ."\t";
-			$data .= $text ."\t";
-			$data .= $this->requesturi;
-			if ($description) {
-				$data .= "\t". $description;
-			}
-			fwrite($fh, $data."\n");
-		}
-	}
-
-	function module_hash()
-	{
-		return md5(__FILE__);
-	}
-
-	function filetime($file, $type='c')
-	{
-		switch ($type) {
-			case 'a': $time = fileatime($file); break;
-			case 'm': $time = filemtime($file); break;
-			default: $time = filectime($file);
-		}
-		return $time ? $time : false;
-	}
-
-	function htaccess()
-	{
-		$htaccess  = '<FilesMatch "\.txt$">'. "\n";
-		$htaccess .= 'Order Deny,Allow'. "\n";
-		$htaccess .= 'Deny from all'. "\n";
-		$htaccess .= 'RewriteEngine On'. "\n";
-		$htaccess .= 'RewriteRule ^(.*)$ index.html [L,QSA]'. "\n";
-		$htaccess .= '</FilesMatch>'. "\n";
-		$fh = fopen($this->droot.'/_buran/seoModule/.htaccess', 'wb');
-		if ( ! $fh) return;
-		fwrite($fh, $htaccess);
-		fclose($fh);
-	}
-
-	function auth()
-	{
-		$get_w = $_GET['w'];
-		$url   = 'http://bunker-yug.ru/__buran/secret_key.php';
-		$url  .= '?h='.$this->domain;
-		$url  .= '&w='.$get_w;
-		$curloptions = array(
-			CURLOPT_URL            => $url,
-			CURLOPT_RETURNTRANSFER => true,
-		);
-		$curl = curl_init();
-		curl_setopt_array($curl, $curloptions);
-		$ww = curl_exec($curl);
-		if ($ww && $get_w && $ww === $get_w) {
-			return true;
-		}
-		return false;
-	}
-
-	function curl_exec_followlocation(&$curl, &$uri)
-	{
-		// v2.1
-		// Date 16.02.2017
-		// -----------------------------------------
-		if (preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i", $uri, $matches) !==1) {
-			return;
-		}
-		$website = $matches[1];
-		do {
-			// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
-			curl_setopt($curl, CURLOPT_URL, $uri);
-			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($curl, CURLOPT_HEADER, true);
+			
+			$options = array(
+				CURLOPT_URL => $row['website_to'] .'/_buran/seoModule.php?a=update&w='.$w.'&t='.$type,
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_FRESH_CONNECT  => true,
+				CURLOPT_FOLLOWLOCATION => false,
+				CURLOPT_CONNECTTIMEOUT => 10,
+				CURLOPT_TIMEOUT        => 10,
+				CURLOPT_POST           => true,
+				CURLOPT_POSTFIELDS     => array('c'=>$data),
+			);
+			$curl = curl_init();
+			curl_setopt_array($curl, $options);
 			$response = curl_exec($curl);
-			if (curl_errno($curl)) return false;
-			$headers = str_replace("\r",'',$response);
-			$headers = explode("\n\n",$headers,2);
-			if (preg_match("/^location: (.*)$/im", $headers[0], $matches) ===1) {
-				$location = true;
-				$referer  = $uri;
-				$uri      = trim($matches[1]);
-				if (preg_match("/^http(s){0,1}:\/\/[a-z0-9\.-]+/i", $uri, $matches) !==1) {
-					$uri= $website.(substr($uri,0,1)!='/'?'/':'').$uri;
-				}
+			curl_close($curl);
+			if ($response == 'ok') {
+				$upd = true;
 			} else {
-				$location = false;
+				$upd = false;
 			}
-			if ($location) {
-				if ($redirects_list[$uri]<=1) $redirects_list[$uri]++;
-					else $location = false;
-			}
-		} while ($location);
-		return $response;
+			mysql_query("UPDATE seomodule_config SET
+				".($upd ? "upd_{$type}=".time() : "upd_{$type}=upd_{$type}+1")."
+				WHERE id={$row['id']} LIMIT 1");
+		}
 	}
 
-	/**
-	 * https://github.com/ralouphie/getallheaders
-	 * 23.12.2016
-	 * Get all HTTP header key/values as an associative array for the current request.
-	 * @return string[string] The HTTP header key/value pairs.
-	 */
-	/**
-	 * https://github.com/ralouphie/getallheaders
-	 * 11.02.2016
-	 * Get all HTTP header key/values as an associative array for the current request.
-	 * @return string[string] The HTTP header key/value pairs.
-	 */
-	function getallheaders_bsm()
-	{
-		$headers = array();
-		$copy_server = array(
-			'CONTENT_TYPE'   => 'Content-Type',
-			'CONTENT_LENGTH' => 'Content-Length',
-			'CONTENT_MD5'    => 'Content-Md5',
-		);
-		foreach ($_SERVER as $key => $value) {
-			if (substr($key, 0, 5) === 'HTTP_') {
-				$key = substr($key, 5);
-				if (!isset($copy_server[$key]) || !isset($_SERVER[$key])) {
-					$key = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', $key))));
-					$headers[$key] = $value;
+
+
+
+
+	$res = mysql_query("SELECT sc.*, sm.website_to FROM seomodule_text sc
+		INNER JOIN seomodule sm ON sm.idc=sc.idc
+		WHERE sm.m_status='ok' AND sm.ii=1 AND info LIKE '[seomoduleversion_4%'
+			AND sc.dt>sc.upd OR sc.dt_imgs>sc.upd_imgs LIMIT 1");
+	if ($res && mysql_num_rows($res)) {
+		while ($row = mysql_fetch_assoc($res)) {
+			$host = site_from_url($row['website_to']);
+			$w = @file_get_contents('http://bunker-yug.ru/__buran/secret_key.php?s=V_s68g_Kw79eRYL6EsST&h='.$host);
+			
+			if ($row['dt'] > $row['upd']) {
+				$row['s_img']  = base64_decode($row['s_img']);
+				$row['s_img']  = unserialize($row['s_img']);
+
+				$s_text = $row['s_text'];
+				$s_text = str_replace('<p>[img]</p>', '[img]', $s_text);
+				$s_text = str_replace('<p>[col]</p>', '[col]', $s_text);
+				$s_text = str_replace('<p>[part]</p>', '[part]', $s_text);
+				preg_match_all("/\[tab(.*)\]/U", $s_text, $matches);
+				if (is_array($matches[0])) {
+					foreach ($matches[0] AS $mt) {
+						$s_text = str_replace('<p>'.$mt.'</p>', $mt, $s_text);
+					}
 				}
-			} elseif (isset($copy_server[$key])) {
-				$headers[$copy_server[$key]] = $value;
+				$row['s_text'] = $s_text;
+
+				$data = array(
+					'title'       => $row['title'],
+					'description' => $row['description'],
+					'keywords'    => $row['keywords'],
+					's_title'     => $row['s_title'],
+					's_text'      => $row['s_text'],
+					's_img'       => $row['s_img'],
+				);
+
+				$data = serialize($data);
+				$data = base64_encode($data);
+				
+				$options = array(
+					CURLOPT_URL => $row['website_to'] .'/_buran/seoModule.php?a=update&w='.$w.'&t=text&n='.$row['alias'],
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_FRESH_CONNECT  => true,
+					CURLOPT_FOLLOWLOCATION => false,
+					CURLOPT_CONNECTTIMEOUT => 10,
+					CURLOPT_TIMEOUT        => 10,
+					CURLOPT_POST           => true,
+					CURLOPT_POSTFIELDS     => array('c'=>$data),
+				);
+				$curl = curl_init();
+				curl_setopt_array($curl, $options);
+				$response = curl_exec($curl);
+				curl_close($curl);
+				$upd = false;
+				if ($response == 'ok') {
+					$upd = true;
+				}
+				mysql_query("UPDATE seomodule_text SET
+					".($upd ? "upd=".time() : "upd=upd+1")."
+					WHERE id={$row['id']} LIMIT 1");
+			}
+
+			// --------------------------------------------------
+
+			if ($row['dt_imgs'] > $row['upd_imgs']) {
+				$fold = '/__buran/seomodule/images/'.$row['idc'].'/'.$row['alias'].'_';
+				$imgs = glob($root.$fold.'[0-9]*.{jpg,png}', GLOB_BRACE);
+				$data = array('fs' => 0);
+				if (is_array($imgs)) {
+					foreach ($imgs AS $key => $path) {
+						ImgCrop8($path, 300,200);
+						$data['fs'] ++;
+						$data['f'.($key+1)] = '@'.$path;
+					}
+				}
+				$upd = true;
+				if ($data['fs']) {
+					$upd = false;
+					$options = array(
+						CURLOPT_URL => $row['website_to'] .'/_buran/seoModule.php?a=update&w='.$w.'&t=imgs&n='.$row['alias'],
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_FRESH_CONNECT  => true,
+						CURLOPT_FOLLOWLOCATION => false,
+						CURLOPT_CONNECTTIMEOUT => 10,
+						CURLOPT_TIMEOUT        => 10,
+						CURLOPT_POST           => true,
+						CURLOPT_POSTFIELDS     => $data,
+						CURLOPT_SAFE_UPLOAD    => false,
+					);
+					$curl = curl_init();
+					curl_setopt_array($curl, $options);
+					$response = curl_exec($curl);
+					curl_close($curl);
+					if ($response == 'ok') {
+						$upd = true;
+					}
+
+					foreach ($imgs AS $key => $path) {
+						unlink($path);
+					}
+				}
+				mysql_query("UPDATE seomodule_text SET
+					".($upd ? "upd_imgs=".time() : "upd_imgs=upd_imgs+1")."
+					WHERE id={$row['id']} LIMIT 1");
 			}
 		}
-		if (!isset($headers['Authorization'])) {
-			if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-				$headers['Authorization'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
-			} elseif (isset($_SERVER['PHP_AUTH_USER'])) {
-				$basic_pass = isset($_SERVER['PHP_AUTH_PW']) ? $_SERVER['PHP_AUTH_PW'] : '';
-				$headers['Authorization'] = 'Basic ' . base64_encode($_SERVER['PHP_AUTH_USER'] . ':' . $basic_pass);
-			} elseif (isset($_SERVER['PHP_AUTH_DIGEST'])) {
-				$headers['Authorization'] = $_SERVER['PHP_AUTH_DIGEST'];
-			}
-		}
-		return $headers;
 	}
+
+
+
+
+
+
+
+
+//=======================================================================
+
+
+function css_compress($data)
+{
+	$pregreplace = array(
+		"/\/\*(.*)\*\//sU"          => "",
+		"/[\s]{2,}/"                => " ",
+		"/[\s]*([{\}\[\];:])[\s]*/" => '${1}',
+		"/[\s]*([,>])[\s]*/"        => '${1}',
+		"/([^0-9])0px/"             => '${1}0',
+		"/;\}/"                     => '}',
+		"/\)and\(/"                 => ') and (',
+	);
+	foreach ($pregreplace AS $pattern => $replacement) {
+		$data = preg_replace($pattern, $replacement, $data);
+	}
+	return $data;
 }
-// ----------------------------------------------
-// -------
+
+
+function clear_text($text)
+{
+	$trans = array(
+		'А'=>'а', 'Б'=>'б', 'В'=>'в', 'Г'=>'г', 'Д'=>'д', 'Е'=>'е',
+		'Ё'=>'ё', 'Ж'=>'ж', 'З'=>'з', 'И'=>'и', 'Й'=>'й', 'К'=>'к',
+		'Л'=>'л', 'М'=>'м', 'Н'=>'н', 'О'=>'о', 'П'=>'п', 'Р'=>'р',
+		'С'=>'с', 'Т'=>'т', 'У'=>'у', 'Ф'=>'ф', 'Х'=>'х', 'Ц'=>'ц',
+		'Ч'=>'ч', 'Ш'=>'ш', 'Щ'=>'щ', 'Э'=>'э', 'Ю'=>'ю', 'Я'=>'я',
+		'Ы'=>'ы', 'Ъ'=>'ъ', 'Ь'=>'ь',
+	);
+	$text = strtr($text, $trans);
+	$text = htmlentities($text);
+	$text = str_replace("\r", '', $text);
+	$text = preg_replace("/[^абвгдеёжзийклмнопрстуфхцчшщьъыэюя\n]/", '-', $text);
+	do {
+		$text = str_replace('--', '-', $text, $count);
+	} while ($count);
+	# $text = preg_replace("/([-]){2,}/", '\1', $text);
+	$text = explode("\n", $text);
+	foreach ($text AS $key => &$row) {
+		$row = trim($row, '-');
+		if ( ! $row || strlen($row) <= 70) {
+			unset($text[$key]);
+		}
+	}
+	return $text;
+}
+
+
+
+function curl( $url )
+{
+	$head= array(
+		'User-Agent: Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36'
+	);
+	
+	$curl= curl_init();
+	
+	$options= array(
+				CURLOPT_URL => $url,
+				CURLOPT_HTTPHEADER => $head,
+				CURLOPT_AUTOREFERER => true,
+				CURLOPT_COOKIESESSION => true,
+				CURLOPT_RETURNTRANSFER => 1,
+				CURLOPT_FRESH_CONNECT => true,
+				//CURLINFO_HEADER_OUT => true,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS => 10,
+				CURLOPT_NOBODY => true,
+				CURLOPT_TIMEOUT => 20
+	);
+	curl_setopt_array( $curl, $options );
+	$result= curl_exec( $curl );
+	$info= curl_getinfo( $curl );
+	curl_close( $curl );
+	
+	return array( 'body' => $result, 'info' => $info );
+}
+
+function page_from_url( $str )
+{
+	$str= trim( $str );
+	$str= str_replace( "https://", '', $str );
+	$str= str_replace( "http://", '', $str );
+	$str= str_replace( "../", '.../', $str );
+	$str= str_replace( "./", '/', $str );
+	$str= str_replace( "//", '/', $str );
+	
+	$str2= explode( "/", $str );
+	$str= str_replace( $str2[0], '', $str );
+	$str= trim( $str );
+	
+	return $str;
+}
+
+
+	//print get_full_url( 'javascript:post(sdf.ru', 'domain.ru', 'http://domain.ru/?bbb=222' );
+
+
+function get_full_url( $url, $webs, $page )
+{
+	$tmp= trim( $url );
+	
+	$page= explode( "?", $page );
+	$page= $page[ 0 ];
+	
+	$arr= explode( "/", page_from_url( $page ) );
+	unset( $arr[ count( $arr ) - 1 ] );
+	unset( $arr[ 0 ] );
+	$dirname= '';
+	foreach( $arr AS $val )
+	{
+		$dirname .= "/". $val;
+	}
+	$dirname .= "/";
+	
+	if( substr( $tmp, 0, 7 ) == 'mailto:' ) $tmp= 'http://' . $webs . '/';
+	elseif( substr( $tmp, 0, 11 ) == 'javascript:' ) $tmp= 'http://' . $webs . '/';
+	elseif( substr( $tmp, 0, 2 ) == '//' ) $tmp= 'http:' . $tmp;
+	elseif( substr( $tmp, 0, 1 ) == '/' ) $tmp= 'http://' . $webs . get_url_bez_tochek( $tmp );
+	elseif( substr( $tmp, 0, 7 ) == 'http://' ) NULL;
+	elseif( substr( $tmp, 0, 8 ) == 'https://' ) NULL;
+	elseif( substr( $tmp, 0, 1 ) == '?' ) $tmp= $page . $url;
+	else $tmp= 'http://'. $webs . get_url_bez_tochek( ( $dirname != 'http:/' ? $dirname : '' ) . $tmp );
+	
+	$tmp= explode( "#", $tmp );
+	$tmp= $tmp[ 0 ];
+	
+	$tmp= str_replace( "www.", '', $tmp );
+	
+	return $tmp;
+}
+
+
+function get_url_bez_tochek( $adres )
+{
+	$adres= str_replace( "../", "...//", $adres );
+	$adres= str_replace( "./", "", $adres );
+	$adres= ltrim( $adres, "\.\./" );
+	
+	$pattern = '/\w+\/\.\.\//';
+	while( preg_match( $pattern, $adres ) )
+	{
+		$adres= preg_replace( $pattern, '', $adres );
+		$adres= trim( $adres, "\.\./" );
+	}
+	
+	if( substr( $adres, 0, 1 ) != '/' ) $adres= '/'. $adres;
+	
+	return $adres;
+}
+
+
+
+function site_from_url( $str )
+{
+	$str= trim( $str );
+	$str= strtolower( $str );
+	$str= str_replace( "https://www.", '', $str );
+	$str= str_replace( "https://", '', $str );
+	$str= str_replace( "http://www.", '', $str );
+	$str= str_replace( "http://", '', $str );
+	$str= str_replace( "www.", "", $str );
+	$str= str_replace( "//", "/", $str );
+	$str= explode( "/", $str );
+	$str= explode( ":", $str[0] );
+	$str= str_replace( "/", '', $str[0] );
+	$str= str_replace( " ", '', $str );
+	$str= str_replace( ",", '', $str );
+	$str= str_replace( ";", '', $str );
+	$str= trim( $str );
+	
+	return $str;
+}
+
+
+
+function ImgCrop8($img, $w, $h, $droot='')
+{
+	/**
+	 * ImgCrop8
+	 *
+	 * @version   8.0-m
+	 * @date      16.06.2017
+	 */
+
+	$img = trim(urldecode($img));
+	$w = intval($w);
+	$h = intval($h);
+
+	$img = (strpos($img,'/') !==0 ? '/' : '').$img;
+
+	$img1_info = getimagesize($droot.$img);
+	$srcW = $img1_info[0];
+	$srcH = $img1_info[1];
+	if ( ! $srcH ) return false;
+	$ot = $srcW / $srcH;
+	$dstW = $w > 0 ? $w : $srcW;
+	$dstH = $h > 0 ? $h : $srcH;
+	if (($srcW > $w && $w > 0) || ($srcH > $h && $h > 0)) {
+		$dstH = round($dstW / $ot);
+		if($dstH > $h && $h > 0) {
+			$dstH = $h;
+			$dstW = round($dstH * $ot);
+		}
+	} else {
+		$dstW = $srcW;
+		$dstH = $srcH;
+	}
+	$crW = $dstW;
+	$crH = $dstH;
+
+	if ($img1_info[2] == 2) $img1 = imagecreatefromjpeg($droot.$img);
+	elseif ($img1_info[2] == 3) {
+		$img1 = imagecreatefrompng($droot.$img);
+		$png = true;
+	}
+	$img2 = ImageCreateTrueColor($crW, $crH);
+	if ($png) {
+		imagealphablending($img2, true);
+		imagesavealpha($img2, true);
+		$col = imagecolorallocatealpha($img2, 255,255,255,127);
+	} else {
+		$col = imagecolorallocate($img2, 255,255,255);
+	}
+	imagefill($img2, 0,0, $col);
+	imagecopyresampled($img2, $img1, 0,0,0,0, $dstW, $dstH, $srcW, $srcH);
+
+	if ($png) imagepng($img2, $droot.$img);
+	elseif ($img1_info[2] == 2) imagejpeg($img2, $droot.$img, 80);
+	imagedestroy($img1);
+	imagedestroy($img2);
+}
