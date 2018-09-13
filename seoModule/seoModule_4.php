@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.1
- * @date 11.09.2018
+ * @version 4.11
+ * @date 13.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 40500
  */
 
-$bsm = new buran_seoModule('4.1');
+$bsm = new buran_seoModule('4.11');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -652,7 +652,9 @@ class buran_seoModule
 			$file = $folder.'t/'.$file;
 		}
 
-		$fh = fopen($file, 'rb');
+		if (file_exists($file)) {
+			$fh = fopen($file, 'rb');
+		}
 		if ( ! $fh) {
 			if ( ! $this->seotext_cache) {
 				$this->log('[10]');
@@ -1148,17 +1150,14 @@ window.onload = function(){
 		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
 		if ( ! file_exists($file)) return false;
 		$fh = fopen($file, 'rb');
-		if ($fh) {
-			$code = '';
-			while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-			fclose($fh);
-			if ($code) {
-				$code = base64_decode($code);
-				$this->code[$type] = $code;
-				return true;
-			}
-		}
-		return false;
+		if ( ! $fh) return false;
+		$code = '';
+		while ( ! feof($fh)) $code .= fread($fh, 1024*8);
+		fclose($fh);
+		if ( ! $code) return false;
+		$code = base64_decode($code);
+		$this->code[$type] = $code;
+		return true;
 	}
 
 	function head_body_parse()
@@ -1266,6 +1265,7 @@ window.onload = function(){
 
 	function filetime($file, $type='c')
 	{
+		if ( ! file_exists($file)) return false;
 		switch ($type) {
 			case 'a': $time = fileatime($file); break;
 			case 'm': $time = filemtime($file); break;
@@ -1388,6 +1388,4 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----
+// -------------------------------
