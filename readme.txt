@@ -1,3 +1,6 @@
+-	error_reporting(E_ALL & ~E_NOTICE);
+-	ini_set('display_errors', 'off');
+
 - CURLOPT_FRESH_CONNECT  => true,
 
 - если уставновлен тип страницы С - проверять а вдруг такая стнраница есть и нужно поставить тип А
