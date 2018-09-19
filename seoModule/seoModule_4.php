@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.11
- * @date 13.09.2018
+ * @version 4.12
+ * @date 19.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 40500
+ * @size 42000
  */
 
-$bsm = new buran_seoModule('4.11');
+$bsm = new buran_seoModule('4.12');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -30,6 +30,9 @@ if (
 	}
 
 	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
+		error_reporting(E_ALL & ~E_NOTICE);
+		ini_set('display_errors', 'off');
+
 		$bsm->clear_request();
 
 		$output = false;
@@ -90,6 +93,8 @@ if (
 }
 
 if ('seoModule.php' === basename($bsm->pageurl)) {
+	error_reporting(E_ALL & ~E_NOTICE);
+	ini_set('display_errors', 'off');
 
 if ('list' == $_GET['a']) {
 	header('Content-type: text/html; charset=utf-8');
@@ -281,7 +286,6 @@ if ('deactivate' == $_GET['a']) {
 }
 if ('transform' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
-
 	exit('ok');
 }
 
@@ -1205,6 +1209,46 @@ window.onload = function(){
 
 // ------------------------------------------------------------------
 
+	function cache($field=false, $value=false, $clear=false)
+	{
+		$folder = $this->droot.'/_buran/seoModule/';
+		$file = 'cache_'.$this->domain_h.'.txt';
+		if ($clear) {
+			if ( ! file_exists($folder.$file)) return;
+			unlink($folder.$file);
+
+		} elseif ( ! $field) {
+			if ( ! file_exists($folder.$file)) return false;
+			$fh = fopen($folder.$file, 'rb');
+			if ( ! $fh) return false;
+			$cache = '';
+			while ( ! feof($fh)) $cache .= fread($fh, 1024*8);
+			fclose($fh);
+			$cache = base64_decode($cache);
+			$cache = unserialize($cache);
+			if ( ! is_array($cache) || ! $cache['ts']) return false;
+			return $cache;
+
+		} elseif ( ! $value) {
+			if ( ! $this->cache) return false;
+			if ( ! isset($this->cache[$field])) return false;
+			return $this->cache[$field];
+
+		} else {
+			if ( ! is_array($this->cache) || ! $this->cache['ts']) {
+				$this->cache = array('ts' => time());
+			}
+			$this->cache[$field] = $value;
+			$cache = $this->cache;
+			$cache = serialize($cache);
+			$cache = base64_encode($cache);
+			$fh = fopen($folder.$file, 'wb');
+			if ( ! $fh) return false;
+			fwrite($fh, $cache);
+			fclose($fh);
+		}
+	}
+
 	function log($text, $description=false, $type='errors', $clear=false)
 	{
 		if ($this->c[2]['ignore_errors'] && $type == 'errors' && ! $clear) {
@@ -1388,4 +1432,9 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// -------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ------------
