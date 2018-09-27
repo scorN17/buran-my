@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.12
- * @date 19.09.2018
+ * @version 4.13
+ * @date 27.09.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 42000
  */
 
-$bsm = new buran_seoModule('4.12');
+$bsm = new buran_seoModule('4.13');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -246,6 +246,7 @@ if ('update' == $_GET['a']) {
 				mkdir($folder, 0755, true);
 			}
 			$file = $folder.'txt_'.$alias.'.txt';
+			$bsm->cache_clear();
 			break;
 		case 'imgs':
 			$folder = $bsm->droot.'/_buran/seoModule/i/';
@@ -261,6 +262,7 @@ if ('update' == $_GET['a']) {
 				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
 				if ( ! $res) exit('er');
 			}
+			$bsm->cache_clear();
 			exit('ok');
 	}
 	if ($delete_if_null && ! $code) {
@@ -749,6 +751,17 @@ class buran_seoModule
 		if ($res === false) return false;
 		fclose($fh);
 		return true;
+	}
+
+	function cache_clear()
+	{
+		$folder = $this->droot.'/_buran/seoModule/c/';
+		if ( ! file_exists($folder)) return;
+		if ( ! ($open = opendir($folder))) return;
+		while ($file = readdir($open)) {
+			if ( ! is_file($folder.$file)) continue;
+			unlink($folder.$file);
+		}
 	}
 
 	function text_parse()
@@ -1389,15 +1402,6 @@ window.onload = function(){
 
 	/**
 	 * https://github.com/ralouphie/getallheaders
-	 * 23.12.2016
-	 * Get all HTTP header key/values as an associative array for the current request.
-	 * @return string[string] The HTTP header key/value pairs.
-	 */
-	/**
-	 * https://github.com/ralouphie/getallheaders
-	 * 11.02.2016
-	 * Get all HTTP header key/values as an associative array for the current request.
-	 * @return string[string] The HTTP header key/value pairs.
 	 */
 	function getallheaders_bsm()
 	{
@@ -1422,7 +1426,8 @@ window.onload = function(){
 			if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
 				$headers['Authorization'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
 			} elseif (isset($_SERVER['PHP_AUTH_USER'])) {
-				$basic_pass = isset($_SERVER['PHP_AUTH_PW']) ? $_SERVER['PHP_AUTH_PW'] : '';
+				$basic_pass = isset($_SERVER['PHP_AUTH_PW'])
+					? $_SERVER['PHP_AUTH_PW'] : '';
 				$headers['Authorization'] = 'Basic ' . base64_encode($_SERVER['PHP_AUTH_USER'] . ':' . $basic_pass);
 			} elseif (isset($_SERVER['PHP_AUTH_DIGEST'])) {
 				$headers['Authorization'] = $_SERVER['PHP_AUTH_DIGEST'];
@@ -1437,4 +1442,5 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ------------
+// ----------------------------------------------
+// -----------
