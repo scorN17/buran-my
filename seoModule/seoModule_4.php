@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.14
+ * @version 4.15
  * @date 01.10.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 42000
  */
 
-$bsm = new buran_seoModule('4.14');
+$bsm = new buran_seoModule('4.15');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -933,9 +933,17 @@ class buran_seoModule
 		}
 		if ($txt) {
 			if ($alias_start) {
+				$tit = 'Статьи';
+				$link = 'Все статьи';
+				if ($this->encode) {
+					$tit = iconv('utf-8',
+						$this->c[2]['out_charset'].$this->encode_e, $tit);
+					$link = iconv('utf-8',
+						$this->c[2]['out_charset'].$this->encode_e, $link);
+				}
 				$txt = '<div class="sssmb_h2 sssmb_h2_cols">
-					<div class="col"><h2>Статьи</h2></div>
-					<div class="col rght"><a href="'.$this->c[1]['articles'].'">Все статьи</a></div>
+					<div class="col"><h2>'.$tit.'</h2></div>
+					<div class="col rght"><a href="'.$this->c[1]['articles'].'">'.$link.'</a></div>
 				</div>'.$txt;
 			}
 			$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">'.$txt.'</div>';
@@ -1441,9 +1449,4 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -----------------------------
+// ------------------------------
