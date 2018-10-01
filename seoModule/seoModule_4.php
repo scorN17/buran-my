@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.13
- * @date 27.09.2018
+ * @version 4.14
+ * @date 01.10.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 42000
  */
 
-$bsm = new buran_seoModule('4.13');
+$bsm = new buran_seoModule('4.14');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -209,6 +209,7 @@ if ('info' == $_GET['a']) {
 
 if ('update' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
+	$bsm->cache_clear();
 	$bsm->htaccess();
 	$code = $_POST['c'];
 	if ( ! in_array($_GET['t'],
@@ -246,7 +247,6 @@ if ('update' == $_GET['a']) {
 				mkdir($folder, 0755, true);
 			}
 			$file = $folder.'txt_'.$alias.'.txt';
-			$bsm->cache_clear();
 			break;
 		case 'imgs':
 			$folder = $bsm->droot.'/_buran/seoModule/i/';
@@ -262,7 +262,6 @@ if ('update' == $_GET['a']) {
 				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
 				if ( ! $res) exit('er');
 			}
-			$bsm->cache_clear();
 			exit('ok');
 	}
 	if ($delete_if_null && ! $code) {
@@ -294,6 +293,12 @@ if ('transform' == $_GET['a']) {
 if ('clearlog' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
 	$bsm->log('', '', $_GET['t'], true);
+	exit('ok');
+}
+
+if ('clearcache' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit('er');
+	$bsm->cache_clear();
 	exit('ok');
 }
 }
@@ -1441,6 +1446,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -----------
+// -----------------------------
