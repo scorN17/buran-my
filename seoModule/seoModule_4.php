@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.15
- * @date 01.10.2018
+ * @version 4.17
+ * @date 17.10.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 42000
+ * @size 42222
  */
 
-$bsm = new buran_seoModule('4.15');
+$bsm = new buran_seoModule('4.17');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -297,7 +297,6 @@ if ('clearlog' == $_GET['a']) {
 }
 
 if ('clearcache' == $_GET['a']) {
-	if ( ! ($bsm->auth())) exit('er');
 	$bsm->cache_clear();
 	exit('ok');
 }
@@ -704,12 +703,17 @@ class buran_seoModule
 		$seotext_alias = false;
 		$seotext_tp    = 's';
 		$seotext_sh    = 's';
+		$flag = false;
 		foreach ($this->c[3] AS $alias => $prms) {
 			if ($this->requesturi == $prms[0]) {
 				$seotext_alias = $alias;
 				$seotext_tp    = $prms[1];
 				$seotext_sh    = $prms[2];
-				break;
+				if ($flag) {
+					$this->log('[13]');
+					break;
+				}
+				$flag = true;
 			}
 		}
 		if ( ! $seotext_alias) return false;
@@ -1127,7 +1131,8 @@ window.onload = function(){
 			$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $description, $template, 2, $count1);
 			$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $keywords, $template, 2, $count2);
 			$template = preg_replace("/<title>(.*)<\/title>/isU", $title, $template, 2, $count3);
-			if ($count1 !== 1 || $count2 !== 1 || $count3 !== 1) {
+			if ($count1 === 2 || $count2 === 2 || $count3 === 2 ||
+				($c['meta'] == 'replace_or_add' && ! $count3)) {
 				$this->log('[61]');
 			}
 		}
@@ -1158,7 +1163,11 @@ window.onload = function(){
 
 		if (in_array($c['canonical'],
 			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$canonical = '<link rel="canonical" href="'.$this->c[1]['website'].$this->requesturi.'" />';
+			$canonical = $this->c[1]['website'];
+			if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
+				$canonical .= $this->requesturi;
+			}
+			$canonical = '<link rel="canonical" href="'.$canonical.'" />';
 			if ($c['canonical'] == 'replace_or_add' ||
 				$c['canonical'] == 'delete') {
 				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
@@ -1449,4 +1458,4 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// ------------------------------
+// ---------------------------
