@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.17
- * @date 17.10.2018
+ * @version 4.2
+ * @date 31.10.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 42222
+ * @size 44444
  */
 
-$bsm = new buran_seoModule('4.17');
+$bsm = new buran_seoModule('4.2');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -32,6 +32,10 @@ if (
 	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
 		error_reporting(E_ALL & ~E_NOTICE);
 		ini_set('display_errors', 'off');
+
+		if ($bsm->c[2]['reverse_requests']) {
+			$bsm->send_reverse_request();
+		}
 
 		$bsm->clear_request();
 
@@ -60,7 +64,7 @@ if (
 			}
 		}
 		if ($seotext && $tags) {
-			if ( ! $bsm->seotext_cache) {
+			if ( ! $bsm->seotext_cache || $bsm->test) {
 				$bsm->text_parse();
 				if ($bsm->requesturi == $bsm->c[1]['articles']) {
 					$bsm->articles_parse();
@@ -300,6 +304,11 @@ if ('clearcache' == $_GET['a']) {
 	$bsm->cache_clear();
 	exit('ok');
 }
+
+if ('reverse' == $_GET['a']) {
+	$bsm->send_reverse_request(true);
+	exit('ok');
+}
 }
 
 // ------------------------------------------------------------------
@@ -336,8 +345,7 @@ class buran_seoModule
 	public $seotext_hide = false;
 	public $seotext_date;
 	public $donor;
-	public $encode;
-	public $encode_e;
+	public $charset;
 
 	public $template;
 	public $body;
@@ -418,13 +426,6 @@ class buran_seoModule
 				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
 				$this->c[2]['use_cache']  = intval($this->c[2]['use_cache']);
 
-				$this->c[2]['out_charset'] = strtolower($this->c[2]['out_charset']);
-				$this->encode = $this->c[2]['out_charset']
-					&& $this->c[2]['out_charset'] != 'utf-8'
-					&& $this->c[2]['out_charset'] != 'utf8'
-					? true : false;
-				$this->encode_e = '//TRANSLIT//IGNORE';
-
 				if ($this->c[2]['urldecode']) {
 					$this->requesturi = urldecode($this->requesturi);
 				}
@@ -432,6 +433,40 @@ class buran_seoModule
 				$this->declension = $this->c[7][$this->c[1]['city']];
 
 				$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
+
+				$charsetlist = array(
+					'utf-8' => array(
+						/*0*/ 'Статьи',
+						/*1*/ 'Все статьи',
+						/*2*/ 'Дата',
+						/*3*/ 'публикации',
+						/*4*/ 'изменения',
+						/*5*/ 'рисунок',
+						/*6*/ 'фото',
+						/*7*/ 'Автор',
+					),
+					'cp1251' => array(
+						/*0*/ '0fLg8vzo',
+						/*1*/ 'wvHlIPHy4PL86A==',
+						/*2*/ 'xODy4A==',
+						/*3*/ '7/Ph6+jq4Pbo6A==',
+						/*4*/ '6Ofs5e3l7ej/',
+						/*5*/ '8Ojx8+3u6g==',
+						/*6*/ '9O7y7g==',
+						/*7*/ 'wOLy7vA=',
+					),
+				);
+				if ( ! $this->c[2]['out_charset']) {
+					$this->c[2]['out_charset'] = 'utf-8';
+				}
+				$this->charset = $charsetlist[$this->c[2]['out_charset']][0]
+					? $charsetlist[$this->c[2]['out_charset']]
+					: $charsetlist['utf-8'];
+				if ($this->c[2]['out_charset'] != 'utf-8' && is_array($this->charset)) {
+					foreach ($this->charset AS $key => $txt) {
+						$this->charset[$key] = base64_decode($txt);
+					}
+				}
 			}
 		}
 		return true;
@@ -782,20 +817,6 @@ class buran_seoModule
 			$st['s_text']  = $this->test_stext;
 		}
 
-		if ($this->encode) {
-			foreach ($st AS $txtk => $txt) {
-				if ( ! is_array($txt)) {
-					$st[$txtk] = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $txt);
-					continue;
-				}
-				foreach ($txt AS $key => $row) {
-					$st[$txtk][$key] = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $row);
-				}
-			}
-		}
-
 		$st['flag_multitext'] = strpos($st['s_text'], '[part]') !== false
 			? true : false;
 
@@ -827,7 +848,8 @@ class buran_seoModule
 			$img_p = '';
 			if ($img['src']) {
 				$i++;
-				$img['attr'] = $img['alt'].' ('.($i==1 ? 'рисунок' : 'фото').')';
+				$img['attr'] = $img['alt'].' ('.($i==1
+					? $this->charset[5] : $this->charset[6]).')';
 				$img_p = '
 <div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'">
 	<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
@@ -918,12 +940,6 @@ class buran_seoModule
 				if (file_exists($this->droot.$img)) break;
 				$img = false;
 			}
-			if ($this->encode) {
-				$text['description'] = iconv('utf-8',
-					$this->c[2]['out_charset'].$this->encode_e, $text['description']);
-				$text['s_title'] = iconv('utf-8',
-					$this->c[2]['out_charset'].$this->encode_e, $text['s_title']);
-			}
 			$txt .= '<div class="sssmba_itm">
 				<div class="sssmba_img">';
 			if ($img) $txt .= '<img src="'.$img.'" alt="" />';
@@ -937,14 +953,8 @@ class buran_seoModule
 		}
 		if ($txt) {
 			if ($alias_start) {
-				$tit = 'Статьи';
-				$link = 'Все статьи';
-				if ($this->encode) {
-					$tit = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $tit);
-					$link = iconv('utf-8',
-						$this->c[2]['out_charset'].$this->encode_e, $link);
-				}
+				$tit  = $this->charset[0];
+				$link = $this->charset[1];
 				$txt = '<div class="sssmb_h2 sssmb_h2_cols">
 					<div class="col"><h2>'.$tit.'</h2></div>
 					<div class="col rght"><a href="'.$this->c[1]['articles'].'">'.$link.'</a></div>
@@ -1061,9 +1071,10 @@ window.onload = function(){
 
 		list($logo_w, $logo_h) = getimagesize($this->droot.$this->c[1]['logo']);
 
-		$body .= '
+		if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_micromarking']) {
+			$body .= '
 <div class="sssmb_cinf">
-	<p itemprop="author">Автор: '.$this->c[1]['company_name'].'</p>
+	<p itemprop="author">'.$this->charset[7].': '.$this->c[1]['company_name'].'</p>
 	<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
 		<meta itemprop="name" content="'.$this->domain.'" />
 		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
@@ -1074,10 +1085,11 @@ window.onload = function(){
 			<meta itemprop="height" content="'.$logo_h.'" />
 		</div>
 	</div>
-	<p>Дата публикации: <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
-	<p>Дата изменения: <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
+	<p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
+	<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
 	<noindex><p itemprop="headline" itemprop="description">'.$st['title'].'</p></noindex>
 </div>';
+		}
 
 		$body .= '<div class="sssmb_stext" itemprop="articleBody">';
 
@@ -1242,7 +1254,77 @@ window.onload = function(){
 		exit();
 	}
 
+	function send_reverse_request($urgently=false)
+	{
+		$interval = 60*60*24;
+		if ($urgently) $interval = 60*5;
+		$data     = array();
+		$folder   = $this->droot.'/_buran/seoModule/';
+		$file     = 'reverse_'.$this->domain_h.'.txt';
+
+		if (file_exists($folder.$file)) {
+			$fh = fopen($folder.$file, 'rb');
+			if ( ! $fh) {
+				$data = '';
+				while ( ! feof($fh)) $data .= fread($fh, 1024*8);
+				fclose($fh);
+				$data = base64_decode($data);
+				$data = unserialize($data);
+				if ( ! is_array($data)) $data = array();
+			}
+		}
+		if (time() - $data['config'] >= $interval) {
+			$res = $this->reverse_request('config');
+			$data['config'] = time();
+
+		} elseif (time() - $data['style'] >= $interval) {
+
+		}
+
+		$data = serialize($data);
+		$data = base64_encode($data);
+		$fh = fopen($folder.$file, 'wb');
+		if ( ! $fh) return false;
+		fwrite($fh, $data);
+		fclose($fh);
+	}
+
+	function update($type, $code)
+	{
+
+	}
+
 // ------------------------------------------------------------------
+
+	function reverse_request($a, $data=false)
+	{
+		if (is_array($data)) {
+			$data = serialize($data);
+		}
+		$data = base64_encode($data);
+		$a = urlencode($a);
+		$sc = $this->c[2]['reverse_requests'];
+		$options = array(
+			CURLOPT_URL => 'http://bunker-yug.ru/__buran/seoModule_reverse.php',
+			CURLOPT_USERAGENT         => 'Buran/',
+			CURLOPT_RETURNTRANSFER    => true,
+			CURLOPT_FRESH_CONNECT     => true,
+			CURLOPT_FOLLOWLOCATION    => false,
+			CURLOPT_TIMEOUT           => 10,
+			CURLOPT_POST              => true,
+			CURLOPT_POSTFIELDS        => array('a'=>$a, 'data'=>$data, 'sc'=>$sc),
+		);
+		$curl = curl_init();
+		curl_setopt_array($curl, $options);
+		$response     = curl_exec($curl);
+		$request_info = curl_getinfo($curl);
+		curl_close($curl);
+		if ( ! curl_errno($curl) && $response
+			&& $request_info['http_code'] == 200) {
+			return $response;
+		}
+		return false;
+	}
 
 	function cache($field=false, $value=false, $clear=false)
 	{
@@ -1458,4 +1540,9 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// ---------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ------------------
