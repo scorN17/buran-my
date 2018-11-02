@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.2
- * @date 31.10.2018
+ * @version 4.3
+ * @date 02.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 44444
  */
 
-$bsm = new buran_seoModule('4.2');
+$bsm = new buran_seoModule('4.3');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -137,77 +137,7 @@ if ('list' == $_GET['a']) {
 }
 
 if ('info' == $_GET['a']) {
-	$files = $bsm->c[2]['include_files'];
-	$files = explode('  ', $files);
-	if (is_array($files)) {
-		foreach ($files AS $file) {
-			$file = trim($file);
-			if ( ! $file) continue;
-			if ( ! file_exists($bsm->droot.$file)) {
-				$bsm->log('[05]');
-				continue;
-			}
-			$fh = fopen($bsm->droot.$file, 'rb');
-			if ( ! $fh) {
-				$bsm->log('[05.2]');
-				continue;
-			}
-			$incfiles_hash .= md5_file($bsm->droot.$file).' : '.$file."\n";
-			$code = '';
-			while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-			fclose($fh);
-			if ( ! strpos($code, '_buran/seoModule.php')) {
-				$bsm->log('[06]');
-			}
-		}
-	}
-
-	$hash_1_f = $bsm->droot.'/_buran/seoModule.php';
-	if (file_exists($hash_1_f)) $hash_1 = md5_file($hash_1_f);
-	$hash_2_f = $bsm->droot.'/_buran/seoModule/config_'.$bsm->domain_h.'.txt';
-	if (file_exists($hash_2_f)) $hash_2 = md5_file($hash_2_f);
-	$hash_3_f = $bsm->droot.'/_buran/seoModule/style_'.$bsm->domain_h.'.css';
-	if (file_exists($hash_3_f)) $hash_3 = md5_file($hash_3_f);
-	$hash_4_f = $bsm->droot.'/_buran/seoModule/head_'.$bsm->domain_h.'.txt';
-	if (file_exists($hash_4_f)) $hash_4 = md5_file($hash_4_f);
-	$hash_5_f = $bsm->droot.'/_buran/seoModule/body_'.$bsm->domain_h.'.txt';
-	if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
-
-	if (isset($_GET['pre'])) print '<pre>';
-
-	print '[seomoduleversion_'.$bsm->version.']'."\n";
-	print '[modulehash_'.$hash_1.']'."\n";
-	print '[confighash_'.$hash_2.']'."\n";
-	print '[stylehash_'.$hash_3.']'."\n";
-	print '[headhash_'.$hash_4.']'."\n";
-	print '[bodyhash_'.$hash_5.']'."\n";
-	print '[datetime_'.date('d.m.Y, H:i:s').']'."\n";
-	print '[droot_'.$bsm->droot.']'."\n";
-	print '[incfiles_]'."\n";
-	print $incfiles_hash;
-	print '[_incfiles]'."\n";
-	print '[pages_]'."\n";
-	if (is_array($bsm->c[3])) {
-		foreach ($bsm->c[3] AS $alias => $row) {
-			if ($row[0] == $bsm->c[1]['articles']) continue;
-			$text = $bsm->seofile($alias);
-			$hash = md5_file($text['file']);
-			print $hash.' : '.$alias."\n";
-		}
-	}
-	print '[_pages]'."\n";
-	print '[errors_]'."\n";
-	$file = $bsm->droot.'/_buran/seoModule/errors_'.$bsm->domain_h.'.txt';
-	if (file_exists($file)) {
-		$fh = fopen($file,'rb');
-		if ($fh) {
-			$content = '';
-			while ( ! feof($fh)) $content .= fread($fh, 1024*8);
-			fclose($fh);
-			print $content;
-		}
-	}
-	print '[_errors]'."\n";
+	print $bsm->info();
 	exit();
 }
 
@@ -215,68 +145,8 @@ if ('update' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit('er');
 	$bsm->cache_clear();
 	$bsm->htaccess();
-	$code = $_POST['c'];
-	if ( ! in_array($_GET['t'],
-		array('module','config','style','head','body','text','imgs'))) {
-		exit('er');
-	}
-	$alias = $_GET['n'];
-	$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
-	switch ($_GET['t']) {
-		case 'module':
-			$code = base64_decode($code);
-			if (strpos($code, "<?php\n/**\n * seoModule") !== 0) {
-				exit('er');
-			}
-			$file = __FILE__;
-			break;
-		case 'config':
-			$file = $bsm->droot.'/_buran/seoModule/config_'.$bsm->domain_h.'.txt';
-			break;
-		case 'style':
-			$code = base64_decode($code);
-			$file = $bsm->droot.'/_buran/seoModule/style_'.$bsm->domain_h.'.css';
-			break;
-		case 'head':
-			$file = $bsm->droot.'/_buran/seoModule/head_'.$bsm->domain_h.'.txt';
-			$delete_if_null = true;
-			break;
-		case 'body':
-			$file = $bsm->droot.'/_buran/seoModule/body_'.$bsm->domain_h.'.txt';
-			$delete_if_null = true;
-			break;
-		case 'text':
-			$folder = $bsm->droot.'/_buran/seoModule/t/';
-			if ( ! file_exists($folder)) {
-				mkdir($folder, 0755, true);
-			}
-			$file = $folder.'txt_'.$alias.'.txt';
-			break;
-		case 'imgs':
-			$folder = $bsm->droot.'/_buran/seoModule/i/';
-			if ( ! file_exists($folder)) {
-				mkdir($folder, 0755, true);
-			}
-			$cc = intval($_POST['fs']);
-			if ( ! $cc) exit('ok');
-			for ($k=1; $k<=$cc; $k++) {
-				$file = $_FILES['f'.$k];
-				$ext = substr($file['name'], strpos($file['name'],'.'));
-				if ($ext != '.jpg' && $ext != '.png') continue;
-				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
-				if ( ! $res) exit('er');
-			}
-			exit('ok');
-	}
-	if ($delete_if_null && ! $code) {
-		unlink($file);
-		exit('ok');
-	}
-	$fh = fopen($file, 'wb');
-	if ( ! $fh) exit('er');
-	$res = fwrite($fh, $code);
-	if ($res === false) exit('er');
-	fclose($fh);
+	$res = $bsm->update($_GET['t'], $_POST['c'], $_GET['n'], $_POST['fs'], $_FILES);
+	if ( ! $res) exit('er');
 	exit('ok');
 }
 
@@ -1256,30 +1126,79 @@ window.onload = function(){
 
 	function send_reverse_request($urgently=false)
 	{
-		$interval = 60*60*24;
+		$interval = 60*60*6;
 		if ($urgently) $interval = 60*5;
-		$data     = array();
-		$folder   = $this->droot.'/_buran/seoModule/';
-		$file     = 'reverse_'.$this->domain_h.'.txt';
+		$folder = $this->droot.'/_buran/seoModule/';
+		$file   = 'reverse_'.$this->domain_h.'.txt';
 
 		if (file_exists($folder.$file)) {
 			$fh = fopen($folder.$file, 'rb');
-			if ( ! $fh) {
+			if ($fh) {
 				$data = '';
 				while ( ! feof($fh)) $data .= fread($fh, 1024*8);
 				fclose($fh);
 				$data = base64_decode($data);
 				$data = unserialize($data);
-				if ( ! is_array($data)) $data = array();
 			}
 		}
-		if (time() - $data['config'] >= $interval) {
-			$res = $this->reverse_request('config');
-			$data['config'] = time();
+		if ( ! is_array($data)) {
+			$data = array(
+				'config' => 0,
+			);
+		}
+
+		if (time() - $data['info'] >= $interval) {
+			$update = false;
+			$type   = 'info';
+			$time   = $type;
+			$prms   = array(
+				'info' => $this->info()
+			);
+
+		} elseif (time() - $data['config'] >= $interval) {
+			$update = true;
+			$type   = 'config';
+			$time   = $type;
 
 		} elseif (time() - $data['style'] >= $interval) {
+			$update = true;
+			$type   = 'style';
+			$time   = $type;
 
+		} elseif (time() - $data['head'] >= $interval) {
+			$update = true;
+			$type   = 'head';
+			$time   = $type;
+
+		} elseif (time() - $data['body'] >= $interval) {
+			$update = true;
+			$type   = 'body';
+			$time   = $type;
+
+		} else {
+			if (is_array($this->c[3])) {
+				foreach ($this->c[3] AS $rowalias => $row) {
+					if (time() - $data['text_'.$rowalias] >= $interval) {
+						$update = true;
+						$type   = 'text';
+						$alias  = $rowalias;
+						$time   = $type.'_'.$alias;
+						$prms   = array('alias'=>$alias);
+						break;
+					}
+				}
+			}
 		}
+
+		if ( ! $type) return true;
+
+		$code = $this->reverse_request($type, false, $prms);
+
+		if ($update && $code) {
+			$update_res = $this->update($type, $code, $alias);
+		}
+
+		$data[$time] = time();
 
 		$data = serialize($data);
 		$data = base64_encode($data);
@@ -1287,16 +1206,86 @@ window.onload = function(){
 		if ( ! $fh) return false;
 		fwrite($fh, $data);
 		fclose($fh);
+
+		if ( ! $update) return true;
+
+		if ( ! $code || ! $update_res) return false;
+
+		$this->cache_clear();
+		$this->htaccess();
+
+		$this->reverse_request($type, 'ok', $prms);
+		return true;
 	}
 
-	function update($type, $code)
+	function update($type, $code, $alias=false, $fs=false, $files=false)
 	{
-
+		if ( ! in_array($type,
+			array('module','config','style','head','body','text','imgs'))) {
+			return false;
+		}
+		$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
+		switch ($type) {
+			case 'module':
+				$code = base64_decode($code);
+				if (strpos($code, "<?php\n/**\n * seoModule") !== 0) {
+					return false;
+				}
+				$file = __FILE__;
+				break;
+			case 'config':
+				$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
+				break;
+			case 'style':
+				$code = base64_decode($code);
+				$file = $this->droot.'/_buran/seoModule/style_'.$this->domain_h.'.css';
+				break;
+			case 'head':
+				$file = $this->droot.'/_buran/seoModule/head_'.$this->domain_h.'.txt';
+				$delete_if_null = true;
+				break;
+			case 'body':
+				$file = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
+				$delete_if_null = true;
+				break;
+			case 'text':
+				$folder = $this->droot.'/_buran/seoModule/t/';
+				if ( ! file_exists($folder)) {
+					mkdir($folder, 0755, true);
+				}
+				$file = $folder.'txt_'.$alias.'.txt';
+				break;
+			case 'imgs':
+				$folder = $this->droot.'/_buran/seoModule/i/';
+				if ( ! file_exists($folder)) {
+					mkdir($folder, 0755, true);
+				}
+				$cc = intval($fs);
+				if ( ! $cc) return true;
+				for ($k=1; $k<=$cc; $k++) {
+					$file = $files['f'.$k];
+					$ext = substr($file['name'], strpos($file['name'],'.'));
+					if ($ext != '.jpg' && $ext != '.png') continue;
+					$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
+					if ( ! $res) return false;
+				}
+				return true;
+		}
+		if ($delete_if_null && ! $code) {
+			unlink($file);
+			return true;
+		}
+		$fh = fopen($file, 'wb');
+		if ( ! $fh) return false;
+		$res = fwrite($fh, $code);
+		if ($res === false) return false;
+		fclose($fh);
+		return true;
 	}
 
 // ------------------------------------------------------------------
 
-	function reverse_request($a, $data=false)
+	function reverse_request($a, $b=false, $data=false)
 	{
 		if (is_array($data)) {
 			$data = serialize($data);
@@ -1312,7 +1301,12 @@ window.onload = function(){
 			CURLOPT_FOLLOWLOCATION    => false,
 			CURLOPT_TIMEOUT           => 10,
 			CURLOPT_POST              => true,
-			CURLOPT_POSTFIELDS        => array('a'=>$a, 'data'=>$data, 'sc'=>$sc),
+			CURLOPT_POSTFIELDS        => array(
+				'idc' => $this->c[1]['bunker_id'],
+				'sc' => $sc,
+				'a' => $a, 'b' => $b,
+				'data' => $data,
+			),
 		);
 		$curl = curl_init();
 		curl_setopt_array($curl, $options);
@@ -1324,6 +1318,82 @@ window.onload = function(){
 			return $response;
 		}
 		return false;
+	}
+
+	function info()
+	{
+		$files = $this->c[2]['include_files'];
+		$files = explode('  ', $files);
+		if (is_array($files)) {
+			foreach ($files AS $file) {
+				$file = trim($file);
+				if ( ! $file) continue;
+				if ( ! file_exists($this->droot.$file)) {
+					$this->log('[05]');
+					continue;
+				}
+				$fh = fopen($this->droot.$file, 'rb');
+				if ( ! $fh) {
+					$this->log('[05.2]');
+					continue;
+				}
+				$incfiles_hash .= md5_file($this->droot.$file).' : '.$file."\n";
+				$code = '';
+				while ( ! feof($fh)) $code .= fread($fh, 1024*8);
+				fclose($fh);
+				if ( ! strpos($code, '_buran/seoModule.php')) {
+					$this->log('[06]');
+				}
+			}
+		}
+
+		$hash_1_f = $this->droot.'/_buran/seoModule.php';
+		if (file_exists($hash_1_f)) $hash_1 = md5_file($hash_1_f);
+		$hash_2_f = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
+		if (file_exists($hash_2_f)) $hash_2 = md5_file($hash_2_f);
+		$hash_3_f = $this->droot.'/_buran/seoModule/style_'.$this->domain_h.'.css';
+		if (file_exists($hash_3_f)) $hash_3 = md5_file($hash_3_f);
+		$hash_4_f = $this->droot.'/_buran/seoModule/head_'.$this->domain_h.'.txt';
+		if (file_exists($hash_4_f)) $hash_4 = md5_file($hash_4_f);
+		$hash_5_f = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
+		if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
+
+		if (isset($_GET['pre'])) $p .= '<pre>';
+
+		$p .= '[seomoduleversion_'.$this->version.']'."\n";
+		$p .= '[modulehash_'.$hash_1.']'."\n";
+		$p .= '[confighash_'.$hash_2.']'."\n";
+		$p .= '[stylehash_'.$hash_3.']'."\n";
+		$p .= '[headhash_'.$hash_4.']'."\n";
+		$p .= '[bodyhash_'.$hash_5.']'."\n";
+		$p .= '[datetime_'.date('d.m.Y, H:i:s').']'."\n";
+		$p .= '[droot_'.$this->droot.']'."\n";
+		$p .= '[incfiles_]'."\n";
+		$p .= $incfiles_hash;
+		$p .= '[_incfiles]'."\n";
+		$p .= '[pages_]'."\n";
+		if (is_array($this->c[3])) {
+			foreach ($this->c[3] AS $alias => $row) {
+				if ($row[0] == $this->c[1]['articles']) continue;
+				$text = $this->seofile($alias);
+				$hash = md5_file($text['file']);
+				$p .= $hash.' : '.$alias."\n";
+			}
+		}
+		$p .= '[_pages]'."\n";
+		$p .= '[errors_]'."\n";
+		$file = $this->droot.'/_buran/seoModule/errors_'.$this->domain_h.'.txt';
+		if (file_exists($file)) {
+			$fh = fopen($file,'rb');
+			if ($fh) {
+				$content = '';
+				while ( ! feof($fh)) $content .= fread($fh, 1024*8);
+				fclose($fh);
+				$p .= $content;
+			}
+		}
+		$p .= '[_errors]'."\n";
+		return $p;
 	}
 
 	function cache($field=false, $value=false, $clear=false)
@@ -1545,4 +1615,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ------------------
+// -----
