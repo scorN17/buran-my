@@ -182,7 +182,7 @@ if ('reverse' == $_GET['a']) {
 }
 
 if ('transit' == $_GET['a']) {
-	// if ( ! ($bsm->auth())) exit();
+	if ( ! ($bsm->auth())) exit();
 	if ( ! $_GET['u']) exit();
 	$post = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : false;
 	$headers = $_GET['h'] ? $_GET['h'] : false;
@@ -1669,4 +1669,4 @@ window.onload = function(){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// --
+// -----
