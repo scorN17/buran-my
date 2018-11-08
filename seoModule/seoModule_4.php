@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.31
+ * @version 4.4
  * @date 08.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 46444
+ * @size 47444
  */
 
-$bsm = new buran_seoModule('4.31');
+$bsm = new buran_seoModule('4.4');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -179,6 +179,21 @@ if ('clearcache' == $_GET['a']) {
 if ('reverse' == $_GET['a']) {
 	$bsm->send_reverse_request(true);
 	exit('ok');
+}
+
+if ('transit' == $_GET['a']) {
+	// if ( ! ($bsm->auth())) exit();
+	if ( ! $_GET['u']) exit();
+	$post = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : false;
+	$headers = $_GET['h'] ? $_GET['h'] : false;
+	if ($headers) {
+		$headers = base64_decode($headers);
+		$headers = unserialize($headers);
+		if ( ! is_array($headers)) $headers = false;
+	}
+	$res = $bsm->send_transit_request($_GET['u'], $post, $headers);
+	print $res;
+	exit();
 }
 }
 
@@ -1337,6 +1352,33 @@ window.onload = function(){
 		return false;
 	}
 
+	function send_transit_request($uri, $post=false, $headers=false)
+	{
+		$curloptions = array(
+			CURLOPT_URL            => $uri,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FRESH_CONNECT  => true,
+			CURLOPT_TIMEOUT        => 10,
+		);
+		if ($headers) {
+			$curloptions[CURLOPT_HTTPHEADER] = $headers;
+		}
+		if ($post) {
+			$curloptions[CURLOPT_POST] = true;
+			$curloptions[CURLOPT_POSTFIELDS] = $post;
+		}
+		$curl = curl_init();
+		curl_setopt_array($curl, $curloptions);
+		$response     = curl_exec($curl);
+		$request_info = curl_getinfo($curl);
+		curl_close($curl);
+		if ( ! curl_errno($curl)) {
+			$response = 'httpcode='.$request_info['http_code']."\n".$response;
+			return $response;
+		}
+		return false;
+	}
+
 	function info()
 	{
 		$files = $this->c[2]['include_files'];
@@ -1627,6 +1669,4 @@ window.onload = function(){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ------------------------------------------------
+// --
