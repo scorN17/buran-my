@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.3
- * @date 02.11.2018
+ * @version 4.31
+ * @date 08.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 44444
+ * @size 46444
  */
 
-$bsm = new buran_seoModule('4.3');
+$bsm = new buran_seoModule('4.31');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -137,6 +137,7 @@ if ('list' == $_GET['a']) {
 }
 
 if ('info' == $_GET['a']) {
+	header('Content-Type: text/plain');
 	print $bsm->info();
 	exit();
 }
@@ -201,6 +202,8 @@ class buran_seoModule
 	public $pageurl;
 	public $querystring;
 	public $protocol;
+
+	public $accesscode = false;
 
 	public $test = false;
 	public $test_stitle;
@@ -292,6 +295,8 @@ class buran_seoModule
 			if ($this->c) {
 				$this->c = base64_decode($this->c);
 				$this->c = unserialize($this->c);
+
+				$this->accesscode = $this->c[2]['accesscode'];
 
 				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
 				$this->c[2]['use_cache']  = intval($this->c[2]['use_cache']);
@@ -400,6 +405,8 @@ class buran_seoModule
 				if ( ! $this->c[2]['cookie'] && stripos($key, 'cookie') !== false)
 					continue;
 
+				if (stripos($key, 'if-modified-since') !== false) continue;
+				if (stripos($key, 'if-none-match')!==false) continue;
 				if (stripos($key, 'x-forwarded') !== false) continue;
 				if (stripos($key, 'accept-encoding') !== false) continue;
 				if (stripos($key, 'x-real-ip') !== false) continue;
@@ -1143,12 +1150,17 @@ window.onload = function(){
 		}
 		if ( ! is_array($data)) {
 			$data = array(
+				'info'   => 0,
 				'config' => 0,
+				'style'  => 0,
+				'head'   => 0,
+				'body'   => 0,
 			);
 		}
 
 		if (time() - $data['info'] >= $interval) {
 			$update = false;
+			$action = 'set';
 			$type   = 'info';
 			$time   = $type;
 			$prms   = array(
@@ -1157,21 +1169,25 @@ window.onload = function(){
 
 		} elseif (time() - $data['config'] >= $interval) {
 			$update = true;
+			$action = 'get_code';
 			$type   = 'config';
 			$time   = $type;
 
 		} elseif (time() - $data['style'] >= $interval) {
 			$update = true;
+			$action = 'get_code';
 			$type   = 'style';
 			$time   = $type;
 
 		} elseif (time() - $data['head'] >= $interval) {
 			$update = true;
+			$action = 'get_code';
 			$type   = 'head';
 			$time   = $type;
 
 		} elseif (time() - $data['body'] >= $interval) {
 			$update = true;
+			$action = 'get_code';
 			$type   = 'body';
 			$time   = $type;
 
@@ -1180,6 +1196,7 @@ window.onload = function(){
 				foreach ($this->c[3] AS $rowalias => $row) {
 					if (time() - $data['text_'.$rowalias] >= $interval) {
 						$update = true;
+						$action = 'get_code';
 						$type   = 'text';
 						$alias  = $rowalias;
 						$time   = $type.'_'.$alias;
@@ -1190,9 +1207,9 @@ window.onload = function(){
 			}
 		}
 
-		if ( ! $type) return true;
+		if ( ! $action) return true;
 
-		$code = $this->reverse_request($type, false, $prms);
+		$code = $this->reverse_request($action, $type, false, $prms);
 
 		if ($update && $code) {
 			$update_res = $this->update($type, $code, $alias);
@@ -1214,7 +1231,7 @@ window.onload = function(){
 		$this->cache_clear();
 		$this->htaccess();
 
-		$this->reverse_request($type, 'ok', $prms);
+		$this->reverse_request($action, $type, 'ok', $prms);
 		return true;
 	}
 
@@ -1285,16 +1302,16 @@ window.onload = function(){
 
 // ------------------------------------------------------------------
 
-	function reverse_request($a, $b=false, $data=false)
+	function reverse_request($a, $b=false, $c=false, $data=false)
 	{
 		if (is_array($data)) {
 			$data = serialize($data);
 		}
 		$data = base64_encode($data);
 		$a = urlencode($a);
-		$sc = $this->c[2]['reverse_requests'];
+		$ac = $this->accesscode;
 		$options = array(
-			CURLOPT_URL => 'http://bunker-yug.ru/__buran/seoModule_reverse.php',
+			CURLOPT_URL => 'http://bunker-yug.ru/__buran/seoModule_service.php',
 			CURLOPT_USERAGENT         => 'Buran/',
 			CURLOPT_RETURNTRANSFER    => true,
 			CURLOPT_FRESH_CONNECT     => true,
@@ -1303,8 +1320,8 @@ window.onload = function(){
 			CURLOPT_POST              => true,
 			CURLOPT_POSTFIELDS        => array(
 				'idc' => $this->c[1]['bunker_id'],
-				'sc' => $sc,
-				'a' => $a, 'b' => $b,
+				'ac' => $ac,
+				'a' => $a, 'b' => $b, 'c' => $c,
 				'data' => $data,
 			),
 		);
@@ -1357,8 +1374,6 @@ window.onload = function(){
 		if (file_exists($hash_4_f)) $hash_4 = md5_file($hash_4_f);
 		$hash_5_f = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
 		if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
-
-		if (isset($_GET['pre'])) $p .= '<pre>';
 
 		$p .= '[seomoduleversion_'.$this->version.']'."\n";
 		$p .= '[modulehash_'.$hash_1.']'."\n";
@@ -1614,5 +1629,4 @@ window.onload = function(){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// -----
+// ------------------------------------------------
