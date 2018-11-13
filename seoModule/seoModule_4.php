@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 4.4
- * @date 08.11.2018
+ * @version 4.5
+ * @date 13.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 47444
+ * @size 50000
  */
 
-$bsm = new buran_seoModule('4.4');
+$bsm = new buran_seoModule('4.5');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -35,6 +35,9 @@ if (
 
 		if ($bsm->c[2]['reverse_requests']) {
 			$bsm->send_reverse_request();
+		}
+		if ($bsm->c[2]['transit_requests']) {
+			$bsm->transit_list_check();
 		}
 
 		$bsm->clear_request();
@@ -195,6 +198,13 @@ if ('transit' == $_GET['a']) {
 	print $res;
 	exit();
 }
+
+if ('transit_list' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit();
+	header('Content-Type: text/plain');
+	print $bsm->transit_list();
+	exit();
+}
 }
 
 // ------------------------------------------------------------------
@@ -253,8 +263,9 @@ class buran_seoModule
 	{
 		$this->droot = dirname(dirname(__FILE__));
 		$this->http = (
-			$_SERVER['SERVER_PORT'] == '443' || $_SERVER['HTTP_PORT']   == '443' ||
-			$_SERVER['HTTP_HTTPS']  == 'on' ||
+			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
+			(isset($_SERVER['HTTP_PORT']) && $_SERVER['HTTP_PORT']     == '443') ||
+			(isset($_SERVER['HTTP_HTTPS']) && $_SERVER['HTTP_HTTPS']   == 'on') ||
 			(isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on') ||
 			(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
 				$_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')
@@ -1253,7 +1264,7 @@ window.onload = function(){
 	function update($type, $code, $alias=false, $fs=false, $files=false)
 	{
 		if ( ! in_array($type,
-			array('module','config','style','head','body','text','imgs'))) {
+			array('module','config','style','head','body','text','imgs','transit'))) {
 			return false;
 		}
 		$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
@@ -1264,6 +1275,10 @@ window.onload = function(){
 					return false;
 				}
 				$file = __FILE__;
+				break;
+			case 'transit':
+				$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
+				$delete_if_null = true;
 				break;
 			case 'config':
 				$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
@@ -1377,6 +1392,71 @@ window.onload = function(){
 			return $response;
 		}
 		return false;
+	}
+
+	function transit_list_check()
+	{
+		$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
+		if ( ! file_exists($file)) return false;
+		$fh = fopen($file, 'rb');
+		if ( ! $fh) return false;
+		$list = '';
+		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
+		fclose($fh);
+		$list = base64_decode($list);
+		$list = unserialize($list);
+		if ( ! is_array($list)) return false;
+
+		$page = false;
+		foreach ($list AS $key => $row) {
+			if (
+				$row['dt'] || ! $row['id'] || ! $row['id']
+				|| ! $row['ws'] || ! $row['url']
+			) {
+				continue;
+			}
+			$page_id = $key;
+			$page    = $row;
+			break;
+		}
+		if ( ! $page['id']) return false;
+
+		$curloptions = array(
+			CURLOPT_URL            => $page['ws'] . $page['url'],
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FRESH_CONNECT  => true,
+			CURLOPT_FOLLOWLOCATION => false,
+			CURLOPT_TIMEOUT        => 10,
+		);
+		$curl = curl_init();
+		curl_setopt_array($curl, $curloptions);
+		$response     = curl_exec($curl);
+		$request_info = curl_getinfo($curl);
+		curl_close($curl);
+		$list[$page_id]['error']    = curl_errno($curl);
+		$list[$page_id]['httpcode'] = $request_info['http_code'];
+		$list[$page_id]['response'] = $response ? 'y' : 'n';
+		$list[$page_id]['dt']       = time();
+
+		$list = serialize($list);
+		$list = base64_encode($list);
+		$fh = fopen($file, 'wb');
+		if ( ! $fh) return false;
+		fwrite($fh, $list);
+		fclose($fh);
+		return true;
+	}
+
+	function transit_list()
+	{
+		$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
+		if ( ! file_exists($file)) return false;
+		$fh = fopen($file, 'rb');
+		if ( ! $fh) return false;
+		$list = '';
+		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
+		fclose($fh);
+		return $list;
 	}
 
 	function info()
@@ -1507,7 +1587,7 @@ window.onload = function(){
 			if ($clear) {
 				$fh = fopen($file, 'wb');
 				if ($fh) {
-					$data .= time() ."\t";
+					$data = time() ."\t";
 					$data .= date('Y-m-d-H-i-s') ."\t";
 					$data .= '(truncate)' ."\n";
 					fwrite($fh, $data."\n");
@@ -1535,7 +1615,7 @@ window.onload = function(){
 			$this->logs_files[$type] = $fh;
 		}
 		if ($text) {
-			$data .= time() ."\t";
+			$data = time() ."\t";
 			$data .= date('Y-m-d-H-i-s') ."\t";
 			$data .= $text ."\t";
 			$data .= $this->requesturi;
@@ -1669,4 +1749,11 @@ window.onload = function(){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// -----
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -----------
