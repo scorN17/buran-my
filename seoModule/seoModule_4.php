@@ -1,14 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 4.5
- * @date 13.11.2018
+ * @version 4.6
+ * @date 23.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 50000
+ * @size 50111
  */
 
-$bsm = new buran_seoModule('4.5');
+error_reporting(E_ALL & ~E_NOTICE);
+
+$bsm = new buran_seoModule('4.6');
 if (
 	$bsm->init()
 	&& $bsm->c
@@ -30,7 +32,6 @@ if (
 	}
 
 	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
-		error_reporting(E_ALL & ~E_NOTICE);
 		ini_set('display_errors', 'off');
 
 		if ($bsm->c[2]['reverse_requests']) {
@@ -105,43 +106,19 @@ if ('seoModule.php' === basename($bsm->pageurl)) {
 
 if ('list' == $_GET['a']) {
 	header('Content-type: text/html; charset=utf-8');
-
-	$green = '#089c29';
-	$red   = '#d41717';
-
-	print $bsm->module_hash().'<br><br>';
-
-	$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
-	print '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
-
-	$flag = $bsm->website === $bsm->c[1]['website'] ? true : false;
-	print '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$bsm->website.' == '.$bsm->c[1]['website'].'</span></div>';
-
-	$flag = $bsm->c[1]['bunker_id'] ? true : false;
-	print '<div>ID в бункере: <span style="color:'.($flag ? $green : $red).'">'.$bsm->c[1]['bunker_id'].'</span></div>';
-
-	$flag = extension_loaded('gd') ? true : false;
-	print '<div>Кроп картинок: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = extension_loaded('iconv') ? true : false;
-	print '<div>Перекодировка текстов: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = extension_loaded('openssl') ? true : false;
-	print '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
-
-	$flag = extension_loaded('curl') && function_exists('curl_init') ? true : false;
-	print '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	$flag = function_exists('stream_get_contents') ? true : false;
-	print '<div>Stream: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
-
-	print '<br><br><br>';
+	print $bsm->alist();
 	exit();
 }
 
 if ('info' == $_GET['a']) {
 	header('Content-Type: text/plain');
 	print $bsm->info();
+	exit();
+}
+
+if ('phpinfo' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit('er');
+	phpinfo();
 	exit();
 }
 
@@ -251,6 +228,10 @@ class buran_seoModule
 	public $tag_s = false;
 	public $tag_f = false;
 	public $code = array();
+
+	public $curl_ext;
+	public $sgc_ext;
+	public $fgc_ext;
 
 	public $logs_files;
 
@@ -368,6 +349,13 @@ class buran_seoModule
 						$this->charset[$key] = base64_decode($txt);
 					}
 				}
+
+				$this->curl_ext = extension_loaded('curl') &&
+					function_exists('curl_init') ? true : false;
+
+				$this->sgc_ext = function_exists('stream_get_contents') ? true : false;
+
+				$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 			}
 		}
 		return true;
@@ -455,7 +443,7 @@ class buran_seoModule
 			}
 		}
 
-		if ('curl' == $this->c[2]['get_content_method']) {
+		if ($this->curl_ext && 'curl' == $this->c[2]['get_content_method']) {
 			$curloptions = array(
 				CURLOPT_URL            => $this->donor,
 				CURLOPT_HTTPHEADER     => $headers,
@@ -490,7 +478,7 @@ class buran_seoModule
 			curl_close($curl);
 		}
 
-		if ('stream' == $this->c[2]['get_content_method']) {
+		if ($this->sgc_ext && 'stream' == $this->c[2]['get_content_method']) {
 			$options = array(
 				'http' => array(
 					'method' => 'GET',
@@ -1334,6 +1322,7 @@ window.onload = function(){
 
 	function reverse_request($a, $b=false, $c=false, $data=false)
 	{
+		if ( ! $this->curl_ext) return false;
 		if (is_array($data)) {
 			$data = serialize($data);
 		}
@@ -1359,16 +1348,17 @@ window.onload = function(){
 		curl_setopt_array($curl, $options);
 		$response     = curl_exec($curl);
 		$request_info = curl_getinfo($curl);
-		curl_close($curl);
 		if ( ! curl_errno($curl) && $response
 			&& $request_info['http_code'] == 200) {
 			return $response;
 		}
+		curl_close($curl);
 		return false;
 	}
 
 	function send_transit_request($uri, $post=false, $headers=false)
 	{
+		if ( ! $this->curl_ext) return false;
 		$curloptions = array(
 			CURLOPT_URL            => $uri,
 			CURLOPT_RETURNTRANSFER => true,
@@ -1386,16 +1376,17 @@ window.onload = function(){
 		curl_setopt_array($curl, $curloptions);
 		$response     = curl_exec($curl);
 		$request_info = curl_getinfo($curl);
-		curl_close($curl);
 		if ( ! curl_errno($curl)) {
 			$response = 'httpcode='.$request_info['http_code']."\n".$response;
 			return $response;
 		}
+		curl_close($curl);
 		return false;
 	}
 
 	function transit_list_check()
 	{
+		if ( ! $this->curl_ext) return false;
 		$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
 		if ( ! file_exists($file)) return false;
 		$fh = fopen($file, 'rb');
@@ -1426,17 +1417,18 @@ window.onload = function(){
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_FOLLOWLOCATION => false,
+			CURLOPT_NOBODY         => true,
 			CURLOPT_TIMEOUT        => 10,
 		);
 		$curl = curl_init();
 		curl_setopt_array($curl, $curloptions);
 		$response     = curl_exec($curl);
 		$request_info = curl_getinfo($curl);
-		curl_close($curl);
 		$list[$page_id]['error']    = curl_errno($curl);
 		$list[$page_id]['httpcode'] = $request_info['http_code'];
-		$list[$page_id]['response'] = $response ? 'y' : 'n';
+		$list[$page_id]['delay']    = $request_info['total_time'];
 		$list[$page_id]['dt']       = time();
+		curl_close($curl);
 
 		$list = serialize($list);
 		$list = base64_encode($list);
@@ -1457,6 +1449,39 @@ window.onload = function(){
 		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
 		fclose($fh);
 		return $list;
+	}
+
+	function alist()
+	{
+		$green = '#089c29';
+		$red   = '#d41717';
+
+		$p = $this->module_hash().'<br><br>';
+
+		$uname = php_uname();
+		$flag = stripos($uname, 'window') !== false ? false : true;
+		$p .= '<div>OS: <span style="color:'.($flag ? $green : $red).'">'.$uname.'</span></div>';
+
+		$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
+		$p .= '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
+
+		$flag = $this->website === $this->c[1]['website'] ? true : false;
+		$p .= '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$this->website.' == '.$this->c[1]['website'].'</span></div>';
+
+		$flag = extension_loaded('openssl') ? true : false;
+		$p .= '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
+
+		$flag = $this->curl_ext ? true : false;
+		$p .= '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$flag = $this->sgc_ext ? true : false;
+		$p .= '<div>Stream GC: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$flag = $this->fgc_ext ? true : false;
+		$p .= '<div>File GC: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+
+		$p .= '<br><br><br>';
+		return $p;
 	}
 
 	function info()
@@ -1513,7 +1538,8 @@ window.onload = function(){
 			foreach ($this->c[3] AS $alias => $row) {
 				if ($row[0] == $this->c[1]['articles']) continue;
 				$text = $this->seofile($alias);
-				$hash = md5_file($text['file']);
+				$hash = '';
+				if ($text) $hash = md5_file($text['file']);
 				$p .= $hash.' : '.$alias."\n";
 			}
 		}
@@ -1662,13 +1688,17 @@ window.onload = function(){
 		$url   = 'http://bunker-yug.ru/__buran/secret_key.php';
 		$url  .= '?h='.$this->domain;
 		$url  .= '&w='.$get_w;
-		$curloptions = array(
-			CURLOPT_URL            => $url,
-			CURLOPT_RETURNTRANSFER => true,
-		);
-		$curl = curl_init();
-		curl_setopt_array($curl, $curloptions);
-		$ww = curl_exec($curl);
+		if ($this->curl_ext) {
+			$curloptions = array(
+				CURLOPT_URL            => $url,
+				CURLOPT_RETURNTRANSFER => true,
+			);
+			$curl = curl_init();
+			curl_setopt_array($curl, $curloptions);
+			$ww = curl_exec($curl);
+		} elseif ($this->fgc_ext) {
+			$ww = file_get_contents($url);
+		}
 		if ($ww && $get_w && $ww === $get_w) {
 			return true;
 		}
@@ -1680,7 +1710,8 @@ window.onload = function(){
 		// v2.1
 		// Date 16.02.2017
 		// -----------------------------------------
-		if (preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i", $uri, $matches) !==1) {
+		if (preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i",
+			$uri, $matches) !==1) {
 			return;
 		}
 		$website = $matches[1];
@@ -1747,13 +1778,4 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -----------
+// ------------------------------------------------------
