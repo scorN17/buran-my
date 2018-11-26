@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 4.6
- * @date 23.11.2018
+ * @version 4.7
+ * @date 26.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 50111
@@ -10,9 +10,10 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('4.6');
+$bsm = new buran_seoModule('4.7');
+$bsm_init_res = $bsm->init();
 if (
-	$bsm->init()
+	$bsm_init_res
 	&& $bsm->c
 	&& basename($bsm->pageurl) !== 'seoModule.php'
 	&& (
@@ -101,7 +102,6 @@ if (
 }
 
 if ('seoModule.php' === basename($bsm->pageurl)) {
-	error_reporting(E_ALL & ~E_NOTICE);
 	ini_set('display_errors', 'off');
 
 if ('list' == $_GET['a']) {
@@ -182,6 +182,7 @@ if ('transit_list' == $_GET['a']) {
 	print $bsm->transit_list();
 	exit();
 }
+	exit('er');
 }
 
 // ------------------------------------------------------------------
@@ -289,6 +290,13 @@ class buran_seoModule
 			$this->log('[02]');
 		}
 
+		$this->curl_ext = extension_loaded('curl') &&
+			function_exists('curl_init') ? true : false;
+
+		$this->sgc_ext = function_exists('stream_get_contents') ? true : false;
+
+		$this->fgc_ext = function_exists('file_get_contents') ? true : false;
+
 		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
 		if ( ! file_exists($file)) {
 			$this->log('[03]');
@@ -349,13 +357,6 @@ class buran_seoModule
 						$this->charset[$key] = base64_decode($txt);
 					}
 				}
-
-				$this->curl_ext = extension_loaded('curl') &&
-					function_exists('curl_init') ? true : false;
-
-				$this->sgc_ext = function_exists('stream_get_contents') ? true : false;
-
-				$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 			}
 		}
 		return true;
@@ -1778,4 +1779,4 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// ------------------------------------------------------
+// -------------------------------------------------------
