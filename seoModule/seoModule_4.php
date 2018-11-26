@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 4.7
+ * @version 4.8
  * @date 26.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 50111
+ * @size 50300
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('4.7');
+$bsm = new buran_seoModule('4.8');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -1165,6 +1165,7 @@ window.onload = function(){
 		}
 		if ( ! is_array($data)) {
 			$data = array(
+				'module' => 0,
 				'info'   => 0,
 				'config' => 0,
 				'style'  => 0,
@@ -1173,7 +1174,13 @@ window.onload = function(){
 			);
 		}
 
-		if (time() - $data['info'] >= $interval) {
+		if (time() - $data['module'] >= $interval) {
+			$update = true;
+			$action = 'get_code';
+			$type   = 'module';
+			$time   = $type;
+
+		} elseif (time() - $data['info'] >= $interval) {
 			$update = false;
 			$action = 'set';
 			$type   = 'info';
@@ -1779,4 +1786,5 @@ window.onload = function(){
 		return $headers;
 	}
 }
-// -------------------------------------------------------
+// ----------------------------------------------
+// ----------------------------------
