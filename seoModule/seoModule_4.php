@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 4.8
+ * @version 4.9
  * @date 26.11.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 50300
+ * @size 50500
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('4.8');
+$bsm = new buran_seoModule('4.9');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -606,6 +606,12 @@ class buran_seoModule
 		if ( ! $text['file']) {
 			$text['file'] = $file;
 		}
+		if ( ! $text['a_title']) {
+			$text['a_title'] = $text['s_title'];
+		}
+		if ( ! $text['a_description']) {
+			$text['a_description'] = $text['description'];
+		}
 		if (
 			! is_array($text)
 			|| ! isset($text['title'])
@@ -837,8 +843,8 @@ class buran_seoModule
 			if ($img) $txt .= '<img src="'.$img.'" alt="" />';
 			$txt .= '</div>
 				<div class="sssmba_inf">
-					<div class="sssmba_tit"><a href="'.$row[0].'">'.$text['s_title'].'</a></div>
-					<div class="sssmba_txt">'.$text['description'].'</div>
+					<div class="sssmba_tit"><a href="'.$row[0].'">'.$text['a_title'].'</a></div>
+					<div class="sssmba_txt">'.$text['a_description'].'</div>
 				</div>
 			</div>';
 			$counter--;
@@ -1787,4 +1793,5 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------
+// ----------------------------------------------
+// --------------------
