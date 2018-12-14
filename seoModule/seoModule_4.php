@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 4.9
- * @date 26.11.2018
+ * @version 4.99
+ * @date 14.12.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 50500
+ * @size 54000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('4.9');
+$bsm = new buran_seoModule('4.99');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -32,7 +32,7 @@ if (
 		$bsm->redirects();
 	}
 
-	if (strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false) {
+	if (strpos($_SERVER['HTTP_USER_AGENT'], $bsm->useragent) === false) {
 		ini_set('display_errors', 'off');
 
 		if ($bsm->c[2]['reverse_requests']) {
@@ -91,7 +91,7 @@ if (
 	}
 } elseif (
 	basename($bsm->pageurl) !== 'seoModule.php'
-	&& strpos($_SERVER['HTTP_USER_AGENT'], 'BuranSeoModule') === false
+	&& strpos($_SERVER['HTTP_USER_AGENT'], $bsm->useragent) === false
 	&& (
 		strpos($bsm->c[2]['requets_methods'],
 			'/'.$_SERVER['REQUEST_METHOD'].'/') !== false
@@ -171,7 +171,17 @@ if ('transit' == $_GET['a']) {
 		$headers = unserialize($headers);
 		if ( ! is_array($headers)) $headers = false;
 	}
-	$res = $bsm->send_transit_request($_GET['u'], $post, $headers);
+	$reqres = $bsm->request(
+		$_GET['u'], false, $headers, $post
+	);
+	$res = '';
+	if ($reqres['res']) {
+		$headers = serialize($reqres['headers']);
+		$headers = base64_encode($headers);
+		$info    = serialize($reqres['info']);
+		$info    = base64_encode($info);
+		$res     = $info."\n\n".$headers."\n\n".$reqres['response'];
+	}
 	print $res;
 	exit();
 }
@@ -218,10 +228,11 @@ class buran_seoModule
 	public $seotext_cache = false;
 	public $seotext_alias;
 	public $seotext_tp;
-	public $seotext_hide = false;
+	public $seotext_hide;
 	public $seotext_date;
 	public $donor;
 	public $charset;
+	public $useragent;
 
 	public $template;
 	public $body;
@@ -235,6 +246,8 @@ class buran_seoModule
 	public $fgc_ext;
 
 	public $logs_files;
+
+	public $curl_request_headers = array();
 
 	function __construct($version)
 	{
@@ -297,6 +310,8 @@ class buran_seoModule
 
 		$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 
+		$this->useragent = 'BuranSeoModule';
+
 		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
 		if ( ! file_exists($file)) {
 			$this->log('[03]');
@@ -313,8 +328,65 @@ class buran_seoModule
 
 				$this->accesscode = $this->c[2]['accesscode'];
 
-				$this->c[2]['re_linking'] = intval($this->c[2]['re_linking']);
-				$this->c[2]['use_cache']  = intval($this->c[2]['use_cache']);
+				$this->c[2]['module_enabled']
+					= isset($this->c[2]['module_enabled'])
+					? $this->c[2]['module_enabled'] : '0';
+
+				$this->c[2]['re_linking']
+					= isset($this->c[2]['re_linking'])
+					? intval($this->c[2]['re_linking']) : 2;
+
+				$this->c[2]['duplicate_pages']
+					= isset($this->c[2]['duplicate_pages'])
+					? intval($this->c[2]['duplicate_pages']) : 1;
+
+				$this->c[2]['get_content_method']
+					= isset($this->c[2]['get_content_method'])
+					? $this->c[2]['get_content_method'] : 'curl';
+
+				$this->c[2]['base']
+					= isset($this->c[2]['base'])
+					? $this->c[2]['base'] : 'replace_or_add';
+
+				$this->c[2]['canonical']
+					= isset($this->c[2]['canonical'])
+					? $this->c[2]['canonical'] : 'replace_or_add';
+
+				$this->c[2]['meta']
+					= isset($this->c[2]['meta'])
+					? $this->c[2]['meta'] : 'replace_or_add';
+
+				$this->c[2]['requets_methods']
+					= isset($this->c[2]['requets_methods'])
+					? $this->c[2]['requets_methods'] : '/GET/HEAD/';
+
+				$this->c[2]['cookie']
+					= isset($this->c[2]['cookie'])
+					? intval($this->c[2]['cookie']) : 1;
+
+				$this->c[2]['set_header']
+					= isset($this->c[2]['set_header'])
+					? intval($this->c[2]['set_header']) : 1;
+
+				$this->c[2]['urldecode']
+					= isset($this->c[2]['urldecode'])
+					? intval($this->c[2]['urldecode']) : 1;
+
+				$this->c[2]['redirect']
+					= isset($this->c[2]['redirect'])
+					? intval($this->c[2]['redirect']) : 1;
+
+				$this->c[2]['use_cache']
+					= isset($this->c[2]['use_cache'])
+					? intval($this->c[2]['use_cache']) : 604800;
+
+				$this->c[2]['transit_requests']
+					= isset($this->c[2]['transit_requests'])
+					? intval($this->c[2]['transit_requests']) : 0;
+
+				$this->c[2]['out_charset']
+					= isset($this->c[2]['out_charset'])
+					? $this->c[2]['out_charset'] : 'utf-8';
 
 				if ($this->c[2]['urldecode']) {
 					$this->requesturi = urldecode($this->requesturi);
@@ -346,9 +418,6 @@ class buran_seoModule
 						/*7*/ 'wOLy7vA=',
 					),
 				);
-				if ( ! $this->c[2]['out_charset']) {
-					$this->c[2]['out_charset'] = 'utf-8';
-				}
 				$this->charset = $charsetlist[$this->c[2]['out_charset']][0]
 					? $charsetlist[$this->c[2]['out_charset']]
 					: $charsetlist['utf-8'];
@@ -405,11 +474,115 @@ class buran_seoModule
 		}
 	}
 
+	function seotext()
+	{
+		if ( ! is_array($this->c[3])) {
+			return false;
+		}
+		$seotext_alias = false;
+		$seotext_tp    = false;
+		$seotext_hide  = 'D';
+		$flag = false;
+		foreach ($this->c[3] AS $alias => $prms) {
+			if ($this->requesturi == $prms[0]) {
+				$seotext_alias = $alias;
+				$seotext_tp    = $prms[1] === 'w' ? 'W' : false;
+				$seotext_hide  = $prms[2] === 'h' ? 'Y' : 'N';
+				if ($flag) {
+					$this->log('[13]');
+					break;
+				}
+				$flag = true;
+			}
+		}
+		if ( ! $seotext_alias) return false;
+		$this->seotext_alias = $seotext_alias;
+
+		$text = $this->seofile($seotext_alias);
+		if ( ! $text && $this->seotext_cache) {
+			$text = $this->seofile($seotext_alias, false);
+		}
+		if ( ! $text) return false;
+
+		if ( ! $text['type']) {
+			$text['type'] = $seotext_tp;
+		}
+		$text['type'] = $text['type'] === 'W' ? 'W'
+			: ($text['type'] === 'S' ? 'S' : 'A');
+		$this->seotext_tp = $text['type'];
+
+		$hide_flag = $this->c['hide_opt'] === '1' ? 'Y'
+			: ( ! $this->c['hide_opt'] || $this->c['hide_opt'] === '0'
+				? 'N'
+				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
+					? 'Y' : 'N'));
+		$hide_flag = $seotext_hide === 'Y' ? 'Y'
+			: ($seotext_hide === 'N' ? 'N' : $hide_flag);
+		$this->seotext_hide = $hide_flag;
+
+		$this->seotext = $text;
+		$this->seotext_date = date('Y-m-d', filectime($text['file']));
+
+		return true;
+	}
+
+	function seofile($alias, $cache=true)
+	{
+		$folder = $this->droot.'/_buran/seoModule/';
+		$file   = 'txt_'.$alias.'.txt';
+
+		if ( ! $this->c[2]['use_cache']) {
+			$cache = false;
+		}
+		$ft_o = $this->filetime($folder.'t/'.$file);
+		$ft_c = $this->filetime($folder.'c/'.$file);
+		if ($cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_o) {
+			$file = $folder.'c/'.$file;
+			$this->seotext_cache = true;
+		} else {
+			$file = $folder.'t/'.$file;
+		}
+
+		if (file_exists($file)) {
+			$fh = fopen($file, 'rb');
+		}
+		if ( ! $fh) {
+			if ( ! $this->seotext_cache) {
+				$this->log('[10]');
+			}
+			return false;
+		}
+		$text = '';
+		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
+		fclose($fh);
+		$text = base64_decode($text);
+		$text = unserialize($text);
+		if ( ! $text['file']) {
+			$text['file'] = $file;
+		}
+		if (
+			! is_array($text)
+			|| ! isset($text['title'])
+			|| ! isset($text['description'])
+			|| ! isset($text['keywords'])
+			|| ! isset($text['s_title'])
+			|| ! isset($text['s_text'])
+		) {
+			if ( ! $this->seotext_cache) {
+				$this->log('[11]');
+			}
+			return false;
+		}
+		return $text;
+	}
+
 	function get_content()
 	{
 		$this->donor = $this->c[1]['website'];
 		$this->donor .= $this->seotext_tp == 'S'
 			? $this->c[1]['donor'] : $this->requesturi;
+
+		$ua = ' '.$this->useragent.'/'.$this->version;
 
 		$allheaders     = function_exists('getallheaders')
 			? getallheaders() : $this->getallheaders_bsm();
@@ -437,7 +610,7 @@ class buran_seoModule
 
 				if (stripos($key, 'user-agent') !== false) {
 					$useragent_flag = true;
-					$header .= ' BuranSeoModule/'.$this->version;
+					$header .= $ua;
 				}
 
 				$headers[] = $header;
@@ -445,36 +618,34 @@ class buran_seoModule
 		}
 
 		if ($this->curl_ext && 'curl' == $this->c[2]['get_content_method']) {
-			$curloptions = array(
+			$options = array(
 				CURLOPT_URL            => $this->donor,
 				CURLOPT_HTTPHEADER     => $headers,
-				CURLOPT_HEADER         => true,
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_CONNECTTIMEOUT => 10,
 				CURLOPT_TIMEOUT        => 10,
+				CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 			);
 			if ($http == 'https://' && $this->c[2]['https_test']) {
-				$curloptions[CURLOPT_SSL_VERIFYHOST] = false;
-				$curloptions[CURLOPT_SSL_VERIFYPEER] = true;
+				$options[CURLOPT_SSL_VERIFYHOST] = false;
+				$options[CURLOPT_SSL_VERIFYPEER] = true;
 			}
 			if ( ! $useragent_flag) {
-				$curloptions[CURLOPT_USERAGENT] = ' BuranSeoModule/'.$this->version;
+				$options[CURLOPT_USERAGENT] = $ua;
 			}
 
+			$this->request_headers(false, false, true);
 			$curl = curl_init();
-			curl_setopt_array($curl, $curloptions);
+			curl_setopt_array($curl, $options);
 			$template = $this->c[2]['curl_auto_redirect']
 				? $this->curl_exec_followlocation($curl, $this->donor)
 				: curl_exec($curl);
-			$request_info = curl_getinfo($curl);
-			list($headers_req, $template) = explode("\n\r", $template, 2);
-			$http_code = $request_info['http_code'];
+			$request_info    = curl_getinfo($curl);
+			$http_code       = $request_info['http_code'];
+			$request_headers = $this->curl_request_headers;
 			if (curl_errno($curl)) {
 				$fail = true;
 				$this->log('[20]');
-			} else {
-				$headers_req = str_replace("\r",'',$headers_req);
-				$headers_req = explode("\n", $headers_req);
 			}
 			curl_close($curl);
 		}
@@ -486,17 +657,17 @@ class buran_seoModule
 					'header' => $headers,
 				)
 			);
-			if( ! $useragent_flag) {
-				$options['http']['user_agent'] = ' BuranSeoModule/'.$this->version;
+			if ( ! $useragent_flag) {
+				$options['http']['user_agent'] = $ua;
 			}
 			$context = stream_context_create($options);
 			$stream  = fopen($this->donor, 'rb', false, $context);
 			if ($stream) {
-				$template    = stream_get_contents($stream);
-				$headers_req = stream_get_meta_data($stream);
+				$template        = stream_get_contents($stream);
+				$request_headers = stream_get_meta_data($stream);
+				$request_headers = $request_headers['wrapper_data'];
+				$http_code       = 200;
 				fclose($stream);
-				$headers_req = $headers_req['wrapper_data'];
-				$http_code   = 200;
 			} else {
 				$fail = true;
 				$this->log('[21]');
@@ -504,8 +675,8 @@ class buran_seoModule
 		}
 
 		$this->headers = array();
-		if ($this->c[2]['set_header'] && is_array($headers_req)) {
-			foreach ($headers_req AS $key => $header) {
+		if ($this->c[2]['set_header'] && is_array($request_headers)) {
+			foreach ($request_headers AS $header) {
 				if (stripos($header, 'Transfer-Encoding:') !== false)
 					continue;
 				if (stripos($header, 'Content-Length:') !== false)
@@ -517,22 +688,22 @@ class buran_seoModule
 			$this->headers[] = $this->protocol .' 200 OK';
 		}
 
-		if ($http_code != 200) {
+		if ($http_code == 404) {
+			if ($this->seotext && $this->seotext_tp != 'S') {
+				$this->seotext_tp = 'S';
+				$this->seotext['type'] = 'S';
+				$res = $this->get_content();
+				return $res;
+			}
+
+			$fail = true;
+			$this->log('[31]');
+
+		} elseif ($http_code != 200) {
 			$fail = true;
 			if ($this->seotext_alias) {
 				$this->log('[30]');
 			}
-		}
-
-		if (
-			$http_code == 404
-			&& $this->seotext
-			&& $this->seotext_tp != 'S'
-		) {
-			$this->log('[31]');
-			$this->seotext_tp = 'S';
-			$res = $this->get_content();
-			return $res;
 		}
 
 		if ($fail) {
@@ -572,140 +743,6 @@ class buran_seoModule
 		return false;
 	}
 
-	function seofile($alias, $cache=true)
-	{
-		$folder = $this->droot.'/_buran/seoModule/';
-		$file   = 'txt_'.$alias.'.txt';
-
-		if ( ! $this->c[2]['use_cache']) {
-			$cache = false;
-		}
-		$ft_o = $this->filetime($folder.'t/'.$file);
-		$ft_c = $this->filetime($folder.'c/'.$file);
-		if ($cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_o) {
-			$file = $folder.'c/'.$file;
-			$this->seotext_cache = true;
-		} else {
-			$file = $folder.'t/'.$file;
-		}
-
-		if (file_exists($file)) {
-			$fh = fopen($file, 'rb');
-		}
-		if ( ! $fh) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[10]');
-			}
-			return false;
-		}
-		$text = '';
-		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
-		fclose($fh);
-		$text = base64_decode($text);
-		$text = unserialize($text);
-		if ( ! $text['file']) {
-			$text['file'] = $file;
-		}
-		if ( ! $text['a_title']) {
-			$text['a_title'] = $text['s_title'];
-		}
-		if ( ! $text['a_description']) {
-			$text['a_description'] = $text['description'];
-		}
-		if (
-			! is_array($text)
-			|| ! isset($text['title'])
-			|| ! isset($text['description'])
-			|| ! isset($text['keywords'])
-			|| ! isset($text['s_title'])
-			|| ! isset($text['s_text'])
-		) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[11]');
-			}
-			return false;
-		}
-		return $text;
-	}
-
-	function seotext()
-	{
-		if ( ! is_array($this->c[3])) {
-			return false;
-		}
-		$seotext_alias = false;
-		$seotext_tp    = 's';
-		$seotext_sh    = 's';
-		$flag = false;
-		foreach ($this->c[3] AS $alias => $prms) {
-			if ($this->requesturi == $prms[0]) {
-				$seotext_alias = $alias;
-				$seotext_tp    = $prms[1];
-				$seotext_sh    = $prms[2];
-				if ($flag) {
-					$this->log('[13]');
-					break;
-				}
-				$flag = true;
-			}
-		}
-		if ( ! $seotext_alias) return false;
-		$this->seotext_alias = $seotext_alias;
-
-		$text = $this->seofile($seotext_alias);
-		if ( ! $text && $this->seotext_cache) {
-			$text = $this->seofile($seotext_alias, false);
-		}
-		if ( ! $text) return false;
-
-		$this->seotext = $text;
-
-		$this->seotext_date = date('Y-m-d', filectime($text['file']));
-
-		$this->seotext_tp = $seotext_tp=='a'?'A':($seotext_tp=='w'?'W':'S');
-
-		$flag = $this->c['hide_opt'] === '1'
-			? true : ($this->c['hide_opt'] === '0'
-				? false
-				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
-					? true : false));
-		$flag = $seotext_sh === 'h'
-			? true : ($seotext_sh === 's'
-				? false : $flag);
-		$this->seotext_hide = $flag;
-
-		return true;
-	}
-
-	function seotext_cache($alias, $text)
-	{
-		$folder = $this->droot.'/_buran/seoModule/c/';
-		if ( ! file_exists($folder)) {
-			mkdir($folder, 0755, true);
-		}
-		$file = $folder.'txt_'.$alias.'.txt';
-		$text['cache'] = time();
-		$text = serialize($text);
-		$text = base64_encode($text);
-		$fh   = fopen($file, 'wb');
-		if ( ! $fh) return false;
-		$res = fwrite($fh, $text);
-		if ($res === false) return false;
-		fclose($fh);
-		return true;
-	}
-
-	function cache_clear()
-	{
-		$folder = $this->droot.'/_buran/seoModule/c/';
-		if ( ! file_exists($folder)) return;
-		if ( ! ($open = opendir($folder))) return;
-		while ($file = readdir($open)) {
-			if ( ! is_file($folder.$file)) continue;
-			unlink($folder.$file);
-		}
-	}
-
 	function text_parse()
 	{
 		$st = &$this->seotext;
@@ -722,7 +759,7 @@ class buran_seoModule
 		$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 		$st['s_text'] = str_replace('<p>[part]</p>', '[part]', $st['s_text']);
 
-		$st['s_img_f'] = array();
+		$s_img_f = array();
 		if (is_array($st['s_img'])) {
 			foreach ($st['s_img'] AS $key => $row) {
 				$img = '/_buran/seoModule/i/'.$this->seotext_alias.'_'.($key+1);
@@ -733,7 +770,7 @@ class buran_seoModule
 				} else {
 					continue;
 				}
-				$st['s_img_f'][] = array(
+				$s_img_f[] = array(
 					'src' => $img,
 					'alt' => $row,
 				);
@@ -742,7 +779,7 @@ class buran_seoModule
 
 		$flag_dopimgs = false;
 		$i = 0;
-		while ($img = array_shift($st['s_img_f'])) {
+		while ($img = array_shift($s_img_f)) {
 			$img_p = '';
 			if ($img['src']) {
 				$i++;
@@ -770,7 +807,6 @@ class buran_seoModule
 			$st['s_text'] .= '</div>';
 		}
 		$st['s_text'] = str_replace('[img]', '', $st['s_text']);
-		unset($st['s_img_f']);
 
 		$i = 0;
 		do {
@@ -833,6 +869,12 @@ class buran_seoModule
 			$counter++;
 			$text = $this->seofile($alias);
 			if ( ! $text) continue;
+			if ( ! $text['a_title']) {
+				$text['a_title'] = $text['s_title'];
+			}
+			if ( ! $text['a_description']) {
+				$text['a_description'] = $text['description'];
+			}
 			for ($k=1; $k<=10; $k++) {
 				$img = $imgs.$alias.'_'.$k.'.jpg';
 				if (file_exists($this->droot.$img)) break;
@@ -890,7 +932,7 @@ class buran_seoModule
 
 		$body = '<link rel="stylesheet" href="/_buran/seoModule/style_'.$this->domain_h.'.css" />';
 
-		if ($this->seotext_hide) {
+		if ($this->seotext_hide == 'Y') {
 			$body .= '
 <script>
 	function sssmb_chpoktext(){
@@ -945,7 +987,7 @@ window.onload = function(){
 		}
 
 		$body .= '
-<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide=='Y'?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
 	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" />
 	<div class="sssmb_clr">&nbsp;</div>';
 
@@ -1093,22 +1135,6 @@ window.onload = function(){
 		}
 	}
 
-	function get_code($type)
-	{
-		$type = $type == 'head' ? 'head' : 'body';
-		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) return false;
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) return false;
-		$code = '';
-		while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-		fclose($fh);
-		if ( ! $code) return false;
-		$code = base64_decode($code);
-		$this->code[$type] = $code;
-		return true;
-	}
-
 	function head_body_parse()
 	{
 		$template = &$this->template;
@@ -1144,12 +1170,59 @@ window.onload = function(){
 	function output_content()
 	{
 		if (is_array($this->headers)) {
-			foreach ($this->headers AS $key => $header) {
+			foreach ($this->headers AS $header) {
 				header($header);
 			}
 		}
 		print $this->template;
 		exit();
+	}
+
+// ------------------------------------------------------------------
+
+	function seotext_cache($alias, $text)
+	{
+		$folder = $this->droot.'/_buran/seoModule/c/';
+		if ( ! file_exists($folder)) {
+			mkdir($folder, 0755, true);
+		}
+		$file = $folder.'txt_'.$alias.'.txt';
+		$text['cache'] = time();
+		$text = serialize($text);
+		$text = base64_encode($text);
+		$fh   = fopen($file, 'wb');
+		if ( ! $fh) return false;
+		$res = fwrite($fh, $text);
+		if ($res === false) return false;
+		fclose($fh);
+		return true;
+	}
+
+	function cache_clear()
+	{
+		$folder = $this->droot.'/_buran/seoModule/c/';
+		if ( ! file_exists($folder)) return;
+		if ( ! ($open = opendir($folder))) return;
+		while ($file = readdir($open)) {
+			if ( ! is_file($folder.$file)) continue;
+			unlink($folder.$file);
+		}
+	}
+
+	function get_code($type)
+	{
+		$type = $type == 'head' ? 'head' : 'body';
+		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
+		if ( ! file_exists($file)) return false;
+		$fh = fopen($file, 'rb');
+		if ( ! $fh) return false;
+		$code = '';
+		while ( ! feof($fh)) $code .= fread($fh, 1024*8);
+		fclose($fh);
+		if ( ! $code) return false;
+		$code = base64_decode($code);
+		$this->code[$type] = $code;
+		return true;
 	}
 
 	function send_reverse_request($urgently=false)
@@ -1332,8 +1405,6 @@ window.onload = function(){
 		return true;
 	}
 
-// ------------------------------------------------------------------
-
 	function reverse_request($a, $b=false, $c=false, $data=false)
 	{
 		if ( ! $this->curl_ext) return false;
@@ -1343,58 +1414,23 @@ window.onload = function(){
 		$data = base64_encode($data);
 		$a = urlencode($a);
 		$ac = $this->accesscode;
-		$options = array(
-			CURLOPT_URL => 'http://bunker-yug.ru/__buran/seoModule_service.php',
-			CURLOPT_USERAGENT         => 'Buran/',
-			CURLOPT_RETURNTRANSFER    => true,
-			CURLOPT_FRESH_CONNECT     => true,
-			CURLOPT_FOLLOWLOCATION    => false,
-			CURLOPT_TIMEOUT           => 10,
-			CURLOPT_POST              => true,
-			CURLOPT_POSTFIELDS        => array(
+		$reqres = $this->request(
+			'http://bunker-yug.ru/__buran/seoModule_service.php',
+			false, false,
+			array(
 				'idc' => $this->c[1]['bunker_id'],
 				'ac' => $ac,
 				'a' => $a, 'b' => $b, 'c' => $c,
 				'data' => $data,
-			),
+			)
 		);
-		$curl = curl_init();
-		curl_setopt_array($curl, $options);
-		$response     = curl_exec($curl);
-		$request_info = curl_getinfo($curl);
-		if ( ! curl_errno($curl) && $response
-			&& $request_info['http_code'] == 200) {
-			return $response;
+		if (
+			$reqres['res']
+			&& $reqres['response']
+			&& $reqres['info']['http_code'] == 200
+		) {
+			return $reqres['response'];
 		}
-		curl_close($curl);
-		return false;
-	}
-
-	function send_transit_request($uri, $post=false, $headers=false)
-	{
-		if ( ! $this->curl_ext) return false;
-		$curloptions = array(
-			CURLOPT_URL            => $uri,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FRESH_CONNECT  => true,
-			CURLOPT_TIMEOUT        => 10,
-		);
-		if ($headers) {
-			$curloptions[CURLOPT_HTTPHEADER] = $headers;
-		}
-		if ($post) {
-			$curloptions[CURLOPT_POST] = true;
-			$curloptions[CURLOPT_POSTFIELDS] = $post;
-		}
-		$curl = curl_init();
-		curl_setopt_array($curl, $curloptions);
-		$response     = curl_exec($curl);
-		$request_info = curl_getinfo($curl);
-		if ( ! curl_errno($curl)) {
-			$response = 'httpcode='.$request_info['http_code']."\n".$response;
-			return $response;
-		}
-		curl_close($curl);
 		return false;
 	}
 
@@ -1417,32 +1453,24 @@ window.onload = function(){
 			if (
 				$row['dt'] || ! $row['id'] || ! $row['id']
 				|| ! $row['ws'] || ! $row['url']
-			) {
-				continue;
-			}
+			) continue;
 			$page_id = $key;
 			$page    = $row;
 			break;
 		}
 		if ( ! $page['id']) return false;
 
-		$curloptions = array(
-			CURLOPT_URL            => $page['ws'] . $page['url'],
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_FRESH_CONNECT  => true,
-			CURLOPT_FOLLOWLOCATION => false,
-			CURLOPT_NOBODY         => true,
-			CURLOPT_TIMEOUT        => 10,
+		$reqres = $this->request(
+			$page['ws'].$page['url'],
+			array(
+				'nobody' => true,
+				'follow' => false,
+			)
 		);
-		$curl = curl_init();
-		curl_setopt_array($curl, $curloptions);
-		$response     = curl_exec($curl);
-		$request_info = curl_getinfo($curl);
-		$list[$page_id]['error']    = curl_errno($curl);
-		$list[$page_id]['httpcode'] = $request_info['http_code'];
-		$list[$page_id]['delay']    = $request_info['total_time'];
+		$list[$page_id]['error']    = $reqres['errno'];
+		$list[$page_id]['httpcode'] = $reqres['info']['http_code'];
+		$list[$page_id]['delay']    = $reqres['info']['total_time'];
 		$list[$page_id]['dt']       = time();
-		curl_close($curl);
 
 		$list = serialize($list);
 		$list = base64_encode($list);
@@ -1463,6 +1491,67 @@ window.onload = function(){
 		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
 		fclose($fh);
 		return $list;
+	}
+
+	function request($url, $prms=false, $headers=false, $post=false)
+	{
+		if ( ! $this->curl_ext) return false;
+		$options = array(
+			CURLOPT_URL            => $url,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_FRESH_CONNECT  => true,
+			CURLOPT_TIMEOUT        => 10,
+			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
+		);
+		$follow = true;
+		if ($prms) {
+			foreach ($prms AS $prm => $val) {
+				if ($prm == 'nobody') $options[CURLOPT_NOBODY] = $val;
+
+				if ($prm == 'follow') {
+					$options[CURLOPT_FOLLOWLOCATION] = $val;
+					$follow = $val;
+				}
+			}
+		}
+		if ($headers) {
+			$options[CURLOPT_HTTPHEADER] = $headers;
+		}
+		if ($post) {
+			$options[CURLOPT_POST] = true;
+			$options[CURLOPT_POSTFIELDS] = $post;
+		}
+		$this->request_headers(false, false, true);
+		$curl = curl_init();
+		curl_setopt_array($curl, $options);
+		$response = $follow && $this->c[2]['curl_auto_redirect']
+			? $this->curl_exec_followlocation($curl, $url)
+			: curl_exec($curl);
+		$request_info    = curl_getinfo($curl);
+		$request_headers = $this->curl_request_headers;
+		$errno = curl_errno($curl);
+		$error = curl_error($curl);
+		curl_close($curl);
+		$res_a = array(
+			'res'      => $errno ? false : true,
+			'errno'    => $errno ? $errno : 0,
+			'error'    => $errno ? $error : false,
+			'response' => $response,
+			'info'     => $request_info,
+			'headers'  => $request_headers,
+		);
+		return $res_a;
+	}
+
+	function request_headers($curl, $header_line, $clear=false)
+	{
+		if ($clear) {
+			$this->curl_request_headers = array();
+			return;
+		}
+		$this->curl_request_headers[] = $header_line;
+		return strlen($header_line);
 	}
 
 	function alist()
@@ -1536,29 +1625,33 @@ window.onload = function(){
 		$hash_5_f = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
 		if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
 
-		$p .= '[seomoduleversion_'.$this->version.']'."\n";
-		$p .= '[modulehash_'.$hash_1.']'."\n";
-		$p .= '[confighash_'.$hash_2.']'."\n";
-		$p .= '[stylehash_'.$hash_3.']'."\n";
-		$p .= '[headhash_'.$hash_4.']'."\n";
-		$p .= '[bodyhash_'.$hash_5.']'."\n";
-		$p .= '[datetime_'.date('d.m.Y, H:i:s').']'."\n";
-		$p .= '[droot_'.$this->droot.']'."\n";
-		$p .= '[incfiles_]'."\n";
-		$p .= $incfiles_hash;
-		$p .= '[_incfiles]'."\n";
-		$p .= '[pages_]'."\n";
+		$res = '[seomoduleversion_'.$this->version.']
+[datetime_'.date('d.m.Y, H:i:s').']
+
+[modulehash_'.$hash_1.']
+[confighash_'.$hash_2.']
+[stylehash_'.$hash_3.']
+[headhash_'.$hash_4.']
+[bodyhash_'.$hash_5.']
+[droot_'.$this->droot.']'."\n";
+		$res .= "\n";
+		$res .= '[incfiles_]'."\n";
+		$res .= $incfiles_hash;
+		$res .= '[_incfiles]'."\n";
+		$res .= "\n";
+		$res .= '[pages_]'."\n";
 		if (is_array($this->c[3])) {
 			foreach ($this->c[3] AS $alias => $row) {
 				if ($row[0] == $this->c[1]['articles']) continue;
 				$text = $this->seofile($alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$p .= $hash.' : '.$alias."\n";
+				$res .= $hash.' : '.$alias."\n";
 			}
 		}
-		$p .= '[_pages]'."\n";
-		$p .= '[errors_]'."\n";
+		$res .= '[_pages]'."\n";
+		$res .= "\n";
+		$res .= '[errors_]'."\n";
 		$file = $this->droot.'/_buran/seoModule/errors_'.$this->domain_h.'.txt';
 		if (file_exists($file)) {
 			$fh = fopen($file,'rb');
@@ -1566,11 +1659,13 @@ window.onload = function(){
 				$content = '';
 				while ( ! feof($fh)) $content .= fread($fh, 1024*8);
 				fclose($fh);
-				$p .= $content;
+				$res .= $content;
 			}
 		}
-		$p .= '[_errors]'."\n";
-		return $p;
+		$res .= '[_errors]'."\n";
+		$res .= "\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан\n[11] Файл с текстом неверного формата\n[12] В блоке статей не хватает записей\n[20] cURL вернул ошибку\n[21] Stream не сработал\n[30] Не 200 ответ\n[31] 404 ответ донора\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		return $res;
 	}
 
 	function cache($field=false, $value=false, $clear=false)
@@ -1703,15 +1798,21 @@ window.onload = function(){
 		$url  .= '?h='.$this->domain;
 		$url  .= '&w='.$get_w;
 		if ($this->curl_ext) {
-			$curloptions = array(
+			$options = array(
 				CURLOPT_URL            => $url,
 				CURLOPT_RETURNTRANSFER => true,
 			);
 			$curl = curl_init();
-			curl_setopt_array($curl, $curloptions);
+			curl_setopt_array($curl, $options);
 			$ww = curl_exec($curl);
 		} elseif ($this->fgc_ext) {
 			$ww = file_get_contents($url);
+		} elseif ($this->sgc_ext) {
+			$stream = fopen($url, 'rb');
+			if ($stream) {
+				$ww = stream_get_contents($stream);
+				fclose($stream);
+			}
 		}
 		if ($ww && $get_w && $ww === $get_w) {
 			return true;
@@ -1719,38 +1820,41 @@ window.onload = function(){
 		return false;
 	}
 
-	function curl_exec_followlocation(&$curl, &$uri)
+	function curl_exec_followlocation(&$curl, &$url)
 	{
-		// v2.1
-		// Date 16.02.2017
-		// -----------------------------------------
+		/**
+		 * curl_exec_followlocation()
+		 * @version 2.2
+		 * @date 14.12.2018
+		 */
 		if (preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i",
-			$uri, $matches) !==1) {
+			$url, $matches) !==1) {
 			return;
 		}
 		$website = $matches[1];
 		do {
+			$this->request_headers(false, false, true);
 			// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
-			curl_setopt($curl, CURLOPT_URL, $uri);
+			curl_setopt($curl, CURLOPT_URL, $url);
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($curl, CURLOPT_HEADER, true);
+			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this, 'request_headers'));
 			$response = curl_exec($curl);
+			$headers  = implode("\n", $this->curl_request_headers);
 			if (curl_errno($curl)) return false;
-			$headers = str_replace("\r",'',$response);
-			$headers = explode("\n\n",$headers,2);
-			if (preg_match("/^location: (.*)$/im", $headers[0], $matches) ===1) {
+			if (preg_match("/^location: (.*)$/im", $headers, $matches) === 1) {
 				$location = true;
-				$referer  = $uri;
-				$uri      = trim($matches[1]);
-				if (preg_match("/^http(s){0,1}:\/\/[a-z0-9\.-]+/i", $uri, $matches) !==1) {
-					$uri= $website.(substr($uri,0,1)!='/'?'/':'').$uri;
+				$referer  = $url;
+				$url      = trim($matches[1]);
+				if (preg_match("/^http(s){0,1}:\/\/[a-z0-9\.-]+/i",
+					$url, $matches) !== 1) {
+					$url = $website.(substr($url,0,1)!='/'?'/':'').$url;
 				}
 			} else {
 				$location = false;
 			}
 			if ($location) {
-				if ($redirects_list[$uri]<=1) $redirects_list[$uri]++;
-					else $location = false;
+				if ($redirects_list[$url] <= 1) $redirects_list[$url]++;
+				else $location = false;
 			}
 		} while ($location);
 		return $response;
@@ -1793,5 +1897,4 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// --------------------
+// -----------------------------------------
