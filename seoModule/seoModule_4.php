@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 4.99
- * @date 14.12.2018
+ * @version 5.0
+ * @date 25.12.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 54000
+ * @size 55555
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('4.99');
+$bsm = new buran_seoModule('5.0');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -69,6 +69,7 @@ if (
 			}
 		}
 		if ($seotext && $tags) {
+			session_start();
 			if ( ! $bsm->seotext_cache || $bsm->test) {
 				$bsm->text_parse();
 				if ($bsm->requesturi == $bsm->c[1]['articles']) {
@@ -111,7 +112,7 @@ if ('list' == $_GET['a']) {
 }
 
 if ('info' == $_GET['a']) {
-	header('Content-Type: text/plain');
+	header('Content-Type: text/plain; charset=utf-8');
 	print $bsm->info();
 	exit();
 }
@@ -188,9 +189,16 @@ if ('transit' == $_GET['a']) {
 
 if ('transit_list' == $_GET['a']) {
 	if ( ! ($bsm->auth())) exit();
-	header('Content-Type: text/plain');
+	header('Content-Type: text/plain; charset=utf-8');
 	print $bsm->transit_list();
 	exit();
+}
+
+if ('auth' == $_GET['a']) {
+	if ( ! ($bsm->auth())) exit('er');
+	session_start();
+	$_SESSION['buranseomodule']['auth'] = time();
+	exit('ok');
 }
 	exit('er');
 }
@@ -221,6 +229,7 @@ class buran_seoModule
 	public $test = false;
 	public $test_stitle;
 	public $test_stext;
+	public $test_beforecode;
 
 	public $declension;
 
@@ -292,9 +301,10 @@ class buran_seoModule
 		}
 		if (isset($_POST['seomodule_test']) &&
 			isset($_POST['s_title']) && isset($_POST['s_text'])) {
-			$this->test        = true;
-			$this->test_stitle = $_POST['s_title'];
-			$this->test_stext  = $_POST['s_text'];
+			$this->test            = true;
+			$this->test_stitle     = $_POST['s_title'];
+			$this->test_stext      = $_POST['s_text'];
+			$this->test_beforecode = $_POST['before_code'];
 		}
 
 		if (file_exists($this->droot.'/_buran/seoModule/'.$this->module_hash())) {
@@ -624,6 +634,7 @@ class buran_seoModule
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_CONNECTTIMEOUT => 10,
 				CURLOPT_TIMEOUT        => 10,
+				CURLOPT_FOLLOWLOCATION => false,
 				CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 			);
 			if ($http == 'https://' && $this->c[2]['https_test']) {
@@ -633,11 +644,16 @@ class buran_seoModule
 			if ( ! $useragent_flag) {
 				$options[CURLOPT_USERAGENT] = $ua;
 			}
+			$follow = false;
+			if ($this->seotext_tp == 'S') {
+				$options[CURLOPT_FOLLOWLOCATION] = true;
+				$follow = true;
+			}
 
 			$this->request_headers(false, false, true);
 			$curl = curl_init();
 			curl_setopt_array($curl, $options);
-			$template = $this->c[2]['curl_auto_redirect']
+			$template = $follow && $this->c[2]['curl_auto_redirect']
 				? $this->curl_exec_followlocation($curl, $this->donor)
 				: curl_exec($curl);
 			$request_info    = curl_getinfo($curl);
@@ -748,8 +764,9 @@ class buran_seoModule
 		$st = &$this->seotext;
 
 		if ($this->test) {
-			$st['s_title'] = $this->test_stitle;
-			$st['s_text']  = $this->test_stext;
+			$st['s_title']     = $this->test_stitle;
+			$st['s_text']      = $this->test_stext;
+			$st['before_code'] = $this->test_beforecode;
 		}
 
 		$st['flag_multitext'] = strpos($st['s_text'], '[part]') !== false
@@ -932,6 +949,10 @@ class buran_seoModule
 
 		$body = '<link rel="stylesheet" href="/_buran/seoModule/style_'.$this->domain_h.'.css" />';
 
+		if ($st['before_code']) {
+			$body .= $st['before_code'];
+		}
+
 		if ($this->seotext_hide == 'Y') {
 			$body .= '
 <script>
@@ -985,6 +1006,26 @@ window.onload = function(){
 };
 </script>';
 		}
+
+if (time() - $_SESSION['buranseomodule']['auth'] < 60*60*8) {
+	$body .= '
+<script>
+window.onkeydown = function(event){
+	if (event.ctrlKey && event.altKey) {
+		if (event.keyCode === 84) {
+			var url = "http://bunker-yug.ru/seomodule_text.php?bodyonly&padding&a=gettext&idc='.$this->c[1]['bunker_id'].'&alias='.$this->seotext_alias.'";
+			window.open(url, "_blank");
+		} else if (event.keyCode === 80) {
+			var url = "http://bunker-yug.ru/seomodule.php?a=config&idc='.$this->c[1]['bunker_id'].'";
+			window.open(url, "_blank");
+		} else if (event.keyCode === 76) {
+			var url = "/_buran/seoModule.php?a=info";
+			window.open(url, "_blank");
+		}
+	}
+}
+</script>';
+}
 
 		$body .= '
 <section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide=='Y'?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
@@ -1897,4 +1938,11 @@ window.onload = function(){
 	}
 }
 // ----------------------------------------------
-// -----------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -------
