@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.0
- * @date 25.12.2018
+ * @date 27.12.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 55555
@@ -873,40 +873,50 @@ class buran_seoModule
 	{
 		$imgs = '/_buran/seoModule/i/';
 		$flag = $alias_start ? true : false;
-		foreach ($this->c[3] AS $alias => $row) {
-			if ($row[0] == $this->c[1]['articles']) continue;
+		$list = $this->c[3];
+		end($list);
+		$last = key($list);
+		reset($list);
+		while ($row = each($list)) {
+			$alias = $row['key'];
+			$url   = $row['value'][0];
 			if ($flag) {
 				if ($alias == $alias_start) {
 					$flag = false;
 				}
 				continue;
 			}
+			if ($url != $this->c[1]['articles']) {
+				$counter++;
+				$text = $this->seofile($alias);
+				if ( ! $text) continue;
+				if ( ! $text['a_title']) {
+					$text['a_title'] = $text['s_title'];
+				}
+				if ( ! $text['a_description']) {
+					$text['a_description'] = $text['description'];
+				}
+				for ($k=1; $k<=10; $k++) {
+					$img = $imgs.$alias.'_'.$k.'.jpg';
+					if (file_exists($this->droot.$img)) break;
+					$img = false;
+				}
+				$txt .= '<div class="sssmba_itm">
+					<div class="sssmba_img">';
+				if ($img) $txt .= '<img src="'.$img.'" alt="" />';
+				$txt .= '</div>
+					<div class="sssmba_inf">
+						<div class="sssmba_tit"><a href="'.$url.'">'.$text['a_title'].'</a></div>
+						<div class="sssmba_txt">'.$text['a_description'].'</div>
+					</div>
+				</div>';
+				$counter--;
+				$limit--;
+			}
+			if ($alias_start && $limit && $alias==$last) {
+				reset($list);
+			}
 			if ($alias_start && $limit<=0) break;
-			$limit--;
-			$counter++;
-			$text = $this->seofile($alias);
-			if ( ! $text) continue;
-			if ( ! $text['a_title']) {
-				$text['a_title'] = $text['s_title'];
-			}
-			if ( ! $text['a_description']) {
-				$text['a_description'] = $text['description'];
-			}
-			for ($k=1; $k<=10; $k++) {
-				$img = $imgs.$alias.'_'.$k.'.jpg';
-				if (file_exists($this->droot.$img)) break;
-				$img = false;
-			}
-			$txt .= '<div class="sssmba_itm">
-				<div class="sssmba_img">';
-			if ($img) $txt .= '<img src="'.$img.'" alt="" />';
-			$txt .= '</div>
-				<div class="sssmba_inf">
-					<div class="sssmba_tit"><a href="'.$row[0].'">'.$text['a_title'].'</a></div>
-					<div class="sssmba_txt">'.$text['a_description'].'</div>
-				</div>
-			</div>';
-			$counter--;
 		}
 		if ($txt) {
 			if ($alias_start) {
@@ -1032,7 +1042,7 @@ window.onkeydown = function(event){
 	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" />
 	<div class="sssmb_clr">&nbsp;</div>';
 
-		if ($this->seotext_tp == 'A' || $this->seotext_tp == 'W') {
+		if ($this->seotext_tp == 'A') {
 			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 				'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
 		} else {
@@ -1046,7 +1056,7 @@ window.onkeydown = function(event){
 			$this->log('[50]');
 		}
 
-		if ($this->seotext_tp == 'A' || $this->seotext_tp == 'W' || ! $hcc) {
+		if ($this->seotext_tp == 'A' || ! $hcc) {
 			$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 		}
 
@@ -1087,7 +1097,7 @@ window.onkeydown = function(event){
 			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
 			$template = preg_replace("/".$this->tag_f['m']."/s", $foo, $template, 1);
 
-		} elseif ($this->seotext_tp == 'S' || $this->seotext_tp == 'W') {
+		} else {
 			$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
 			$foo .= $body;
 			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
@@ -1943,6 +1953,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -------
+// --------------
