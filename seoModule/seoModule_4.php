@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.0
+ * @version 5.1
  * @date 27.12.2018
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.0');
+$bsm = new buran_seoModule('5.1');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
