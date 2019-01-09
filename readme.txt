@@ -1,4 +1,6 @@
 
+- в РНР <= 5.5 не работает CURLOPT_HEADERFUNCTION
+
 - левые файлы ошибок
 
 - .htaccess - следить
