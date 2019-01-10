@@ -1,6 +1,10 @@
 
 - в РНР <= 5.5 не работает CURLOPT_HEADERFUNCTION
 
+- не работает Stream когда 404
+
+- доработать Stream + Socket
+
 - левые файлы ошибок
 
 - .htaccess - следить
