@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 5.1
- * @date 27.12.2018
+ * @version 5.2
+ * @date 16.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 55555
+ * @size 56000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.1');
+$bsm = new buran_seoModule('5.2');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -251,7 +251,7 @@ class buran_seoModule
 	public $code = array();
 
 	public $curl_ext;
-	public $sgc_ext;
+	public $sock_ext;
 	public $fgc_ext;
 
 	public $logs_files;
@@ -316,7 +316,7 @@ class buran_seoModule
 		$this->curl_ext = extension_loaded('curl') &&
 			function_exists('curl_init') ? true : false;
 
-		$this->sgc_ext = function_exists('stream_get_contents') ? true : false;
+		$this->sock_ext = function_exists('stream_socket_client') ? true : false;
 
 		$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 
@@ -497,7 +497,8 @@ class buran_seoModule
 			if ($this->requesturi == $prms[0]) {
 				$seotext_alias = $alias;
 				$seotext_tp    = $prms[1] === 'w' ? 'W' : false;
-				$seotext_hide  = $prms[2] === 'h' ? 'Y' : 'N';
+				$seotext_hide  = $prms[2] === 'h' ? 'Y'
+					: ($prms[2] === 's' ? 'N' : 'D');
 				if ($flag) {
 					$this->log('[13]');
 					break;
@@ -521,10 +522,10 @@ class buran_seoModule
 			: ($text['type'] === 'S' ? 'S' : 'A');
 		$this->seotext_tp = $text['type'];
 
-		$hide_flag = $this->c['hide_opt'] === '1' ? 'Y'
-			: ( ! $this->c['hide_opt'] || $this->c['hide_opt'] === '0'
+		$hide_flag = $this->c[2]['hide_opt'] === '1' ? 'Y'
+			: ( ! $this->c[2]['hide_opt'] || $this->c[2]['hide_opt'] === '0'
 				? 'N'
-				: (strpos($this->c['hide_opt'], $this->seotext_tp) !== false
+				: (strpos($this->c[2]['hide_opt'], $this->seotext_tp) !== false
 					? 'Y' : 'N'));
 		$hide_flag = $seotext_hide === 'Y' ? 'Y'
 			: ($seotext_hide === 'N' ? 'N' : $hide_flag);
@@ -588,8 +589,7 @@ class buran_seoModule
 
 	function get_content()
 	{
-		$this->donor = $this->c[1]['website'];
-		$this->donor .= $this->seotext_tp == 'S'
+		$this->donor = $this->seotext_tp == 'S'
 			? $this->c[1]['donor'] : $this->requesturi;
 
 		$ua = ' '.$this->useragent.'/'.$this->version;
@@ -628,14 +628,15 @@ class buran_seoModule
 		}
 
 		if ($this->curl_ext && 'curl' == $this->c[2]['get_content_method']) {
+			$url = $this->website.$this->donor;
 			$options = array(
-				CURLOPT_URL            => $this->donor,
+				CURLOPT_URL            => $url,
 				CURLOPT_HTTPHEADER     => $headers,
+				CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_CONNECTTIMEOUT => 10,
 				CURLOPT_TIMEOUT        => 10,
 				CURLOPT_FOLLOWLOCATION => false,
-				CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 			);
 			if ($http == 'https://' && $this->c[2]['https_test']) {
 				$options[CURLOPT_SSL_VERIFYHOST] = false;
@@ -644,18 +645,11 @@ class buran_seoModule
 			if ( ! $useragent_flag) {
 				$options[CURLOPT_USERAGENT] = $ua;
 			}
-			$follow = false;
-			if ($this->seotext_tp == 'S') {
-				$options[CURLOPT_FOLLOWLOCATION] = true;
-				$follow = true;
-			}
 
 			$this->request_headers(false, false, true);
 			$curl = curl_init();
 			curl_setopt_array($curl, $options);
-			$template = $follow && $this->c[2]['curl_auto_redirect']
-				? $this->curl_exec_followlocation($curl, $this->donor)
-				: curl_exec($curl);
+			$template        = curl_exec($curl);
 			$request_info    = curl_getinfo($curl);
 			$http_code       = $request_info['http_code'];
 			$request_headers = $this->curl_request_headers;
@@ -666,24 +660,30 @@ class buran_seoModule
 			curl_close($curl);
 		}
 
-		if ($this->sgc_ext && 'stream' == $this->c[2]['get_content_method']) {
-			$options = array(
-				'http' => array(
-					'method' => 'GET',
-					'header' => $headers,
-				)
-			);
+		if ($this->sock_ext && 'stream' == $this->c[2]['get_content_method']) {
+			$headers = implode("\n", $headers);
+			$headers = "GET ".$this->donor." HTTP/1.0\n".$headers."\n";
 			if ( ! $useragent_flag) {
-				$options['http']['user_agent'] = $ua;
+				$headers .= 'User-Agent: '.$ua."\n";
 			}
-			$context = stream_context_create($options);
-			$stream  = fopen($this->donor, 'rb', false, $context);
-			if ($stream) {
-				$template        = stream_get_contents($stream);
-				$request_headers = stream_get_meta_data($stream);
-				$request_headers = $request_headers['wrapper_data'];
-				$http_code       = 200;
-				fclose($stream);
+			$headers .= "\n";
+
+			$host = $this->http == 'https://' ? 'ssl://' : '';
+			$host .= $this->www.$this->domain;
+			$host .= $this->http == 'https://' ? ':443' : ':80';
+			$res  = stream_socket_client($host, $errno, $errstr, 10);
+			$content = '';
+			if ($res) {
+				fwrite($res, $headers);
+				while ( ! feof($res)) {
+					$content .= fread($res, 1024*1024); 
+				}
+				fclose($res);
+				$content = $this->parse_response_headers($content);
+				$template = $content[1];
+				$request_headers = explode("\n", $content[0]);
+				preg_match("/HTTP\/(.*) ([0-9]+) /", $request_headers[0], $match);
+				$http_code = $match[2];
 			} else {
 				$fail = true;
 				$this->log('[21]');
@@ -699,9 +699,6 @@ class buran_seoModule
 					continue;
 				$this->headers[] = $header;
 			}
-		}
-		if ($this->seotext_tp == 'S') {
-			$this->headers[] = $this->protocol .' 200 OK';
 		}
 
 		if ($http_code == 404) {
@@ -897,8 +894,12 @@ class buran_seoModule
 					$text['a_description'] = $text['description'];
 				}
 				for ($k=1; $k<=10; $k++) {
-					$img = $imgs.$alias.'_'.$k.'.jpg';
-					if (file_exists($this->droot.$img)) break;
+					$img = $imgs.$alias.'_'.$k;
+					if (file_exists($this->droot.$img.'.jpg')) {
+						$img .= '.jpg'; break;
+					} elseif (file_exists($this->droot.$img.'.png')) {
+						$img .= '.png'; break;
+					}
 					$img = false;
 				}
 				$txt .= '<div class="sssmba_itm">
@@ -1628,11 +1629,11 @@ window.onkeydown = function(event){
 		$flag = $this->curl_ext ? true : false;
 		$p .= '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
-		$flag = $this->sgc_ext ? true : false;
-		$p .= '<div>Stream GC: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$flag = $this->sock_ext ? true : false;
+		$p .= '<div>Stream Socket: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		$flag = $this->fgc_ext ? true : false;
-		$p .= '<div>File GC: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$p .= '<div>File Get Contents: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		$p .= '<br><br><br>';
 		return $p;
@@ -1845,30 +1846,49 @@ window.onkeydown = function(event){
 	function auth()
 	{
 		$get_w = $_GET['w'];
-		$url   = 'http://bunker-yug.ru/__buran/secret_key.php';
+		$http  = 'http://';
+		$host  = 'bunker-yug.ru';
+		$url   = '/__buran/secret_key.php';
 		$url  .= '?h='.$this->domain;
 		$url  .= '&w='.$get_w;
-		if ($this->curl_ext) {
+
+		if ($this->curl_ext && 'curl' == $this->c[2]['get_content_method']) {
 			$options = array(
-				CURLOPT_URL            => $url,
+				CURLOPT_URL            => $http.$host.$url,
 				CURLOPT_RETURNTRANSFER => true,
 			);
 			$curl = curl_init();
 			curl_setopt_array($curl, $options);
 			$ww = curl_exec($curl);
-		} elseif ($this->fgc_ext) {
-			$ww = file_get_contents($url);
-		} elseif ($this->sgc_ext) {
-			$stream = fopen($url, 'rb');
-			if ($stream) {
-				$ww = stream_get_contents($stream);
-				fclose($stream);
+
+		} elseif ($this->sock_ext && 'stream' == $this->c[2]['get_content_method']) {
+			$headers = "GET ".$url." HTTP/1.0\nHost: {$host}\n\n";
+			$res = stream_socket_client($host.':80', $errno, $errstr, 10);
+			if ($res) {
+				fwrite($res, $headers);
+				while ( ! feof($res)) {
+					$ww .= fread($res, 1024*1024); 
+				}
+				fclose($res);
+				$ww = $this->parse_response_headers($ww);
+				$ww = $ww[1];
 			}
+
+		} elseif ($this->fgc_ext) {
+			$ww = file_get_contents($http.$host.$url);
 		}
+
 		if ($ww && $get_w && $ww === $get_w) {
 			return true;
 		}
 		return false;
+	}
+
+	function parse_response_headers($data)
+	{
+		$data = str_replace("\r", '', $data);
+		$data = explode("\n\n", $data, 2);
+		return $data;
 	}
 
 	function curl_exec_followlocation(&$curl, &$url)
@@ -1949,8 +1969,4 @@ window.onkeydown = function(event){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// --------------
+// ----------------------
