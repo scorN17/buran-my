@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 5.2
- * @date 16.01.2019
+ * @version 5.3-beta
+ * @date 18.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2018 DELTA http://delta-ltd.ru/
  * @size 56000
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.2');
+$bsm = new buran_seoModule('5.3-beta');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -877,6 +877,9 @@ class buran_seoModule
 		while ($row = each($list)) {
 			$alias = $row['key'];
 			$url   = $row['value'][0];
+			if ($alias_start && $limit && $alias==$last) {
+				reset($list);
+			}
 			if ($flag) {
 				if ($alias == $alias_start) {
 					$flag = false;
@@ -913,9 +916,6 @@ class buran_seoModule
 				</div>';
 				$counter--;
 				$limit--;
-			}
-			if ($alias_start && $limit && $alias==$last) {
-				reset($list);
 			}
 			if ($alias_start && $limit<=0) break;
 		}
@@ -1550,11 +1550,11 @@ window.onkeydown = function(event){
 		if ( ! $this->curl_ext) return false;
 		$options = array(
 			CURLOPT_URL            => $url,
+			CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_TIMEOUT        => 10,
 			CURLOPT_FOLLOWLOCATION => true,
-			CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
 		);
 		$follow = true;
 		if ($prms) {
@@ -1907,8 +1907,8 @@ window.onkeydown = function(event){
 			$this->request_headers(false, false, true);
 			// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
 			curl_setopt($curl, CURLOPT_URL, $url);
-			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this, 'request_headers'));
+			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			$response = curl_exec($curl);
 			$headers  = implode("\n", $this->curl_request_headers);
 			if (curl_errno($curl)) return false;
