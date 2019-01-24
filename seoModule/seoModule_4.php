@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 5.3-beta
- * @date 18.01.2019
+ * @version 5.3
+ * @date 24.01.2019
  * @author <sergey.it@delta-ltd.ru>
- * @copyright 2018 DELTA http://delta-ltd.ru/
- * @size 56000
+ * @copyright 2019 DELTA http://delta-ltd.ru/
+ * @size 55555
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.3-beta');
+$bsm = new buran_seoModule('5.3');
 $bsm_init_res = $bsm->init();
 if (
 	$bsm_init_res
@@ -322,122 +322,106 @@ class buran_seoModule
 
 		$this->useragent = 'BuranSeoModule';
 
+		$config_default = array(
+			1 => array(
+				'website' => $this->http.$this->www.$this->domain,
+			),
+
+			2 => array(
+				'module_enabled'     => '0',
+				'include_files'         => '/index.php',
+				'transit_requests'   => 0,
+				'out_charset'        => 'utf-8',
+				'classname'        => '',
+				'get_content_method' => 'curl',
+				'base'               => 'replace_or_add',
+				'canonical'          => 'replace_or_add',
+				'meta'               => 'replace_or_add',
+				'cookie'             => 1,
+				'set_header'         => 1,
+				'urldecode'          => 1,
+				'redirect'           => 1,
+				'use_cache'          => 604800,
+				're_linking'         => 2,
+				'duplicate_pages'    => 1,
+				'requets_methods'    => '/GET/HEAD/',
+			),
+
+			4 => array(
+				'/index.php'  => '/',
+				'/index.html' => '/',
+			),
+		);
+
 		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
 		if ( ! file_exists($file)) {
 			$this->log('[03]');
-			return false;
-		}
-		$fh = fopen($file, 'rb');
-		if ($fh) {
-			$this->c = '';
-			while ( ! feof($fh)) $this->c .= fread($fh, 1024*8);
-			fclose($fh);
-			if ($this->c) {
-				$this->c = base64_decode($this->c);
-				$this->c = unserialize($this->c);
-
-				$this->accesscode = $this->c[2]['accesscode'];
-
-				$this->c[2]['module_enabled']
-					= isset($this->c[2]['module_enabled'])
-					? $this->c[2]['module_enabled'] : '0';
-
-				$this->c[2]['re_linking']
-					= isset($this->c[2]['re_linking'])
-					? intval($this->c[2]['re_linking']) : 2;
-
-				$this->c[2]['duplicate_pages']
-					= isset($this->c[2]['duplicate_pages'])
-					? intval($this->c[2]['duplicate_pages']) : 1;
-
-				$this->c[2]['get_content_method']
-					= isset($this->c[2]['get_content_method'])
-					? $this->c[2]['get_content_method'] : 'curl';
-
-				$this->c[2]['base']
-					= isset($this->c[2]['base'])
-					? $this->c[2]['base'] : 'replace_or_add';
-
-				$this->c[2]['canonical']
-					= isset($this->c[2]['canonical'])
-					? $this->c[2]['canonical'] : 'replace_or_add';
-
-				$this->c[2]['meta']
-					= isset($this->c[2]['meta'])
-					? $this->c[2]['meta'] : 'replace_or_add';
-
-				$this->c[2]['requets_methods']
-					= isset($this->c[2]['requets_methods'])
-					? $this->c[2]['requets_methods'] : '/GET/HEAD/';
-
-				$this->c[2]['cookie']
-					= isset($this->c[2]['cookie'])
-					? intval($this->c[2]['cookie']) : 1;
-
-				$this->c[2]['set_header']
-					= isset($this->c[2]['set_header'])
-					? intval($this->c[2]['set_header']) : 1;
-
-				$this->c[2]['urldecode']
-					= isset($this->c[2]['urldecode'])
-					? intval($this->c[2]['urldecode']) : 1;
-
-				$this->c[2]['redirect']
-					= isset($this->c[2]['redirect'])
-					? intval($this->c[2]['redirect']) : 1;
-
-				$this->c[2]['use_cache']
-					= isset($this->c[2]['use_cache'])
-					? intval($this->c[2]['use_cache']) : 604800;
-
-				$this->c[2]['transit_requests']
-					= isset($this->c[2]['transit_requests'])
-					? intval($this->c[2]['transit_requests']) : 0;
-
-				$this->c[2]['out_charset']
-					= isset($this->c[2]['out_charset'])
-					? $this->c[2]['out_charset'] : 'utf-8';
-
-				if ($this->c[2]['urldecode']) {
-					$this->requesturi = urldecode($this->requesturi);
-				}
-
-				$this->declension = $this->c[7][$this->c[1]['city']];
-
-				$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
-
-				$charsetlist = array(
-					'utf-8' => array(
-						/*0*/ 'Статьи',
-						/*1*/ 'Все статьи',
-						/*2*/ 'Дата',
-						/*3*/ 'публикации',
-						/*4*/ 'изменения',
-						/*5*/ 'рисунок',
-						/*6*/ 'фото',
-						/*7*/ 'Автор',
-					),
-					'cp1251' => array(
-						/*0*/ '0fLg8vzo',
-						/*1*/ 'wvHlIPHy4PL86A==',
-						/*2*/ 'xODy4A==',
-						/*3*/ '7/Ph6+jq4Pbo6A==',
-						/*4*/ '6Ofs5e3l7ej/',
-						/*5*/ '8Ojx8+3u6g==',
-						/*6*/ '9O7y7g==',
-						/*7*/ 'wOLy7vA=',
-					),
-				);
-				$this->charset = $charsetlist[$this->c[2]['out_charset']][0]
-					? $charsetlist[$this->c[2]['out_charset']]
-					: $charsetlist['utf-8'];
-				if ($this->c[2]['out_charset'] != 'utf-8' && is_array($this->charset)) {
-					foreach ($this->charset AS $key => $txt) {
-						$this->charset[$key] = base64_decode($txt);
+		} else {
+			$fh = fopen($file, 'rb');
+			if ($fh) {
+				$config = '';
+				while ( ! feof($fh)) $config .= fread($fh, 1024*8);
+				fclose($fh);
+				if ($config) {
+					$config = base64_decode($config);
+					$config = unserialize($config);
+					if (is_array($config)) {
+						foreach ($config AS $key => $row) {
+							if ( ! isset($config_default[$key])) {
+								$config_default[$key] = $row;
+							} else {
+								$config_default[$key]
+									= array_merge($config_default[$key], $row);
+							}
+						}
 					}
 				}
 			}
 		}
+
+		$this->c = $config_default;
+
+		$this->accesscode = $this->c[2]['accesscode'];
+
+		if ($this->c[2]['urldecode']) {
+			$this->requesturi = urldecode($this->requesturi);
+		}
+
+		$this->declension = $this->c[7][$this->c[1]['city']];
+
+		$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
+
+		$charsetlist = array(
+			'utf-8' => array(
+				/*0*/ 'Статьи',
+				/*1*/ 'Все статьи',
+				/*2*/ 'Дата',
+				/*3*/ 'публикации',
+				/*4*/ 'изменения',
+				/*5*/ 'рисунок',
+				/*6*/ 'фото',
+				/*7*/ 'Автор',
+			),
+			'cp1251' => array(
+				/*0*/ '0fLg8vzo',
+				/*1*/ 'wvHlIPHy4PL86A==',
+				/*2*/ 'xODy4A==',
+				/*3*/ '7/Ph6+jq4Pbo6A==',
+				/*4*/ '6Ofs5e3l7ej/',
+				/*5*/ '8Ojx8+3u6g==',
+				/*6*/ '9O7y7g==',
+				/*7*/ 'wOLy7vA=',
+			),
+		);
+		$this->charset = $charsetlist[$this->c[2]['out_charset']][0]
+			? $charsetlist[$this->c[2]['out_charset']]
+			: $charsetlist['utf-8'];
+		if ($this->c[2]['out_charset'] != 'utf-8' && is_array($this->charset)) {
+			foreach ($this->charset AS $key => $txt) {
+				$this->charset[$key] = base64_decode($txt);
+			}
+		}
+
 		return true;
 	}
 
@@ -1510,7 +1494,7 @@ window.onkeydown = function(event){
 			$page    = $row;
 			break;
 		}
-		if ( ! $page['id']) return false;
+		if ( ! $page) return false;
 
 		$reqres = $this->request(
 			$page['ws'].$page['url'],
@@ -1895,8 +1879,8 @@ window.onkeydown = function(event){
 	{
 		/**
 		 * curl_exec_followlocation()
-		 * @version 2.2
-		 * @date 14.12.2018
+		 * @version 2.3
+		 * @date 18.01.2019
 		 */
 		if (preg_match("/^(http(s){0,1}:\/\/[a-z0-9\.-]+)(.*)$/i",
 			$url, $matches) !==1) {
@@ -1969,4 +1953,10 @@ window.onkeydown = function(event){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -------------------------
