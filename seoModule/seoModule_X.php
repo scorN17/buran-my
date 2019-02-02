@@ -41,14 +41,23 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
 		$bsm->cache_clear();
 		$bsm->htaccess();
-		$res = $bsm->update($_GET['t'], $_POST['c'], $_GET['n'], $_POST['fs'], $_FILES);
+		$type  = $_GET['t'];
+		$code  = $_POST['c'];
+		$alias = preg_replace("/[^a-z0-9_]/", '', $_GET['n']);
+		if ('imgs' == $type) {
+			$code = array(
+				'filescount' => $_POST['fs'],
+				'files'      => $_FILES,
+			);
+		}
+		$res = $bsm->bsmfile($type, 'set', $alias, $code);
 		if ( ! $res) exit('er');
 		exit('ok');
 	}
 
 	if ('deactivate' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
-		$module_hash = $bsm->droot.'/_buran/seoModule/'.$bsm->module_hash();
+		$module_hash = $bsm->droot.$bsm->module_folder.'/'.$bsm->module_hash();
 		if (file_exists($module_hash)) {
 			unlink($module_hash);
 			$bsm->log('[07]');
@@ -96,9 +105,10 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 		print $res;
 		exit();
 	}
+
 	if ('transit_list' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit();
-		print $bsm->transit_list();
+		print $bsm->bsmfile('transit', 'get');
 		exit();
 	}
 
@@ -119,6 +129,7 @@ class buran_seoModule
 
 	public $c = false;
 	public $module_hash = false;
+	public $module_folder;
 
 	public $droot;
 	public $website;
@@ -169,6 +180,8 @@ class buran_seoModule
 	{
 		$this->version = $version;
 
+		$this->module_folder = '/_buran/seoModule';
+
 		$this->droot = dirname(dirname(__FILE__));
 		$this->http = (
 			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
@@ -209,7 +222,7 @@ class buran_seoModule
 			$this->test_beforecode = $_POST['before_code'];
 		}
 
-		if (file_exists($this->droot.'/_buran/seoModule/'.$this->module_hash())) {
+		if (file_exists($this->droot.$this->module_folder.'/'.$this->module_hash())) {
 			$this->module_hash = true;
 		} else {
 			$this->log('[02]');
@@ -251,30 +264,18 @@ class buran_seoModule
 			),
 		);
 
-		$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) {
-			$this->log('[03]');
-		} else {
-			$fh = fopen($file, 'rb');
-			if ($fh) {
-				$config = '';
-				while ( ! feof($fh)) $config .= fread($fh, 1024*8);
-				fclose($fh);
-				if ($config) {
-					$config = base64_decode($config);
-					$config = unserialize($config);
-					if (is_array($config)) {
-						foreach ($config AS $key => $row) {
-							if ( ! isset($config_default[$key])) {
-								$config_default[$key] = $row;
-							} else {
-								$config_default[$key]
-									= array_merge($config_default[$key], $row);
-							}
-						}
-					}
+		$config = $this->bsmfile('config_value', 'get');
+		if ($config && is_array($config)) {
+			foreach ($config AS $key => $row) {
+				if ( ! isset($config_default[$key])) {
+					$config_default[$key] = $row;
+				} else {
+					$config_default[$key]
+						= array_merge($config_default[$key], $row);
 				}
 			}
+		} else {
+			$this->log('[03]');
 		}
 
 		$this->c = $config_default;
@@ -334,7 +335,7 @@ class buran_seoModule
 				)
 			)
 		) {
-			$bsm->log('[01]');
+			$this->log('[01]');
 			return false;
 		}
 		if ($this->c[2]['redirect']) {
@@ -384,7 +385,8 @@ class buran_seoModule
 			if (strpos($this->querystring,'&') === 0) {
 				$this->querystring = substr($this->querystring, 1);
 			}
-			$this->requesturi = $this->pageurl . ($this->querystring ? '?'.$this->querystring : '');
+			$this->requesturi = $this->pageurl.
+				($this->querystring ? '?'.$this->querystring : '');
 		}
 	}
 
@@ -438,42 +440,30 @@ class buran_seoModule
 
 		$this->seotext = $text;
 		$this->seotext_tpl = $seotext_tpl;
-		$this->seotext_date = date('Y-m-d', filectime($text['file']));
+		$this->seotext_date = date('Y-m-d', $this->filetime($text['file']));
 
 		return true;
 	}
 
-	function seofile($alias, $cache=true)
+	function seofile($alias, $use_cache=true)
 	{
-		$folder = $this->droot.'/_buran/seoModule/';
-		$file   = 'txt_'.$alias.'.txt';
-
 		if ( ! $this->c[2]['use_cache']) {
-			$cache = false;
+			$use_cache = false;
 		}
-		$ft_o = $this->filetime($folder.'t/'.$file);
-		$ft_c = $this->filetime($folder.'c/'.$file);
-		if ($cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_o) {
-			$file = $folder.'c/'.$file;
+		$file = $this->bsmfile('text_value', 'file', $alias);
+		$ft_t = $this->filetime($file);
+		$ft_c = $this->filetime($this->bsmfile('txt_cache', 'file', $alias));
+
+		if ($use_cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_t) {
+			$from_cache = true;
 			$this->seotext_cache = true;
+			$text = $this->bsmfile('txt_cache', 'get', $alias);
+
 		} else {
-			$file = $folder.'t/'.$file;
+			$from_cache = false;
+			$text = $this->bsmfile('text_value', 'get', $alias);
 		}
 
-		if (file_exists($file)) {
-			$fh = fopen($file, 'rb');
-		}
-		if ( ! $fh) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[10]');
-			}
-			return false;
-		}
-		$text = '';
-		while ( ! feof($fh)) $text .= fread($fh, 1024*8);
-		fclose($fh);
-		$text = base64_decode($text);
-		$text = unserialize($text);
 		if ( ! $text['file']) {
 			$text['file'] = $file;
 		}
@@ -485,8 +475,8 @@ class buran_seoModule
 			|| ! isset($text['s_title'])
 			|| ! isset($text['s_text'])
 		) {
-			if ( ! $this->seotext_cache) {
-				$this->log('[11]');
+			if ( ! $from_cache) {
+				$this->log('[10]');
 			}
 			return false;
 		}
@@ -503,26 +493,13 @@ class buran_seoModule
 			return false;
 		}
 
-		$global = '_global.txt';
-		$folder = $this->droot.'/_buran/seoModule/b/';
-		$file = session_id() ? session_id() : $_SERVER['REMOTE_ADDR'];
-		$file = md5($file).'.txt';
-
 		if ($http_code == 404 && $this->seotext) {
 			$this->seotext_tp = 'S';
-			$template_file = '';
-			if ( ! file_exists($folder.$file)) {
-				$file = $global;
+			$template_file = $this->bsmfile('template', 'get');
+			if ( ! $template_file) {
+				$template_file = $this->bsmfile('template', 'get', 'global');
 			}
-			if (file_exists($folder.$file)) {
-				$fh = fopen($folder.$file, 'rb');
-			}
-			if ($fh) {
-				while ( ! feof($fh)) {
-					$template_file .= fread($fh, 1024*32);
-				}
-				fclose($fh);
-			} else {
+			if ( ! $template_file) {
 				$this->log('[30]');
 			}
 			$template = $template_file;
@@ -558,23 +535,16 @@ class buran_seoModule
 				foreach ($headers AS $key => $row) {
 					if (stripos($key, 'cookie') !== false) $cookie = true;
 				}
+				$global_file = $this->bsmfile('template', 'file', 'global');
 				if (
 					! $cookie &&
-					time() - $this->filetime($folder.$global) > 60*5
+					time() - $this->filetime($global_file) > 60*5
 				) {
-					$file = $global;
+					$global = true;
 				}
 			}
-
-			if ( ! file_exists($folder)) {
-				mkdir($folder, 0755, true);
-			}
-			$fh = fopen($folder.$file, 'wb');
-			if ($fh) {
-				$res = fwrite($fh, $template_orig);
-				fclose($fh);
-			}
-			if ($res === false) $this->log('[31]');
+			$res = $this->bsmfile('template', 'set', ($global?'global':''), $template_orig);
+			if ( ! $res) $this->log('[31]');
 		}
 
 		if ( ! $this->seotext_cache || $this->test) {
@@ -649,7 +619,7 @@ class buran_seoModule
 		$s_img_f = array();
 		if (is_array($st['s_img'])) {
 			foreach ($st['s_img'] AS $key => $row) {
-				$img = '/_buran/seoModule/i/'.$this->seotext_alias.'_'.($key+1);
+				$img = $this->module_folder.'/img/'.$this->seotext_alias.'_'.($key+1);
 				if (file_exists($this->droot.$img.'.jpg')) {
 					$img .= '.jpg';
 				} elseif (file_exists($this->droot.$img.'.png')) {
@@ -741,7 +711,7 @@ class buran_seoModule
 
 	function articles_parse($alias_start=false, $limit=0)
 	{
-		$imgs = '/_buran/seoModule/i/';
+		$imgs = $this->module_folder.'/img/';
 		$flag = $alias_start ? true : false;
 		$list = $this->c[3];
 		end($list);
@@ -812,7 +782,8 @@ class buran_seoModule
 		$st = $this->seotext;
 
 		if ( ! $st['cache'] && $this->c[2]['use_cache']) {
-			$this->seotext_cache($this->seotext_alias, $st);
+			$st['cache'] = time();
+			$this->bsmfile('txt_cache', 'set', $this->seotext_alias, $st);
 		}
 
 		if ($st['flag_multitext']) {
@@ -829,7 +800,7 @@ class buran_seoModule
 			$st['s_text'] = $s_text_single;
 		}
 
-		$body = '<link rel="stylesheet" href="/_buran/seoModule/style_'.$this->domain_h.'.css" />';
+		$body = '<link rel="stylesheet" href="'.$this->module_folder.'/style_'.$this->domain_h.'.css" />';
 
 		if ($st['before_code']) {
 			$body .= $st['before_code'];
@@ -901,7 +872,7 @@ window.onkeydown = function(event){
 			var url = "http://bunker-yug.ru/seomodule.php?a=config&idc='.$this->c[1]['bunker_id'].'";
 			window.open(url, "_blank");
 		} else if (event.keyCode === 76) {
-			var url = "/_buran/seoModule.php?a=info";
+			var url = "'.$this->module_folder.'.php?a=info";
 			window.open(url, "_blank");
 		}
 	}
@@ -1065,26 +1036,22 @@ window.onkeydown = function(event){
 	function head_body_parse($template)
 	{
 		if ($this->c[2]['use_head']) {
-			$head = $this->get_code('head');
-			if ($head) {
-				$head = "\n".'<!--bsm_head_code-->'."\n".$this->code['head']."\n".'</head>';
-				$template = preg_replace("/<\/head>/i", $head, $template, 1, $count);
-				if ( ! $count) {
-					$this->log('[70]');
-				}
+			$code = $this->bsmfile('head', 'get');
+			if ($code) {
+				$code = "\n".'<!--bsm_head_code-->'."\n".$code."\n".'</head>';
+				$template = preg_replace("/<\/head>/i", $code, $template, 1, $count);
+				if ( ! $count) $this->log('[70]');
 			} else {
 				$this->log('[72]');
 			}
 		}
 
 		if ($this->c[2]['use_body']) {
-			$body = $this->get_code('body');
-			if ($body) {
-				$body = "\n".'<!--bsm_body_code-->'."\n".$this->code['body']."\n".'</body>';
-				$template = preg_replace("/<\/body>/i", $body, $template, 1, $count);
-				if ( ! $count) {
-					$this->log('[71]');
-				}
+			$code = $this->bsmfile('body', 'get');
+			if ($code) {
+				$code = "\n".'<!--bsm_body_code-->'."\n".$code."\n".'</body>';
+				$template = preg_replace("/<\/body>/i", $code, $template, 1, $count);
+				if ( ! $count) $this->log('[71]');
 			} else {
 				$this->log('[73]');
 			}
@@ -1095,27 +1062,173 @@ window.onkeydown = function(event){
 
 // ------------------------------------------------------------------
 
-	function seotext_cache($alias, $text)
+	function bsmfile($type, $act='get', $prm='', $body=false)
 	{
-		$folder = $this->droot.'/_buran/seoModule/c/';
-		if ( ! file_exists($folder)) {
-			mkdir($folder, 0755, true);
+		$filepath = $act == 'file' ? true : false;
+		$dirpath = $act == 'dir' ? true : false;
+		$set = $act == 'set' ? true : false;
+		$get = in_array($act, array('set', 'file', 'dir'))
+			? false : true;
+
+		if ($get) $body = '';
+
+		$folder = $this->droot.$this->module_folder;
+
+		switch ($type) {
+			case 'module':
+				if ($set) {
+					$body = base64_decode($body);
+					if (strpos($body, "<?php\n/**\n * seoModule") !== 0) {
+						return false;
+					}
+				}
+				$subfolder = '/../';
+				$file = __FILE__;
+				break;
+
+			case 'config':
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+			case 'config_value':
+				$serialize = true;
+				$base64_e = true;
+				$hashfolder = true;
+				$file = 'config.txt';
+				break;
+
+			case 'text':
+				$subfolder = '/txt/';
+				$file = 'txt_'.$prm.'.txt';
+				break;
+			case 'text_value':
+				$serialize = true;
+				$base64_e = true;
+				$subfolder = '/txt/';
+				$file = 'txt_'.$prm.'.txt';
+				break;
+
+			case 'txt_cache':
+				$serialize = true;
+				$base64_e = true;
+				$hashfolder = true;
+				$subfolder = '/txt_cache/';
+				$file = 'txt_'.$prm.'.txt';
+				break;
+
+			case 'head':
+			case 'body':
+				$base64_e = $get ? true : false;
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
+			case 'style':
+				$base64_d = $set ? true : false;
+				$hashfolder = true;
+				$file = $type.'.css';
+				break;
+
+			case 'transit':
+				$file = $type.'.txt';
+				break;
+			case 'transit_list':
+				$serialize = true;
+				$base64_e = true;
+				$file = 'transit.txt';
+				break;
+
+			case 'imgs':
+				$subfolder = '/img/';
+				break;
+
+			case 'reverse':
+				$serialize = true;
+				$base64_e = true;
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
+			case 'template':
+				$hashfolder = true;
+				$subfolder = '/tpl/';
+				if ($prm == 'global') {
+					$file = '_global.txt';
+				} else {
+					$file = session_id() ? session_id() : $_SERVER['REMOTE_ADDR'];
+					$file = md5($file).'.txt';
+				}
+				break;
+
+			default:
+				return false;
 		}
-		$file = $folder.'txt_'.$alias.'.txt';
-		$text['cache'] = time();
-		$text = serialize($text);
-		$text = base64_encode($text);
-		$fh   = fopen($file, 'wb');
-		if ( ! $fh) return false;
-		$res = fwrite($fh, $text);
-		if ($res === false) return false;
-		fclose($fh);
-		return true;
+
+		if ($hashfolder) $folder .= '/'.$this->domain_h;
+		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
+
+		if ($dirpath) return $folder;
+		if ($filepath) return $folder.$file;
+
+		if ('imgs' == $type) {
+			if ( ! file_exists($folder)) {
+				mkdir($folder, 0755, true);
+			}
+			$cc    = intval($body['filescount']);
+			$files = intval($body['files']);
+			if ( ! $cc) return true;
+			for ($k=1; $k<=$cc; $k++) {
+				$file = $files['f'.$k];
+				$ext  = substr($file['name'], strpos($file['name'],'.'));
+				if ($ext != '.jpg' && $ext != '.png') continue;
+				$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
+				if ( ! $res) return false;
+			}
+			return true;
+		}
+
+		if ($set) {
+			if ($body === false) {
+				if (file_exists($folder.$file)) {
+					unlink(file_exists($folder.$file));
+					return true;
+				}
+			}
+
+			if ( ! file_exists($folder)) {
+				mkdir($folder, 0755, true);
+			}
+
+			if ($serialize) $body = serialize($body);
+			if ($base64_e) $body = base64_encode($body);
+			if ($base64_d) $body = base64_decode($body);
+
+			$fh = fopen($folder.$file, 'wb');
+			if ( ! $fh) return false;
+			$res = fwrite($fh, $body);
+			if ($res === false) return false;
+			fclose($fh);
+
+			return true;
+		}
+
+		if ($get) {
+			if ( ! file_exists($folder.$file)) return false;
+			$fh = fopen($folder.$file, 'rb');
+			if ( ! $fh) return false;
+			while ( ! feof($fh)) $body .= fread($fh, 1024*8);
+			fclose($fh);
+
+			if ($base64_e) $body = base64_decode($body);
+			if ($serialize) $body = unserialize($body);
+
+			return $body;
+		}
 	}
 
 	function cache_clear()
 	{
-		$folder = $this->droot.'/_buran/seoModule/c/';
+		$folder = $this->bsmfile('txt_cache', 'dir');
 		if ( ! file_exists($folder)) return;
 		if ( ! ($open = opendir($folder))) return;
 		while ($file = readdir($open)) {
@@ -1124,39 +1237,13 @@ window.onkeydown = function(event){
 		}
 	}
 
-	function get_code($type)
-	{
-		$type = $type == 'head' ? 'head' : 'body';
-		$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) return false;
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) return false;
-		$code = '';
-		while ( ! feof($fh)) $code .= fread($fh, 1024*8);
-		fclose($fh);
-		if ( ! $code) return false;
-		$code = base64_decode($code);
-		$this->code[$type] = $code;
-		return true;
-	}
-
 	function send_reverse_request($urgently=false)
 	{
 		$interval = 60*60*6;
 		if ($urgently) $interval = 60*5;
-		$folder = $this->droot.'/_buran/seoModule/';
-		$file   = 'reverse_'.$this->domain_h.'.txt';
 
-		if (file_exists($folder.$file)) {
-			$fh = fopen($folder.$file, 'rb');
-			if ($fh) {
-				$data = '';
-				while ( ! feof($fh)) $data .= fread($fh, 1024*8);
-				fclose($fh);
-				$data = base64_decode($data);
-				$data = unserialize($data);
-			}
-		}
+		$data = $this->bsmfile('reverse', 'get');
+
 		if ( ! is_array($data)) {
 			$data = array(
 				'module' => 0,
@@ -1228,17 +1315,12 @@ window.onkeydown = function(event){
 		$code = $this->reverse_request($action, $type, false, $prms);
 
 		if ($update && $code) {
-			$update_res = $this->update($type, $code, $alias);
+			$update_res = $this->bsmfile($type, 'set', $alias, $code);
 		}
 
 		$data[$time] = time();
 
-		$data = serialize($data);
-		$data = base64_encode($data);
-		$fh = fopen($folder.$file, 'wb');
-		if ( ! $fh) return false;
-		fwrite($fh, $data);
-		fclose($fh);
+		$this->bsmfile('reverse', 'set', '', $data);
 
 		if ( ! $update) return true;
 
@@ -1248,75 +1330,6 @@ window.onkeydown = function(event){
 		$this->htaccess();
 
 		$this->reverse_request($action, $type, 'ok', $prms);
-		return true;
-	}
-
-	function update($type, $code, $alias=false, $fs=false, $files=false)
-	{
-		if ( ! in_array($type,
-			array('module','config','style','head','body','text','imgs','transit'))) {
-			return false;
-		}
-		$alias = preg_replace("/[^a-z0-9_]/", '', $alias);
-		switch ($type) {
-			case 'module':
-				$code = base64_decode($code);
-				if (strpos($code, "<?php\n/**\n * seoModule") !== 0) {
-					return false;
-				}
-				$file = __FILE__;
-				break;
-			case 'transit':
-				$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
-				$delete_if_null = true;
-				break;
-			case 'config':
-				$file = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
-				break;
-			case 'style':
-				$code = base64_decode($code);
-				$file = $this->droot.'/_buran/seoModule/style_'.$this->domain_h.'.css';
-				break;
-			case 'head':
-				$file = $this->droot.'/_buran/seoModule/head_'.$this->domain_h.'.txt';
-				$delete_if_null = true;
-				break;
-			case 'body':
-				$file = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
-				$delete_if_null = true;
-				break;
-			case 'text':
-				$folder = $this->droot.'/_buran/seoModule/t/';
-				if ( ! file_exists($folder)) {
-					mkdir($folder, 0755, true);
-				}
-				$file = $folder.'txt_'.$alias.'.txt';
-				break;
-			case 'imgs':
-				$folder = $this->droot.'/_buran/seoModule/i/';
-				if ( ! file_exists($folder)) {
-					mkdir($folder, 0755, true);
-				}
-				$cc = intval($fs);
-				if ( ! $cc) return true;
-				for ($k=1; $k<=$cc; $k++) {
-					$file = $files['f'.$k];
-					$ext = substr($file['name'], strpos($file['name'],'.'));
-					if ($ext != '.jpg' && $ext != '.png') continue;
-					$res = move_uploaded_file($file['tmp_name'], $folder.$file['name']);
-					if ( ! $res) return false;
-				}
-				return true;
-		}
-		if ($delete_if_null && ! $code) {
-			unlink($file);
-			return true;
-		}
-		$fh = fopen($file, 'wb');
-		if ( ! $fh) return false;
-		$res = fwrite($fh, $code);
-		if ($res === false) return false;
-		fclose($fh);
 		return true;
 	}
 
@@ -1352,16 +1365,9 @@ window.onkeydown = function(event){
 	function transit_list_check()
 	{
 		if ( ! $this->curl_ext) return false;
-		$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) return false;
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) return false;
-		$list = '';
-		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
-		fclose($fh);
-		$list = base64_decode($list);
-		$list = unserialize($list);
-		if ( ! is_array($list)) return false;
+
+		$list = $this->bsmfile('transit_list', 'get');
+		if ( ! $list || ! is_array($list)) return false;
 
 		$page = false;
 		foreach ($list AS $key => $row) {
@@ -1387,25 +1393,8 @@ window.onkeydown = function(event){
 		$list[$page_id]['delay']    = $reqres['info']['total_time'];
 		$list[$page_id]['dt']       = time();
 
-		$list = serialize($list);
-		$list = base64_encode($list);
-		$fh = fopen($file, 'wb');
-		if ( ! $fh) return false;
-		fwrite($fh, $list);
-		fclose($fh);
-		return true;
-	}
-
-	function transit_list()
-	{
-		$file = $this->droot.'/_buran/seoModule/transit_'.$this->domain_h.'.txt';
-		if ( ! file_exists($file)) return false;
-		$fh = fopen($file, 'rb');
-		if ( ! $fh) return false;
-		$list = '';
-		while ( ! feof($fh)) $list .= fread($fh, 1024*8);
-		fclose($fh);
-		return $list;
+		$res = $this->bsmfile('transit_list', 'set', '', $list);
+		return $res;
 	}
 
 	function request($url, $prms=false, $headers=false, $post=false)
@@ -1529,15 +1518,15 @@ window.onkeydown = function(event){
 			}
 		}
 
-		$hash_1_f = $this->droot.'/_buran/seoModule.php';
+		$hash_1_f = $this->droot.$this->module_folder.'.php';
 		if (file_exists($hash_1_f)) $hash_1 = md5_file($hash_1_f);
-		$hash_2_f = $this->droot.'/_buran/seoModule/config_'.$this->domain_h.'.txt';
+		$hash_2_f = $this->droot.$this->module_folder.'/config_'.$this->domain_h.'.txt';
 		if (file_exists($hash_2_f)) $hash_2 = md5_file($hash_2_f);
-		$hash_3_f = $this->droot.'/_buran/seoModule/style_'.$this->domain_h.'.css';
+		$hash_3_f = $this->droot.$this->module_folder.'/style_'.$this->domain_h.'.css';
 		if (file_exists($hash_3_f)) $hash_3 = md5_file($hash_3_f);
-		$hash_4_f = $this->droot.'/_buran/seoModule/head_'.$this->domain_h.'.txt';
+		$hash_4_f = $this->droot.$this->module_folder.'/head_'.$this->domain_h.'.txt';
 		if (file_exists($hash_4_f)) $hash_4 = md5_file($hash_4_f);
-		$hash_5_f = $this->droot.'/_buran/seoModule/body_'.$this->domain_h.'.txt';
+		$hash_5_f = $this->droot.$this->module_folder.'/body_'.$this->domain_h.'.txt';
 		if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
 
 		$res = '[seomoduleversion_'.$this->version.']
@@ -1567,7 +1556,7 @@ window.onkeydown = function(event){
 		$res .= '[_pages]'."\n";
 		$res .= "\n";
 		$res .= '[errors_]'."\n";
-		$file = $this->droot.'/_buran/seoModule/errors_'.$this->domain_h.'.txt';
+		$file = $this->droot.$this->module_folder.'/errors_'.$this->domain_h.'.txt';
 		if (file_exists($file)) {
 			$fh = fopen($file,'rb');
 			if ($fh) {
@@ -1579,48 +1568,8 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан\n[11] Файл с текстом неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 		return $res;
-	}
-
-	function cache($field=false, $value=false, $clear=false)
-	{
-		$folder = $this->droot.'/_buran/seoModule/';
-		$file = 'cache_'.$this->domain_h.'.txt';
-		if ($clear) {
-			if ( ! file_exists($folder.$file)) return;
-			unlink($folder.$file);
-
-		} elseif ( ! $field) {
-			if ( ! file_exists($folder.$file)) return false;
-			$fh = fopen($folder.$file, 'rb');
-			if ( ! $fh) return false;
-			$cache = '';
-			while ( ! feof($fh)) $cache .= fread($fh, 1024*8);
-			fclose($fh);
-			$cache = base64_decode($cache);
-			$cache = unserialize($cache);
-			if ( ! is_array($cache) || ! $cache['ts']) return false;
-			return $cache;
-
-		} elseif ( ! $value) {
-			if ( ! $this->cache) return false;
-			if ( ! isset($this->cache[$field])) return false;
-			return $this->cache[$field];
-
-		} else {
-			if ( ! is_array($this->cache) || ! $this->cache['ts']) {
-				$this->cache = array('ts' => time());
-			}
-			$this->cache[$field] = $value;
-			$cache = $this->cache;
-			$cache = serialize($cache);
-			$cache = base64_encode($cache);
-			$fh = fopen($folder.$file, 'wb');
-			if ( ! $fh) return false;
-			fwrite($fh, $cache);
-			fclose($fh);
-		}
 	}
 
 	function log($text, $description=false, $type='errors', $clear=false)
@@ -1633,7 +1582,7 @@ window.onkeydown = function(event){
 		}
 		$fh = $this->logs_files[$type];
 		if ( ! $fh) {
-			$file = $this->droot.'/_buran/seoModule/'.$type.'_'.$this->domain_h.'.txt';
+			$file = $this->droot.$this->module_folder.'/'.$type.'_'.$this->domain_h.'.txt';
 			if ($clear) {
 				$fh = fopen($file, 'wb');
 				if ($fh) {
@@ -1700,7 +1649,7 @@ window.onkeydown = function(event){
 		$htaccess .= 'RewriteEngine On'. "\n";
 		$htaccess .= 'RewriteRule ^(.*)$ index.html [L,QSA]'. "\n";
 		$htaccess .= '</FilesMatch>'. "\n";
-		$fh = fopen($this->droot.'/_buran/seoModule/.htaccess', 'wb');
+		$fh = fopen($this->droot.$this->module_folder.'/.htaccess', 'wb');
 		if ( ! $fh) return;
 		fwrite($fh, $htaccess);
 		fclose($fh);
@@ -1837,3 +1786,11 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -------------------------
