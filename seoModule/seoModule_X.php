@@ -800,7 +800,8 @@ class buran_seoModule
 			$st['s_text'] = $s_text_single;
 		}
 
-		$body = '<link rel="stylesheet" href="'.$this->module_folder.'/style_'.$this->domain_h.'.css" />';
+		$style = $this->module_folder.'/'.$this->domain_h.'/style.css';
+		$body = '<link rel="stylesheet" href="'.$style.'" />';
 
 		if ($st['before_code']) {
 			$body .= $st['before_code'];
