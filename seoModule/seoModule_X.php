@@ -55,6 +55,15 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 		exit('ok');
 	}
 
+	if ('upgrade' == $_GET['a']) {
+		if ( ! ($bsm->auth($_GET['w']))) exit('er');
+		$bsm->cache_clear();
+		$bsm->htaccess();
+		$res = $bsm->upgrade();
+		if ( ! $res) exit('er');
+		exit('ok');
+	}
+
 	if ('deactivate' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
 		$module_hash = $bsm->droot.$bsm->module_folder.'/'.$bsm->module_hash;
@@ -1547,7 +1556,7 @@ window.onkeydown = function(event){
 				$code = '';
 				while ( ! feof($fh)) $code .= fread($fh, 1024*8);
 				fclose($fh);
-				if ( ! strpos($code, substr($this->module_folder, 1))) {
+				if ( ! strpos($code, substr($this->module_folder,1))) {
 					$this->log('[06]');
 				}
 			}
@@ -1806,13 +1815,74 @@ window.onkeydown = function(event){
 		}
 		return $headers;
 	}
+
+	function upgrade()
+	{
+		$folder = $this->droot.$this->module_folder;
+
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/')) {
+			$res = mkdir($folder.'/'.$this->domain_h.'/', 0755, true);
+			if ($res !== true) {
+				$errors = true;
+				print 'hash folder'."\n";
+			}
+		}
+		if (file_exists($folder.'/t/')) {
+			$res = rename($folder.'/t/', $folder.'/txt/');
+			if ($res !== true) {
+				$errors = true;
+				print 'text folder'."\n";
+			}
+		}
+		if (file_exists($folder.'/i/')) {
+			$res = rename($folder.'/i/', $folder.'/img/');
+			if ($res !== true) {
+				$errors = true;
+				print 'imgs folder'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/transit.txt') &&
+			file_exists($folder.'/transit_'.$this->domain_h.'.txt')) {
+			$res = rename($folder.'/transit_'.$this->domain_h.'.txt', $folder.'/transit.txt');
+			if ($res !== true) {
+				$errors = true;
+				print 'transit file'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/config.txt') &&
+			file_exists($folder.'/config_'.$this->domain_h.'.txt')) {
+			$res = rename($folder.'/config_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/config.txt');
+			if ($res !== true) {
+				$errors = true;
+				print 'config file'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/head.txt') &&
+			file_exists($folder.'/head_'.$this->domain_h.'.txt')) {
+			$res = rename($folder.'/head_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/head.txt');
+			if ($res !== true) {
+				$errors = true;
+				print 'head file'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/body.txt') &&
+			file_exists($folder.'/body_'.$this->domain_h.'.txt')) {
+			$res = rename($folder.'/body_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/body.txt');
+			if ($res !== true) {
+				$errors = true;
+				print 'body file'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/errors.txt') &&
+			file_exists($folder.'/errors_'.$this->domain_h.'.txt')) {
+			$res = rename($folder.'/errors_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/errors.txt');
+			if ($res !== true) {
+				$errors = true;
+				print 'errors file'."\n";
+			}
+		}
+
+		return $errors ? false : true;
+	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -------------------------
