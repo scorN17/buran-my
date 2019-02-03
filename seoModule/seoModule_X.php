@@ -33,7 +33,7 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 	header('Content-Type: text/plain; charset=utf-8');
 
 	if ('info' == $_GET['a']) {
-		print $bsm->info();
+		print $bsm->info_parse();
 		exit();
 	}
 
@@ -57,7 +57,7 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 
 	if ('deactivate' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
-		$module_hash = $bsm->droot.$bsm->module_folder.'/'.$bsm->module_hash();
+		$module_hash = $bsm->droot.$bsm->module_folder.'/'.$bsm->module_hash;
 		if (file_exists($module_hash)) {
 			unlink($module_hash);
 			$bsm->log('[07]');
@@ -128,7 +128,8 @@ class buran_seoModule
 	public $version;
 
 	public $c = false;
-	public $module_hash = false;
+	public $module_hash;
+	public $module_hash_flag = false;
 	public $module_folder;
 
 	public $droot;
@@ -141,6 +142,7 @@ class buran_seoModule
 	public $pageurl;
 	public $querystring;
 	public $protocol;
+	public $sapi_name;
 
 	public $accesscode = false;
 
@@ -183,7 +185,7 @@ class buran_seoModule
 		$this->module_folder = '/_buran/seoModule';
 
 		$this->droot = dirname(dirname(__FILE__));
-		$this->http = (
+		$this->http  = (
 			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
 			(isset($_SERVER['HTTP_PORT']) && $_SERVER['HTTP_PORT']     == '443') ||
 			(isset($_SERVER['HTTP_HTTPS']) && $_SERVER['HTTP_HTTPS']   == 'on') ||
@@ -200,14 +202,14 @@ class buran_seoModule
 			$this->www = 'www.';
 			$domain = substr($domain, 4);
 		}
-		$this->domain   = $domain;
-		$this->domain_h = md5($domain);
-		$this->website  = $this->http . $this->www . $this->domain;
+		$this->domain      = $domain;
+		$this->domain_h    = md5($domain);
+		$this->website     = $this->http . $this->www . $this->domain;
 		$this->requesturi  = $_SERVER['REQUEST_URI'];
 		$this->pageurl     = parse_url($this->requesturi, PHP_URL_PATH);
 		$this->querystring = substr($this->requesturi, strpos($this->requesturi, '?')+1);
-		$sapi_type   = php_sapi_name();
-		if (substr($sapi_type,0,3) == 'cgi') {
+		$this->sapi_name = php_sapi_name();
+		if (substr($this->sapi_name,0,3) == 'cgi') {
 			$this->protocol = 'Status:';
 		} else {
 			$this->protocol = $_SERVER['HTTP_X_PROTOCOL']
@@ -222,8 +224,9 @@ class buran_seoModule
 			$this->test_beforecode = $_POST['before_code'];
 		}
 
-		if (file_exists($this->droot.$this->module_folder.'/'.$this->module_hash())) {
-			$this->module_hash = true;
+		$this->module_hash = md5(__FILE__);
+		if (file_exists($this->droot.$this->module_folder.'/'.$this->module_hash)) {
+			$this->module_hash_flag = true;
 		} else {
 			$this->log('[02]');
 		}
@@ -343,7 +346,10 @@ class buran_seoModule
 		}
 		$this->clear_request();
 		$this->seotext();
-		ob_start(array($this, 'ob_end'));
+		$res = ob_start(array($this, 'ob_end'));
+		if ($res !== true) {
+			$this->log('[04]');
+		}
 	}
 
 	function redirects()
@@ -495,6 +501,7 @@ class buran_seoModule
 
 		if ($http_code == 404 && $this->seotext) {
 			$this->seotext_tp = 'S';
+			$this->seotext['type'] = 'S';
 			$template_file = $this->bsmfile('template', 'get');
 			if ( ! $template_file) {
 				$template_file = $this->bsmfile('template', 'get', 'global');
@@ -513,7 +520,7 @@ class buran_seoModule
 		$template = $this->meta_parse($template);
 		$template = $this->head_body_parse($template);
 
-		if ( ! $this->module_hash) return $template;
+		if ( ! $this->module_hash_flag) return $template;
 		if ( ! $this->seotext) return $template;
 
 		$tags1 = $this->get_tag($template, 'finish');
@@ -555,8 +562,13 @@ class buran_seoModule
 				$this->articles_parse($this->seotext_alias, $this->c[2]['re_linking']);
 			}
 		}
+		
 		$template = $this->tdk_parse($template);
 		$template = $this->template_parse($template);
+
+		if ( ! $this->seotext['cache'] && $this->c[2]['use_cache']) {
+			$this->cache_save($this->seotext_alias);
+		}
 
 		if ($this->c[2]['reverse_requests']) {
 			$this->send_reverse_request();
@@ -780,11 +792,6 @@ class buran_seoModule
 	function template_parse($template)
 	{
 		$st = $this->seotext;
-
-		if ( ! $st['cache'] && $this->c[2]['use_cache']) {
-			$st['cache'] = time();
-			$this->bsmfile('txt_cache', 'set', $this->seotext_alias, $st);
-		}
 
 		if ($st['flag_multitext']) {
 			$st['s_text'] = explode('[part]', $st['s_text']);
@@ -1161,6 +1168,11 @@ window.onkeydown = function(event){
 				}
 				break;
 
+			case 'errors':
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
 			default:
 				return false;
 		}
@@ -1227,6 +1239,12 @@ window.onkeydown = function(event){
 		}
 	}
 
+	function cache_save($alias)
+	{
+		$this->seotext['cache'] = time();
+		$this->bsmfile('txt_cache', 'set', $alias, $this->seotext);
+	}
+
 	function cache_clear()
 	{
 		$folder = $this->bsmfile('txt_cache', 'dir');
@@ -1268,7 +1286,7 @@ window.onkeydown = function(event){
 			$type   = 'info';
 			$time   = $type;
 			$prms   = array(
-				'info' => $this->info()
+				'info' => $this->info_parse()
 			);
 
 		} elseif (time() - $data['config'] >= $interval) {
@@ -1367,6 +1385,11 @@ window.onkeydown = function(event){
 	{
 		if ( ! $this->curl_ext) return false;
 
+		if (time()-$_SESSION['buranseomodule']['transit'] < 60) {
+			return false;
+		}
+		$_SESSION['buranseomodule']['transit'] = time();
+
 		$list = $this->bsmfile('transit_list', 'get');
 		if ( ! $list || ! is_array($list)) return false;
 
@@ -1464,35 +1487,46 @@ window.onkeydown = function(event){
 		$green = '#089c29';
 		$red   = '#d41717';
 
-		$p = $this->module_hash().'<br><br>';
+		$p = '<style>
+			.row {display: flex; margin-bottom: 3px;}
+			.col1 {flex: 0 0 130px; text-align: right; margin-right: 12px;}
+			.col2 {flex: 0 0 auto;}
+			.green {color: #089c29;}
+			.red {color: #d41717;}
+		</style>';
+
+		$p .= '<div class="row"><span class="col1">Module</span><span class="col2">'.$this->module_hash.'</span></div>';
 
 		$uname = php_uname();
 		$flag = stripos($uname, 'window') !== false ? false : true;
-		$p .= '<div>OS: <span style="color:'.($flag ? $green : $red).'">'.$uname.'</span></div>';
+		$p .= '<div class="row"><span class="col1">OS</span><span class="col2 '.($flag?'green':'red').'">'.$uname.'</span></div>';
 
 		$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
-		$p .= '<div>Версия PHP: <span style="color:'.($flag ? $green : $red).'">'.PHP_VERSION.'</span></div>';
+		$p .= '<div class="row"><span class="col1">Версия PHP</span><span class="col2 '.($flag?'green':'red').'">'.PHP_VERSION.'</span></div>';
+
+		$flag = stripos($this->sapi_name, 'apache') !== false ? true : false;
+		$p .= '<div class="row"><span class="col1">Type of interface</span><span class="col2 '.($flag?'green':'red').'">'.$this->sapi_name.'</span></div>';
 
 		$flag = $this->website === $this->c[1]['website'] ? true : false;
-		$p .= '<div>Домен: <span style="color:'.($flag ? $green : $red).'">'.$this->website.' == '.$this->c[1]['website'].'</span></div>';
+		$p .= '<div class="row"><span class="col1">Домен</span><span class="col2 '.($flag?'green':'red').'">'.$this->website.' == '.$this->c[1]['website'].'</span></div>';
 
 		$flag = extension_loaded('openssl') ? true : false;
-		$p .= '<div>OpenSSL: <span style="color:'.($flag ? $green : $red).'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
+		$p .= '<div class="row"><span class="col1">OpenSSL</span><span class="col2 '.($flag?'green':'red').'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
 
 		$flag = $this->curl_ext ? true : false;
-		$p .= '<div>cURL: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		$flag = $this->sock_ext ? true : false;
-		$p .= '<div>Stream Socket: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$p .= '<div class="row"><span class="col1">Stream Socket</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		$flag = $this->fgc_ext ? true : false;
-		$p .= '<div>File Get Contents: <span style="color:'.($flag ? $green : $red).'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$p .= '<div class="row"><span class="col1">File Get Contents</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
 
 		$p .= '<br><br><br>';
 		return $p;
 	}
 
-	function info()
+	function info_parse()
 	{
 		$files = $this->c[2]['include_files'];
 		$files = explode('  ', $files);
@@ -1513,7 +1547,7 @@ window.onkeydown = function(event){
 				$code = '';
 				while ( ! feof($fh)) $code .= fread($fh, 1024*8);
 				fclose($fh);
-				if ( ! strpos($code, '_buran/seoModule.php')) {
+				if ( ! strpos($code, substr($this->module_folder, 1))) {
 					$this->log('[06]');
 				}
 			}
@@ -1521,23 +1555,15 @@ window.onkeydown = function(event){
 
 		$hash_1_f = $this->droot.$this->module_folder.'.php';
 		if (file_exists($hash_1_f)) $hash_1 = md5_file($hash_1_f);
-		$hash_2_f = $this->droot.$this->module_folder.'/config_'.$this->domain_h.'.txt';
+
+		$hash_2_f = $this->droot.'/.htaccess';
 		if (file_exists($hash_2_f)) $hash_2 = md5_file($hash_2_f);
-		$hash_3_f = $this->droot.$this->module_folder.'/style_'.$this->domain_h.'.css';
-		if (file_exists($hash_3_f)) $hash_3 = md5_file($hash_3_f);
-		$hash_4_f = $this->droot.$this->module_folder.'/head_'.$this->domain_h.'.txt';
-		if (file_exists($hash_4_f)) $hash_4 = md5_file($hash_4_f);
-		$hash_5_f = $this->droot.$this->module_folder.'/body_'.$this->domain_h.'.txt';
-		if (file_exists($hash_5_f)) $hash_5 = md5_file($hash_5_f);
 
 		$res = '[seomoduleversion_'.$this->version.']
 [datetime_'.date('d.m.Y, H:i:s').']
 
 [modulehash_'.$hash_1.']
-[confighash_'.$hash_2.']
-[stylehash_'.$hash_3.']
-[headhash_'.$hash_4.']
-[bodyhash_'.$hash_5.']
+[htaccess_'.$hash_2.']
 [droot_'.$this->droot.']'."\n";
 		$res .= "\n";
 		$res .= '[incfiles_]'."\n";
@@ -1551,13 +1577,13 @@ window.onkeydown = function(event){
 				$text = $this->seofile($alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$res .= $hash.' : '.$alias."\n";
+				$res .= $hash.' : '.$alias.' : '.$text['type']."\n";
 			}
 		}
 		$res .= '[_pages]'."\n";
 		$res .= "\n";
 		$res .= '[errors_]'."\n";
-		$file = $this->droot.$this->module_folder.'/errors_'.$this->domain_h.'.txt';
+		$file = $this->bsmfile('errors', 'file');
 		if (file_exists($file)) {
 			$fh = fopen($file,'rb');
 			if ($fh) {
@@ -1569,7 +1595,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 		return $res;
 	}
 
@@ -1583,7 +1609,7 @@ window.onkeydown = function(event){
 		}
 		$fh = $this->logs_files[$type];
 		if ( ! $fh) {
-			$file = $this->droot.$this->module_folder.'/'.$type.'_'.$this->domain_h.'.txt';
+			$file = $this->bsmfile('errors', 'file');
 			if ($clear) {
 				$fh = fopen($file, 'wb');
 				if ($fh) {
@@ -1626,11 +1652,6 @@ window.onkeydown = function(event){
 		}
 	}
 
-	function module_hash()
-	{
-		return md5(__FILE__);
-	}
-
 	function filetime($file, $type='c')
 	{
 		if ( ! file_exists($file)) return false;
@@ -1659,7 +1680,7 @@ window.onkeydown = function(event){
 	function auth($get_w)
 	{
 		session_start();
-		if (time() - $_SESSION['bsm']['auth'][$get_w] < 60*30) {
+		if (time() - $_SESSION['buranseomodule']['w_auth'][$get_w] < 60*30) {
 			return true;
 		}
 		$http  = 'http://';
@@ -1696,10 +1717,10 @@ window.onkeydown = function(event){
 			$ww = file_get_contents($http.$host.$url);
 		}
 		if ($ww && $get_w && $ww === $get_w) {
-			$_SESSION['bsm']['auth'][$get_w] = time();
+			$_SESSION['buranseomodule']['auth'][$get_w] = time();
 			return true;
 		}
-		unset($_SESSION['bsm']);
+		unset($_SESSION['buranseomodule']);
 		return false;
 	}
 
