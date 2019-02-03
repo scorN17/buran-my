@@ -355,6 +355,7 @@ class buran_seoModule
 		}
 		$this->clear_request();
 		$this->seotext();
+
 		$res = ob_start(array($this, 'ob_end'));
 		if ($res !== true) {
 			$this->log('[04]');
@@ -501,6 +502,8 @@ class buran_seoModule
 	function ob_end($template)
 	{
 		$template_orig = $template;
+
+		$this->bsmfile('test', 'set', '', $template);
 
 		$http_code = http_response_code();
 		if ($http_code != 200 && $http_code != 404) {
@@ -1179,6 +1182,10 @@ window.onkeydown = function(event){
 
 			case 'errors':
 				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
+			case 'test':
 				$file = $type.'.txt';
 				break;
 
@@ -1879,6 +1886,14 @@ window.onkeydown = function(event){
 			if ($res !== true) {
 				$errors = true;
 				print 'errors file'."\n";
+			}
+		}
+		if ( ! file_exists($folder.'/'.$this->domain_h.'/style.css') &&
+			file_exists($folder.'/style_'.$this->domain_h.'.css')) {
+			$res = rename($folder.'/style_'.$this->domain_h.'.css', $folder.'/'.$this->domain_h.'/style.css');
+			if ($res !== true) {
+				$errors = true;
+				print 'style file'."\n";
 			}
 		}
 
