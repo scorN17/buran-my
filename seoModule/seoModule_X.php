@@ -501,9 +501,9 @@ class buran_seoModule
 
 	function ob_end($template)
 	{
+		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
+		if ($gzip) $template = zlib_decode($template);
 		$template_orig = $template;
-
-		$this->bsmfile('test', 'set', '', $template);
 
 		$http_code = http_response_code();
 		if ($http_code != 200 && $http_code != 404) {
@@ -592,6 +592,11 @@ class buran_seoModule
 		if ($http_code == 404) {
 			header($this->protocol.' 200 OK');
 		}
+		$this->bsmfile('test', 'set', '', $template);
+		if ($gzip) {
+			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
+		}
+
 		return $template;
 	}
 
