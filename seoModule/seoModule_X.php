@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.4-beta
+ * @version 5.4-beta 10
  * @date 24.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
@@ -506,6 +506,23 @@ class buran_seoModule
 		$template_orig = $template;
 
 		$http_code = http_response_code();
+		if ($http_code == 200) {
+			$headers_list = headers_list();
+			if (is_array($headers_list)) {
+				foreach ($headers_list AS $row) {
+					if (stripos($row, '404 not found') !== false) {
+						$http_code = 404;
+					} elseif (stripos($row, '200 ok') !== false) {
+						$http_code = 200;
+					} elseif (
+						stripos($row, 'http/1') !== false ||
+						stripos($row, 'status:') !== false
+					) {
+						$http_code = 0;
+					}
+				}
+			}
+		}
 		if ($http_code != 200 && $http_code != 404) {
 			$this->log('[20]');
 			return false;
@@ -514,14 +531,17 @@ class buran_seoModule
 		if ($http_code == 404 && $this->seotext) {
 			$this->seotext_tp = 'S';
 			$this->seotext['type'] = 'S';
-			$template_file = $this->bsmfile('template', 'get');
-			if ( ! $template_file) {
-				$template_file = $this->bsmfile('template', 'get', 'global');
+
+			if ( ! $this->c[2]['tpl_from_404']) {
+				$template_file = $this->bsmfile('template', 'get');
+				if ( ! $template_file) {
+					$template_file = $this->bsmfile('template', 'get', 'global');
+				}
+				if ( ! $template_file) {
+					$this->log('[30]');
+				}
+				$template = $template_file;
 			}
-			if ( ! $template_file) {
-				$this->log('[30]');
-			}
-			$template = $template_file;
 		}
 
 		if ( ! $template) {
@@ -546,7 +566,12 @@ class buran_seoModule
 			)
 		) return $template;
 
-		if ($http_code == 200 && $this->seotext_tpl && $tags2) {
+		if (
+			! $this->c[2]['tpl_from_404'] &&
+			$http_code == 200 &&
+			$this->seotext_tpl &&
+			$tags2
+		) {
 			$headers = function_exists('getallheaders')
 				? getallheaders() : $this->getallheaders_bsm();
 			if (is_array($headers)) {
@@ -592,11 +617,10 @@ class buran_seoModule
 		if ($http_code == 404) {
 			header($this->protocol.' 200 OK');
 		}
-		$this->bsmfile('test', 'set', '', $template);
+
 		if ($gzip) {
 			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
 		}
-
 		return $template;
 	}
 
