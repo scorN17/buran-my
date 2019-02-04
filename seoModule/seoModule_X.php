@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.4-beta 10
+ * @version 5.4-beta 15
  * @date 24.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
@@ -223,7 +223,7 @@ class buran_seoModule
 		} else {
 			$this->protocol = $_SERVER['HTTP_X_PROTOCOL']
 				? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL']
-					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1');
+					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
 		}
 		if (isset($_POST['seomodule_test']) &&
 			isset($_POST['s_title']) && isset($_POST['s_text'])) {
@@ -257,6 +257,7 @@ class buran_seoModule
 			2 => array(
 				'module_enabled'     => '0',
 				'include_files'      => '/index.php',
+				'tpl_from_404'       => 1,
 				'transit_requests'   => 0,
 				'out_charset'        => 'utf-8',
 				'classname'          => '',
@@ -353,6 +354,11 @@ class buran_seoModule
 		if ($this->c[2]['redirect']) {
 			$this->redirects();
 		}
+
+		if (strpos($_SERVER['HTTP_USER_AGENT'], $this->useragent) !== false) {
+			return false;
+		}
+
 		$this->clear_request();
 		$this->seotext();
 
@@ -505,8 +511,12 @@ class buran_seoModule
 		if ($gzip) $template = zlib_decode($template);
 		$template_orig = $template;
 
-		$http_code = http_response_code();
-		if ($http_code == 200) {
+		$http_code = 0;
+		$http_code_200_exists = false;
+		if (function_exists('http_response_code')) {
+			$http_code = http_response_code();
+		}
+		if ($http_code != 404) {
 			$headers_list = headers_list();
 			if (is_array($headers_list)) {
 				foreach ($headers_list AS $row) {
@@ -514,15 +524,25 @@ class buran_seoModule
 						$http_code = 404;
 					} elseif (stripos($row, '200 ok') !== false) {
 						$http_code = 200;
+						$http_code_200_exists = true;
 					} elseif (
 						stripos($row, 'http/1') !== false ||
 						stripos($row, 'status:') !== false
 					) {
-						$http_code = 0;
+						$http_code = 1;
 					}
 				}
 			}
 		}
+		if ( ! $http_code) $http_code = 200;
+
+		$this->bsmfile('test', 'set', '1',
+			$http_code
+			."\n\n".serialize(headers_list())
+			// ."\n\n".serialize(get_headers($this->website.$this->requesturi.'?'.$this->useragent))
+			."\n\n".(function_exists('http_response_code') ? serialize(http_response_code()) : '')
+		);
+
 		if ($http_code != 200 && $http_code != 404) {
 			$this->log('[20]');
 			return false;
@@ -543,7 +563,7 @@ class buran_seoModule
 				$template = $template_file;
 			}
 		}
-
+		
 		if ( ! $template) {
 			$this->log('[21]');
 			return false;
@@ -614,7 +634,7 @@ class buran_seoModule
 			$this->transit_list_check();
 		}
 
-		if ($http_code == 404) {
+		if ( ! $http_code_200_exists || $http_code == 404) {
 			header($this->protocol.' 200 OK');
 		}
 
@@ -1215,7 +1235,7 @@ window.onkeydown = function(event){
 				break;
 
 			case 'test':
-				$file = $type.'.txt';
+				$file = $type.$prm.'.txt';
 				break;
 
 			default:
