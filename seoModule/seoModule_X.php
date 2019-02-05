@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.4-beta 15
+ * @version 5.4-beta 16
  * @date 24.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
@@ -505,10 +505,18 @@ class buran_seoModule
 		return $text;
 	}
 
+	function template_coding($template, $act='en')
+	{
+		if ('de' == $act) {
+			$template = zlib_decode($template);
+		} else {
+			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
+		}
+		return $template;
+	}
+
 	function ob_end($template)
 	{
-		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
-		if ($gzip) $template = zlib_decode($template);
 		$template_orig = $template;
 
 		$http_code = 0;
@@ -563,6 +571,9 @@ class buran_seoModule
 				$template = $template_file;
 			}
 		}
+
+		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
+		if ($gzip) $template = $this->template_coding($template, 'de');
 		
 		if ( ! $template) {
 			$this->log('[21]');
@@ -572,8 +583,14 @@ class buran_seoModule
 		$template = $this->meta_parse($template);
 		$template = $this->head_body_parse($template);
 
-		if ( ! $this->module_hash_flag) return $template;
-		if ( ! $this->seotext) return $template;
+		if ( ! $this->module_hash_flag) {
+			if ($gzip) $template = $this->template_coding($template, 'en');
+			return $template;
+		}
+		if ( ! $this->seotext) {
+			if ($gzip) $template = $this->template_coding($template, 'en');
+			return $template;
+		}
 
 		$tags1 = $this->get_tag($template, 'finish');
 		if ($tags1) {
@@ -584,7 +601,10 @@ class buran_seoModule
 				($this->seotext_tp == 'S' || $this->seotext_tp == 'W')
 				&& ! $tags2
 			)
-		) return $template;
+		) {
+			if ($gzip) $template = $this->template_coding($template, 'en');
+			return $template;
+		}
 
 		if (
 			! $this->c[2]['tpl_from_404'] &&
@@ -607,7 +627,8 @@ class buran_seoModule
 					$global = true;
 				}
 			}
-			$res = $this->bsmfile('template', 'set', ($global?'global':''), $template_orig);
+			$res = $this->bsmfile('template', 'set',
+				($global?'global':''), $template_orig);
 			if ( ! $res) $this->log('[31]');
 		}
 
@@ -638,9 +659,7 @@ class buran_seoModule
 			header($this->protocol.' 200 OK');
 		}
 
-		if ($gzip) {
-			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
-		}
+		if ($gzip) $template = $this->template_coding($template, 'en');
 		return $template;
 	}
 
