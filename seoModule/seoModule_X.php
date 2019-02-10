@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.4-beta 16
+ * @version 5.4-beta 19
  * @date 24.01.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
@@ -255,20 +255,20 @@ class buran_seoModule
 			),
 
 			2 => array(
-				'module_enabled'     => '0',
-				'include_files'      => '/index.php',
-				'tpl_from_404'       => 1,
-				'transit_requests'   => 0,
-				'out_charset'        => 'utf-8',
-				'classname'          => '',
-				'base'               => 'replace_or_add',
-				'canonical'          => 'replace_or_add',
-				'meta'               => 'replace_or_add',
-				'urldecode'          => 1,
-				'redirect'           => 1,
-				'use_cache'          => 604800,
-				're_linking'         => 2,
-				'requets_methods'    => '/GET/HEAD/',
+				'module_enabled'   => '0',
+				'include_files'    => '/index.php',
+				'tpl_from_404'     => 1,
+				'transit_requests' => 1,
+				'out_charset'      => 'utf-8',
+				'classname'        => '',
+				'base'             => 'replace_or_add',
+				'canonical'        => 'replace_or_add',
+				'meta'             => 'replace_or_add',
+				'urldecode'        => 1,
+				'redirect'         => 1,
+				'use_cache'        => 604800,
+				're_linking'       => 2,
+				'requets_methods'  => '/GET/HEAD/',
 			),
 
 			4 => array(
@@ -574,6 +574,8 @@ class buran_seoModule
 
 		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
 		if ($gzip) $template = $this->template_coding($template, 'de');
+
+		$this->bsmfile('test', 'set', '_tpl', $template);
 		
 		if ( ! $template) {
 			$this->log('[21]');
@@ -1962,6 +1964,33 @@ window.onkeydown = function(event){
 			if ($res !== true) {
 				$errors = true;
 				print 'style file'."\n";
+			}
+		}
+
+		if (($open = opendir($folder.'/img/'))) {
+			$errors = false;
+			while ($file = readdir($open)) {
+				if (filetype($folder.'/img/'.$file) == 'link'
+					|| $file == '.' || $file == '..'
+					|| $file == '.th')
+					continue;
+				if (is_dir($folder.'/img/'.$file))
+					continue;
+				if ( ! is_file($folder.'/img/'.$file))
+					continue;
+
+				if (substr($file, strpos($file, '.')-2, 1) == '_')
+					continue;
+
+				$ext = substr($file, strpos($file, '.')-1);
+				$name = substr($file, 0, strpos($file, '.')-1);
+				$name = $name.'_'.$ext;
+
+				$res = rename($folder.'/img/'.$file, $folder.'/img/'.$name);
+				if ($res !== true) {
+					$errors = true;
+					print 'img file'."\n";
+				}
 			}
 		}
 
