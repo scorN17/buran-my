@@ -576,20 +576,8 @@ class buran_seoModule
 			return false;
 		}
 
-		libxml_use_internal_errors(true);
-		$dom = new DOMDocument();
-		$dom->loadHTML($template);
-		$dom_save = false;
+		$template = $this->meta_parse($template);
 
-		$res = $this->meta_parse($dom);
-		if ($res) $dom_save = true;
-
-		if ($dom_save) {
-			preg_match("/<!doctype html(.*)>/isU", $template, $matches);
-			$doctype = $matches[0];
-			$template = $doctype.$dom->saveHTML($dom->documentElement);
-		}
-		
 		$template = $this->head_body_parse($template);
 
 		if ( ! $this->module_hash_flag) {
@@ -1053,104 +1041,72 @@ window.onkeydown = function(event){
 		return $template;
 	}
 
-	function meta_parse(&$dom)
+	function meta_parse($template)
 	{
 		$st = $this->seotext;
 		$c  = $this->c[2];
 
-		$flag = false;
-
-		$meta = $dom->createDocumentFragment();
-
-		$xpath = new DOMXpath($dom);
-
-		$types = array(
-			'base',
-			'canonical',
-			'meta_title',
-			'meta_description',
-			'meta_keywords',
-		);
-
-		foreach ($types AS $type) {
-			$action = $c[$type];
-			if ( ! $action) continue;
-			$type = str_replace('meta_', '', $type);
-
-			if ('title' == $type) {
-				$value = $st[$type];
-				$es = $dom->getElementsByTagName($type);
-
-			} elseif ('base' == $type) {
-				$value = $this->c[1]['website'].'/';
-				$es = $dom->getElementsByTagName($type);
-
-			} elseif ('canonical' == $type) {
-				$value = $this->c[1]['website'];
-				if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
-					$value .= $this->requesturi;
-				}
-				$es = $xpath->query("//head/link[@rel='canonical']");
-
-			} else {
-				$value = $st[$type];
-				$es = $xpath->query("//head/meta[@name='{$type}']");
+		if (in_array($c['meta'],
+			array('replace_or_add', 'replace_if_exists', 'delete'))) {
+			$title = '<title>'.$st['title'].'</title>';
+			$description = '<meta name="description" content="'.$st['description'].'" />';
+			$keywords = '<meta name="keywords" content="'.$st['keywords'].'" />';
+			if ($c['meta'] == 'replace_or_add')
+				$title .= "\n\t".$description."\n\t".$keywords."\n";
+			if ($c['meta'] == 'delete' ||
+				$c['meta'] == 'replace_or_add') {
+				if ($c['meta'] == 'delete') $title = '';
+				$description = '';
+				$keywords = '';
 			}
-
-			if ($es->length) {
-				foreach ($es AS $e) {
-					if (stripos($action, 'replace') !== false) {
-
-						if ('title' == $type) {
-							$e->nodeValue = $value;
-						} elseif ('base' == $type) {
-							$e->setAttribute('href', $value);
-						} elseif ('canonical' == $type) {
-							$e->setAttribute('href', $value);
-						} else {
-							$e->setAttribute('content', $value);
-						}
-						$flag = true;
-
-						$action = 'delete';
-
-					} elseif ('delete' == $action) {
-						$e->parentNode->removeChild($e);
-						$flag = true;
-					}
-				}
-			}
-
-			if ('replace_or_add' == $action) {
-
-				if ('title' == $type) {
-					$el = $dom->createElement('title', $value);
-
-				} elseif ('base' == $type) {
-					$el = $dom->createElement('base');
-					$el->setAttribute('href', $value);
-
-				} elseif ('canonical' == $type) {
-					$el = $dom->createElement('link');
-					$el->setAttribute('rel', 'canonical');
-					$el->setAttribute('href', $value);
-
-				} else {
-					$el = $dom->createElement('meta');
-					$el->setAttribute('name', $type);
-					$el->setAttribute('content', $value);
-				}
-				
-				$meta->appendChild($el);
-				$insert = true;
+			$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $description, $template, 2, $count1);
+			$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $keywords, $template, 2, $count2);
+			$template = preg_replace("/<title>(.*)<\/title>/isU", $title, $template, 2, $count3);
+			if ($count1 === 2 || $count2 === 2 || $count3 === 2 ||
+				($c['meta'] == 'replace_or_add' && ! $count3)) {
+				$this->log('[61]');
 			}
 		}
-		if ($insert) {
-			$xpath->query("//head")->item(0)->insertBefore($meta, $xpath->query("//head/*[3]")->item(0));
-			$flag = true;
+
+		if (in_array($c['base'],
+			array('replace_or_add', 'replace_if_exists', 'delete'))) {
+			$base = '<base href="'.$this->c[1]['website'].'/" />';
+			if ($c['base'] == 'replace_or_add' ||
+				$c['base'] == 'delete') {
+				$template = preg_replace("/<base (.*)>/iU", '', $template);
+			}
+			if ($c['base'] == 'replace_or_add') {
+				$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template, 2, $count);
+				if ($count !== 1) $this->log('[62]');
+
+			} elseif ($c['base'] == 'replace_if_exists') {
+				$template = preg_replace("/<base (.*)>/iU", $base, $template, 2, $count);
+				if ($count === 2) $this->log('[62.2]');
+			}
 		}
 
-		return $flag;
+		if (in_array($c['canonical'],
+			array('replace_or_add', 'replace_if_exists', 'delete'))) {
+			$canonical = $this->c[1]['website'];
+			if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
+				$canonical .= $this->requesturi;
+			}
+			$canonical = '<link rel="canonical" href="'.$canonical.'" />';
+			if ($c['canonical'] == 'replace_or_add' ||
+				$c['canonical'] == 'delete') {
+				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
+			}
+			if ($c['canonical'] == 'replace_or_add') {
+				$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template, 2, $count);
+				if ($count !== 1) $this->log('[64]');
+
+			} elseif ($c['canonical'] == 'replace_if_exists') {
+				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
+				if ($count === 2) $this->log('[64.2]');
+			}
+		}
+
+		return $template;
 	}
 
 	function head_body_parse($template)
@@ -1709,7 +1665,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[60] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 		return $res;
 	}
 
@@ -2025,4 +1981,11 @@ window.onkeydown = function(event){
 		return $errors ? false : true;
 	}
 }
-// ---
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// --------------------------
