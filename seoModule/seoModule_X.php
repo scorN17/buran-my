@@ -1110,10 +1110,13 @@ window.onkeydown = function(event){
 						} else {
 							$e->setAttribute('content', $value);
 						}
+						$flag = true;
 
 						$action = 'delete';
+
 					} elseif ('delete' == $action) {
 						$e->parentNode->removeChild($e);
+						$flag = true;
 					}
 				}
 			}
@@ -1139,13 +1142,14 @@ window.onkeydown = function(event){
 				}
 				
 				$meta->appendChild($el);
-				$flag = true;
+				$insert = true;
 			}
 		}
-
-		if ($flag) {
+		if ($insert) {
 			$xpath->query("//head")->item(0)->insertBefore($meta, $xpath->query("//head/*[3]")->item(0));
+			$flag = true;
 		}
+
 		return $flag;
 	}
 
@@ -2021,5 +2025,4 @@ window.onkeydown = function(event){
 		return $errors ? false : true;
 	}
 }
-// ----------------------------------------------
-// ---------------
+// ---
