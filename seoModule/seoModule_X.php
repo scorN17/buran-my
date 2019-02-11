@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 5.4-beta 19
- * @date 24.01.2019
+ * @version 5.4-rc
+ * @date 11.02.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 55555
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.4-beta');
+$bsm = new buran_seoModule('5.4-rc');
 
 if (basename($bsm->pageurl) != 'seoModule.php') {
 	$bsm->init();
@@ -547,13 +547,6 @@ class buran_seoModule
 		}
 		if ( ! $http_code) $http_code = 200;
 
-		$this->bsmfile('test', 'set', '1',
-			$http_code
-			."\n\n".serialize(headers_list())
-			// ."\n\n".serialize(get_headers($this->website.$this->requesturi.'?'.$this->useragent))
-			."\n\n".(function_exists('http_response_code') ? serialize(http_response_code()) : '')
-		);
-
 		if ($http_code != 200 && $http_code != 404) {
 			$this->log('[20]');
 			return false;
@@ -577,24 +570,25 @@ class buran_seoModule
 
 		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
 		if ($gzip) $template = $this->template_coding($template, 'de');
-
-		$this->bsmfile('test', 'set', '_tpl', $template);
 		
 		if ( ! $template) {
 			$this->log('[21]');
 			return false;
 		}
 
-		preg_match("/<!doctype html(.*)>/isU", $template, $matches);
-		$doctype = $matches[0];
-
 		libxml_use_internal_errors(true);
 		$dom = new DOMDocument();
 		$dom->loadHTML($template);
+		$dom_save = false;
 
-		$this->meta_parse($dom);
+		$res = $this->meta_parse($dom);
+		if ($res) $dom_save = true;
 
-		$template = $doctype.$dom->saveHTML($dom->documentElement);
+		if ($dom_save) {
+			preg_match("/<!doctype html(.*)>/isU", $template, $matches);
+			$doctype = $matches[0];
+			$template = $doctype.$dom->saveHTML($dom->documentElement);
+		}
 		
 		$template = $this->head_body_parse($template);
 
@@ -673,7 +667,6 @@ class buran_seoModule
 			header($this->protocol.' 200 OK');
 		}
 
-		// $template = $doctype.$dom->saveHTML($dom->documentElement);
 		if ($gzip) $template = $this->template_coding($template, 'en');
 		return $template;
 	}
@@ -1065,8 +1058,9 @@ window.onkeydown = function(event){
 		$st = $this->seotext;
 		$c  = $this->c[2];
 
+		$flag = false;
+
 		$meta = $dom->createDocumentFragment();
-		$meta_flag = false;
 
 		$xpath = new DOMXpath($dom);
 
@@ -1145,39 +1139,28 @@ window.onkeydown = function(event){
 				}
 				
 				$meta->appendChild($el);
-				$meta_flag = true;
+				$flag = true;
 			}
 		}
 
-		if ($meta_flag) {
+		if ($flag) {
 			$xpath->query("//head")->item(0)->insertBefore($meta, $xpath->query("//head/*[3]")->item(0));
 		}
+		return $flag;
 	}
 
 	function head_body_parse($template)
 	{
-		// $meta = $dom->createDocumentFragment();
-		// $meta_flag = false;
-		// $xpath = new DOMXpath($dom);
-
-		// $meta = new DOMDocument();
-
 		if ($this->c[2]['use_head']) {
 			$code = $this->bsmfile('head', 'get');
 			if ($code) {
-				// $meta->loadHTML('<!--bsm_head_code-->'.$code, LIBXML_HTML_NOIMPLIED);
-				// $trans = $meta->documentElement;
-				// $node = $dom->importNode($trans, true);
 				$code = "\n".'<!--bsm_head_code-->'."\n".$code."\n".'</head>';
 				$template = preg_replace("/<\/head>/i", $code, $template, 1, $count);
 				if ( ! $count) $this->log('[70]');
 			} else {
 				$this->log('[72]');
 			}
-			// $dom->documentElement->appendChild($meta);
-			// $xpath->query("//head")->item(0)->insertBefore($node);
 		}
-
 		if ($this->c[2]['use_body']) {
 			$code = $this->bsmfile('body', 'get');
 			if ($code) {
@@ -1188,7 +1171,6 @@ window.onkeydown = function(event){
 				$this->log('[73]');
 			}
 		}
-
 		return $template;
 	}
 
@@ -2040,3 +2022,4 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
+// ---------------
