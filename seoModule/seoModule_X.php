@@ -5,7 +5,7 @@
  * @date 11.02.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 55555
+ * @size 56000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
@@ -576,7 +576,8 @@ class buran_seoModule
 			return false;
 		}
 
-		$template = $this->meta_parse($template);
+		$template = $this->meta_parse($template, 'base');
+		$template = $this->meta_parse($template, 'canonical');
 
 		$template = $this->head_body_parse($template);
 
@@ -588,6 +589,8 @@ class buran_seoModule
 			if ($gzip) $template = $this->template_coding($template, 'en');
 			return $template;
 		}
+
+		$template = $this->meta_parse($template, 'tdk');
 
 		$tags1 = $this->get_tag($template, 'finish');
 		if ($tags1) {
@@ -944,7 +947,7 @@ window.onload = function(){
 </script>';
 		}
 
-if (time() - $_SESSION['buranseomodule']['auth'] < 60*60*8) {
+if (time() - intval($_SESSION['buranseomodule']['auth']) < 60*60*8) {
 	$body .= '
 <script>
 window.onkeydown = function(event){
@@ -1041,12 +1044,12 @@ window.onkeydown = function(event){
 		return $template;
 	}
 
-	function meta_parse($template)
+	function meta_parse($template, $type)
 	{
 		$st = $this->seotext;
 		$c  = $this->c[2];
 
-		if (in_array($c['meta'],
+		if ('tdk' == $type && in_array($c['meta'],
 			array('replace_or_add', 'replace_if_exists', 'delete'))) {
 			$title = '<title>'.$st['title'].'</title>';
 			$description = '<meta name="description" content="'.$st['description'].'" />';
@@ -1068,7 +1071,7 @@ window.onkeydown = function(event){
 			}
 		}
 
-		if (in_array($c['base'],
+		if ('base' == $type && in_array($c['base'],
 			array('replace_or_add', 'replace_if_exists', 'delete'))) {
 			$base = '<base href="'.$this->c[1]['website'].'/" />';
 			if ($c['base'] == 'replace_or_add' ||
@@ -1085,7 +1088,7 @@ window.onkeydown = function(event){
 			}
 		}
 
-		if (in_array($c['canonical'],
+		if ('canonical' == $type && in_array($c['canonical'],
 			array('replace_or_add', 'replace_if_exists', 'delete'))) {
 			$canonical = $this->c[1]['website'];
 			if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
@@ -1984,8 +1987,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// --------------------------
+// ----------------------------------
