@@ -1,7 +1,7 @@
 <?php
 /**
  * seoModule
- * @version 5.4-rc
+ * @version 5.5-beta-2
  * @date 11.02.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.4-rc');
+$bsm = new buran_seoModule('5.5-beta-2');
 
 if (basename($bsm->pageurl) != 'seoModule.php') {
 	$bsm->init();
@@ -1261,7 +1261,7 @@ window.onkeydown = function(event){
 				mkdir($folder, 0755, true);
 			}
 			$cc    = intval($body['filescount']);
-			$files = intval($body['files']);
+			$files = $body['files'];
 			if ( ! $cc) return true;
 			for ($k=1; $k<=$cc; $k++) {
 				$file = $files['f'.$k];
@@ -1987,4 +1987,8 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ---------------------------
