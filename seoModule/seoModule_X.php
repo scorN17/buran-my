@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 5.4.2-rc
- * @date 20.02.2019
+ * @version 5.4.3-rc
+ * @date 21.02.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 56000
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.4.2-rc');
+$bsm = new buran_seoModule('5.4.3-rc');
 
 if (basename($bsm->pageurl) != 'seoModule.php') {
 	$bsm->init();
@@ -576,9 +576,6 @@ class buran_seoModule
 			return false;
 		}
 
-		$template = $this->meta_parse($template, 'base');
-		$template = $this->meta_parse($template, 'canonical');
-
 		$template = $this->head_body_parse($template);
 
 		if ( ! $this->module_hash_flag) {
@@ -591,6 +588,8 @@ class buran_seoModule
 		}
 
 		$template = $this->meta_parse($template, 'tdk');
+		$template = $this->meta_parse($template, 'base');
+		$template = $this->meta_parse($template, 'canonical');
 
 		$tags1 = $this->get_tag($template, 'finish');
 		if ($tags1) {
@@ -1987,4 +1986,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// --------------------------------------
+// ---------------------------------------
