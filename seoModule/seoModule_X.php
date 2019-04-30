@@ -1,8 +1,8 @@
 <?php
 /**
  * seoModule
- * @version 5.4.3-rc
- * @date 21.02.2019
+ * @version 5.4.4-rc
+ * @date 30.04.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 56000
@@ -10,7 +10,7 @@
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.4.3-rc');
+$bsm = new buran_seoModule('5.4.4-rc');
 
 if (basename($bsm->pageurl) != 'seoModule.php') {
 	$bsm->init();
@@ -272,6 +272,7 @@ class buran_seoModule
 				'use_cache'        => 604800,
 				're_linking'       => 2,
 				'requets_methods'  => '/GET/HEAD/',
+				'share_code'       => '<script src="https://yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="https://yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-size="s"></div>',
 			),
 
 			4 => array(
@@ -305,6 +306,11 @@ class buran_seoModule
 		$this->declension = $this->c[7][$this->c[1]['city']];
 
 		$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
+
+		if (isset($_GET['proxy'])) {
+			$this->c[2]['proxy'] = $_GET['proxy'];
+		}
+		$this->c[2]['proxy'] = str_replace('-', ':', $this->c[2]['proxy']);
 
 		$charsetlist = array(
 			'utf-8' => array(
@@ -511,8 +517,10 @@ class buran_seoModule
 	function template_coding($template, $act='en')
 	{
 		if ('de' == $act) {
+			// $template = gzinflate(substr($template,10));
 			$template = zlib_decode($template);
 		} else {
+			// $template = gzencode($template);
 			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
 		}
 		return $template;
@@ -575,6 +583,8 @@ class buran_seoModule
 			$this->log('[21]');
 			return false;
 		}
+		
+		header_remove('Content-Length');
 
 		$template = $this->head_body_parse($template);
 
@@ -1522,6 +1532,9 @@ window.onkeydown = function(event){
 			$options[CURLOPT_POST] = true;
 			$options[CURLOPT_POSTFIELDS] = $post;
 		}
+		if ($this->c[2]['proxy']) {
+			$options[CURLOPT_PROXY] = $this->c[2]['proxy'];
+		}
 		$this->request_headers(false, false, true);
 		$curl = curl_init();
 		curl_setopt_array($curl, $options);
@@ -1667,7 +1680,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 		return $res;
 	}
 
