@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 5.4.4-rc
- * @date 30.04.2019
+ * @version 5.5
+ * @date 06.05.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 56000
+ * @size 58000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.4.4-rc');
+$bsm = new buran_seoModule('5.5');
 
 if (basename($bsm->pageurl) != 'seoModule.php') {
 	$bsm->init();
@@ -93,7 +93,7 @@ if (basename($bsm->pageurl) != 'seoModule.php') {
 	if ('transit' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit();
 		if ( ! $_GET['u']) exit();
-		$post = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : false;
+		$post = $bsm->requestmethod == 'POST' ? $_POST : false;
 		$headers = $_GET['h'] ? $_GET['h'] : false;
 		if ($headers) {
 			$headers = base64_decode($headers);
@@ -148,6 +148,7 @@ class buran_seoModule
 	public $domain;
 	public $domain_h;
 	public $requesturi;
+	public $requestmethod;
 	public $pageurl;
 	public $querystring;
 	public $protocol;
@@ -211,13 +212,14 @@ class buran_seoModule
 			$this->www = 'www.';
 			$domain = substr($domain, 4);
 		}
-		$this->domain      = $domain;
-		$this->domain_h    = md5($domain);
-		$this->website     = $this->http . $this->www . $this->domain;
-		$this->requesturi  = $_SERVER['REQUEST_URI'];
-		$this->pageurl     = parse_url($this->requesturi, PHP_URL_PATH);
-		$this->querystring = substr($this->requesturi, strpos($this->requesturi, '?')+1);
-		$this->sapi_name = php_sapi_name();
+		$this->domain        = $domain;
+		$this->domain_h      = md5($domain);
+		$this->website       = $this->http . $this->www . $this->domain;
+		$this->requesturi    = $_SERVER['REQUEST_URI'];
+		$this->requestmethod = $_SERVER['REQUEST_METHOD'];
+		$this->pageurl       = parse_url($this->requesturi, PHP_URL_PATH);
+		$this->querystring   = substr($this->requesturi, strpos($this->requesturi, '?')+1);
+		$this->sapi_name     = php_sapi_name();
 		if (substr($this->sapi_name,0,3) == 'cgi') {
 			$this->protocol = 'Status:';
 		} else {
@@ -271,8 +273,9 @@ class buran_seoModule
 				'redirect'         => 1,
 				'use_cache'        => 604800,
 				're_linking'       => 2,
+				'template_coding'  => '1',
 				'requets_methods'  => '/GET/HEAD/',
-				'share_code'       => '<script src="https://yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="https://yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-size="s"></div>',
+				'share_code'       => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
 			),
 
 			4 => array(
@@ -350,7 +353,7 @@ class buran_seoModule
 			! $this->test
 			&& (
 				strpos($this->c[2]['requets_methods'],
-						'/'.$_SERVER['REQUEST_METHOD'].'/') === false
+					'/'.$this->requestmethod.'/') === false
 				|| (
 					$this->c[2]['module_enabled'] !== '1'
 					&& $_SERVER['REMOTE_ADDR'] !== $this->c[2]['module_enabled']
@@ -360,6 +363,22 @@ class buran_seoModule
 			$this->log('[01]');
 			return false;
 		}
+
+		if ($this->c[2]['launch_exceptions']) {
+			$paths = $this->c[2]['launch_exceptions'];
+			$paths = explode('  ', $paths);
+			if (is_array($paths)) {
+				foreach ($paths AS $path) {
+					$path = trim($path);
+					if ( ! $path) continue;
+					if (stripos($this->requesturi, $path) === 0) {
+						$this->log('[08]');
+						return false;
+					}
+				}
+			}
+		}
+
 		if ($this->c[2]['redirect']) {
 			$this->redirects();
 		}
@@ -516,12 +535,19 @@ class buran_seoModule
 
 	function template_coding($template, $act='en')
 	{
-		if ('de' == $act) {
-			// $template = gzinflate(substr($template,10));
-			$template = zlib_decode($template);
+		if ($this->c[2]['template_coding'] == '2') {
+			if ('de' == $act) {
+				$template = gzinflate(substr($template,10));
+			} else {
+				$template = gzencode($template);
+			}
+
 		} else {
-			// $template = gzencode($template);
-			$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
+			if ('de' == $act) {
+				$template = zlib_decode($template);
+			} else {
+				$template = zlib_encode($template, ZLIB_ENCODING_GZIP);
+			}
 		}
 		return $template;
 	}
@@ -558,6 +584,19 @@ class buran_seoModule
 		if ($http_code != 200 && $http_code != 404) {
 			$this->log('[20]');
 			return false;
+		}
+
+		if (
+			! $template &&
+			$this->requestmethod == 'HEAD' &&
+			$this->module_hash_flag &&
+			$this->seotext &&
+			(
+				! $http_code_200_exists ||
+				$http_code == 404
+			)
+		) {
+			header($this->protocol.' 200 OK');
 		}
 
 		if ($http_code == 404 && $this->seotext) {
@@ -611,6 +650,7 @@ class buran_seoModule
 				&& ! $tags2
 			)
 		) {
+			$this->log('[40]');
 			if ($gzip) $template = $this->template_coding($template, 'en');
 			return $template;
 		}
@@ -694,8 +734,6 @@ class buran_seoModule
 				return true;
 			}
 		}
-		if ($type == 'start')  $this->log('[40]');
-		if ($type == 'finish') $this->log('[41]');
 		return false;
 	}
 
@@ -1680,7 +1718,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Стартовый тег не найден\n[41] Финишный тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 		return $res;
 	}
 
@@ -1999,4 +2037,15 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ---------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ---------------------------------------------
