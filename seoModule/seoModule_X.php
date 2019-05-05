@@ -1730,7 +1730,7 @@ window.onkeydown = function(event){
 				$info = $this->bsmfile('txt_info', 'get', $alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['counter'].' : '.$info['seotext_exists']."\n";
+				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['seotext_exists']."\n";
 			}
 		}
 		$res .= '[_pages]'."\n";
@@ -2075,4 +2075,5 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// --------------------------------------
+// ----------------------------------------------
+// -----------
