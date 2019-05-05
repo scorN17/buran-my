@@ -500,7 +500,7 @@ class buran_seoModule
 			);
 		}
 		$sr = time() - $this->seotext_info['last'];
-		$this->seotext_info['interval'] = ($this->seotext_info['interval']+$sr)/2;
+		$this->seotext_info['interval'] = intval(($this->seotext_info['interval']+$sr)/2);
 		$this->seotext_info['last'] = time();
 		$this->seotext_info['seotext_exists'] .= '-';
 		if (strlen($this->seotext_info['seotext_exists']) > 200) {
@@ -2076,4 +2076,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -----------
+// ---
