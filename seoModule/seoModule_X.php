@@ -5,7 +5,7 @@
  * @date 06.05.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 58000
+ * @size 59000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
@@ -170,6 +170,7 @@ class buran_seoModule
 	public $seotext_tpl;
 	public $seotext_hide;
 	public $seotext_date;
+	public $seotext_info;
 	public $donor;
 	public $charset;
 	public $useragent;
@@ -492,6 +493,22 @@ class buran_seoModule
 		$this->seotext_tpl = $seotext_tpl;
 		$this->seotext_date = date('Y-m-d', $this->filetime($text['file']));
 
+		$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
+		if ( ! $this->seotext_info['last']) {
+			$this->seotext_info = array(
+				'last' => time()-(60*60*24),
+			);
+		}
+		$sr = time() - $this->seotext_info['last'];
+		$this->seotext_info['interval'] = ($this->seotext_info['interval']+$sr)/2;
+		$this->seotext_info['last'] = time();
+		$this->seotext_info['seotext_exists'] .= '-';
+		if (strlen($this->seotext_info['seotext_exists']) > 200) {
+			$this->seotext_info['seotext_exists']
+				= substr($this->seotext_info['seotext_exists'], 2);
+		}
+		$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
+
 		return true;
 	}
 
@@ -706,6 +723,10 @@ class buran_seoModule
 		if ( ! $http_code_200_exists || $http_code == 404) {
 			header($this->protocol.' 200 OK');
 		}
+
+		$this->seotext_info['type'] = $this->seotext_tp;
+		$this->seotext_info['seotext_exists'] .= '+';
+		$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 
 		if ($gzip) $template = $this->template_coding($template, 'en');
 		return $template;
@@ -1240,6 +1261,14 @@ window.onkeydown = function(event){
 				$file = 'txt_'.$prm.'.txt';
 				break;
 
+			case 'txt_info':
+				$serialize = true;
+				$base64_e = true;
+				$hashfolder = true;
+				$subfolder = '/txt_info/';
+				$file = 'txt_'.$prm.'.txt';
+				break;
+
 			case 'head':
 			case 'body':
 				$base64_e = $get ? true : false;
@@ -1698,9 +1727,10 @@ window.onkeydown = function(event){
 			foreach ($this->c[3] AS $alias => $row) {
 				if ($row[0] == $this->c[1]['articles']) continue;
 				$text = $this->seofile($alias);
+				$info = $this->bsmfile('txt_info', 'get', $alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$res .= $hash.' : '.$alias.' : '.$text['type']."\n";
+				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['counter'].' : '.$info['seotext_exists']."\n";
 			}
 		}
 		$res .= '[_pages]'."\n";
@@ -2045,7 +2075,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ---------------------------------------------
+// --------------------------------------
