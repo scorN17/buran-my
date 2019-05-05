@@ -493,21 +493,23 @@ class buran_seoModule
 		$this->seotext_tpl = $seotext_tpl;
 		$this->seotext_date = date('Y-m-d', $this->filetime($text['file']));
 
-		$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
-		if ( ! $this->seotext_info['last']) {
-			$this->seotext_info = array(
-				'last' => time()-(60*60*24),
-			);
+		if ($this->requestmethod != 'HEAD') {
+			$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
+			if ( ! $this->seotext_info['last']) {
+				$this->seotext_info = array(
+					'last' => time()-(60*60*24),
+				);
+			}
+			$sr = time() - $this->seotext_info['last'];
+			$this->seotext_info['interval'] = intval(($this->seotext_info['interval']+$sr)/2);
+			$this->seotext_info['last'] = time();
+			$this->seotext_info['seotext_exists'] .= '-';
+			if (strlen($this->seotext_info['seotext_exists']) > 200) {
+				$this->seotext_info['seotext_exists']
+					= substr($this->seotext_info['seotext_exists'], 2);
+			}
+			$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 		}
-		$sr = time() - $this->seotext_info['last'];
-		$this->seotext_info['interval'] = intval(($this->seotext_info['interval']+$sr)/2);
-		$this->seotext_info['last'] = time();
-		$this->seotext_info['seotext_exists'] .= '-';
-		if (strlen($this->seotext_info['seotext_exists']) > 200) {
-			$this->seotext_info['seotext_exists']
-				= substr($this->seotext_info['seotext_exists'], 2);
-		}
-		$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 
 		return true;
 	}
@@ -724,9 +726,11 @@ class buran_seoModule
 			header($this->protocol.' 200 OK');
 		}
 
-		$this->seotext_info['type'] = $this->seotext_tp;
-		$this->seotext_info['seotext_exists'] .= '+';
-		$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
+		if ($this->requestmethod != 'HEAD') {
+			$this->seotext_info['type'] = $this->seotext_tp;
+			$this->seotext_info['seotext_exists'] .= '+';
+			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
+		}
 
 		if ($gzip) $template = $this->template_coding($template, 'en');
 		return $template;
@@ -2073,7 +2077,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ---
+// -----------------------------------------------
