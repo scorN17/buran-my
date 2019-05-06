@@ -195,7 +195,7 @@ class buran_seoModule
 
 		$this->module_folder = '/_buran/seoModule';
 
-		$this->droot = dirname(dirname(__FILE__));
+		$this->droot = dirname(__DIR__);
 		$this->http  = (
 			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
 			(isset($_SERVER['HTTP_PORT']) && $_SERVER['HTTP_PORT']     == '443') ||
@@ -1232,7 +1232,7 @@ window.onkeydown = function(event){
 					}
 				}
 				$subfolder = '/../';
-				$file = __FILE__;
+				$file = 'seoModule.php';
 				break;
 
 			case 'config':
@@ -2077,4 +2077,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -----------------------------------------------
+// --------------------------------------------------
