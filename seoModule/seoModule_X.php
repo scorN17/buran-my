@@ -1,18 +1,18 @@
 <?php
 /**
  * seoModule
- * @version 5.5
- * @date 06.05.2019
+ * @version 5.6
+ * @date 20.05.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 59000
+ * @size 63000
  */
 
 error_reporting(E_ALL & ~E_NOTICE);
 
-$bsm = new buran_seoModule('5.5');
+$bsm = new buran_seoModule('5.6');
 
-if (basename($bsm->pageurl) != 'seoModule.php') {
+if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
 
 } else {
@@ -139,6 +139,7 @@ class buran_seoModule
 	public $c = false;
 	public $module_hash;
 	public $module_hash_flag = false;
+	public $module_file;
 	public $module_folder;
 
 	public $droot;
@@ -152,6 +153,7 @@ class buran_seoModule
 	public $pageurl;
 	public $querystring;
 	public $protocol;
+	public $protocol_dop = false;
 	public $sapi_name;
 
 	public $accesscode = false;
@@ -193,9 +195,10 @@ class buran_seoModule
 	{
 		$this->version = $version;
 
+		$this->module_file = 'seoModule.php';
 		$this->module_folder = '/_buran/seoModule';
 
-		$this->droot = dirname(__DIR__);
+		$this->droot = dirname(dirname(__FILE__));
 		$this->http  = (
 			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
 			(isset($_SERVER['HTTP_PORT']) && $_SERVER['HTTP_PORT']     == '443') ||
@@ -252,56 +255,13 @@ class buran_seoModule
 
 		$this->useragent = 'BuranSeoModule';
 
-		$config_default = array(
-			1 => array(
-				'website' => $this->http.$this->www.$this->domain,
-			),
-
-			2 => array(
-				'module_enabled'   => '0',
-				'include_files'    => '/index.php',
-				'tpl_from_404'     => 1,
-				'transit_requests' => 1,
-				'out_charset'      => 'utf-8',
-				'classname'        => '',
-				'base'             => 'replace_or_add',
-				'canonical'        => 'replace_or_add',
-				'meta'             => 'replace_or_add',
-				'meta_title'       => 'replace_or_add',
-				'meta_description' => 'replace_or_add',
-				'meta_keywords'    => 'replace_or_add',
-				'urldecode'        => 1,
-				'redirect'         => 1,
-				'use_cache'        => 604800,
-				're_linking'       => 2,
-				'template_coding'  => '1',
-				'requets_methods'  => '/GET/HEAD/',
-				'share_code'       => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
-			),
-
-			4 => array(
-				'/index.php'  => '/',
-				'/index.html' => '/',
-			),
-		);
-
-		$config = $this->bsmfile('config_value', 'get');
-		if ($config && is_array($config)) {
-			foreach ($config AS $key => $row) {
-				if ( ! isset($config_default[$key])) {
-					$config_default[$key] = $row;
-				} else {
-					$config_default[$key]
-						= array_merge($config_default[$key], $row);
-				}
-			}
-		} else {
-			$this->log('[03]');
-		}
-
-		$this->c = $config_default;
+		$this->c = $this->config();
 
 		$this->accesscode = $this->c[2]['accesscode'];
+
+		if ($this->c[2]['dop_protocol']) {
+			$this->protocol_dop = $this->c[2]['dop_protocol'];
+		}
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -348,6 +308,58 @@ class buran_seoModule
 		}
 	}
 
+	function config()
+	{
+		$config_default = array(
+			1 => array(
+				'website' => $this->http.$this->www.$this->domain,
+			),
+
+			2 => array(
+				'module_enabled'   => '0',
+				'include_files'    => '/index.php',
+				'tpl_from_404'     => 1,
+				'transit_requests' => 1,
+				'out_charset'      => 'utf-8',
+				'classname'        => '',
+				'base'             => 'replace_or_add',
+				'canonical'        => 'replace_or_add',
+				'meta'             => 'replace_or_add',
+				'meta_title'       => 'replace_or_add',
+				'meta_description' => 'replace_or_add',
+				'meta_keywords'    => 'replace_or_add',
+				'urldecode'        => 1,
+				'redirect'         => 1,
+				'use_cache'        => 604800,
+				're_linking'       => 2,
+				'template_coding'  => '1',
+				'requets_methods'  => '/GET/HEAD/',
+				'share_code'       => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
+			),
+
+			4 => array(
+				'/index.php'  => '/',
+				'/index.html' => '/',
+			),
+		);
+
+		$config = $this->bsmfile('config_value', 'get');
+
+		if ($config && is_array($config)) {
+			foreach ($config AS $key => $row) {
+				if ( ! isset($config_default[$key])) {
+					$config_default[$key] = $row;
+				} else {
+					$config_default[$key]
+						= array_merge($config_default[$key], $row);
+				}
+			}
+		} else {
+			$this->log('[03]');
+		}
+		return $config_default;
+	}
+
 	function init()
 	{
 		if (
@@ -361,7 +373,11 @@ class buran_seoModule
 				)
 			)
 		) {
-			$this->log('[01]');
+			if (
+				! $this->test
+				&& $this->c[2]['module_enabled'] !== '1'
+				&& $_SERVER['REMOTE_ADDR'] !== $this->c[2]['module_enabled']
+			) $this->log('[01]');
 			return false;
 		}
 
@@ -616,6 +632,9 @@ class buran_seoModule
 			)
 		) {
 			header($this->protocol.' 200 OK');
+			if ($this->protocol_dop) {
+				header($this->protocol_dop.' 200 OK');
+			}
 		}
 
 		if ($http_code == 404 && $this->seotext) {
@@ -642,7 +661,9 @@ class buran_seoModule
 			return false;
 		}
 		
-		header_remove('Content-Length');
+		if (function_exists('header_remove')) {
+			header_remove('Content-Length');
+		}
 
 		$template = $this->head_body_parse($template);
 
@@ -724,6 +745,9 @@ class buran_seoModule
 
 		if ( ! $http_code_200_exists || $http_code == 404) {
 			header($this->protocol.' 200 OK');
+			if ($this->protocol_dop) {
+				header($this->protocol_dop.' 200 OK');
+			}
 		}
 
 		if ($this->requestmethod != 'HEAD') {
@@ -1031,7 +1055,7 @@ window.onkeydown = function(event){
 			var url = "http://bunker-yug.ru/seomodule.php?a=config&idc='.$this->c[1]['bunker_id'].'";
 			window.open(url, "_blank");
 		} else if (event.keyCode === 76) {
-			var url = "'.$this->module_folder.'.php?a=info";
+			var url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=info";
 			window.open(url, "_blank");
 		}
 	}
@@ -1058,7 +1082,7 @@ window.onkeydown = function(event){
 			$this->log('[50]');
 		}
 
-		if ($this->seotext_tp == 'A' || ! $hcc) {
+		if ($this->seotext_tp == 'A' || ! $hcc || $this->c[2]['starttag_title']) {
 			$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 		}
 
@@ -1232,7 +1256,7 @@ window.onkeydown = function(event){
 					}
 				}
 				$subfolder = '/../';
-				$file = 'seoModule.php';
+				$file = $this->module_file;
 				break;
 
 			case 'config':
@@ -1287,11 +1311,13 @@ window.onkeydown = function(event){
 				break;
 
 			case 'transit':
+				$hashfolder = true;
 				$file = $type.'.txt';
 				break;
 			case 'transit_list':
 				$serialize = true;
 				$base64_e = true;
+				$hashfolder = true;
 				$file = 'transit.txt';
 				break;
 
@@ -1518,9 +1544,10 @@ window.onkeydown = function(event){
 			'http://bunker-yug.ru/__buran/seoModule_service.php',
 			false, false,
 			array(
-				'idc' => $this->c[1]['bunker_id'],
-				'ac' => $ac,
-				'a' => $a, 'b' => $b, 'c' => $c,
+				'idc'  => $this->c[1]['bunker_id'],
+				'ws'   => $this->domain,
+				'ac'   => $ac,
+				'a'    => $a, 'b' => $b, 'c' => $c,
 				'data' => $data,
 			)
 		);
@@ -1645,38 +1672,112 @@ window.onkeydown = function(event){
 
 		$p = '<style>
 			.row {display: flex; margin-bottom: 3px;}
-			.col1 {flex: 0 0 130px; text-align: right; margin-right: 12px;}
-			.col2 {flex: 0 0 auto;}
+			.col1 {flex: 0 0 150px; text-align: right; margin-right: 12px;}
+			.col2 {flex: 0 0 auto; margin-right: 5px;}
 			.green {color: #089c29;}
 			.red {color: #d41717;}
 		</style>';
 
 		$p .= '<div class="row"><span class="col1">Module</span><span class="col2">'.$this->module_hash.'</span></div>';
 
+		$p .= '<div class="row"><span class="col1">Domain Hash</span><span class="col2">'.$this->domain_h.'</span></div>';
+
+		$flag = $this->website === $this->c[1]['website'] ? true : false;
+		$p .= '<div class="row"><span class="col1">Domain</span><span class="col2 '.($flag?'green':'red').'">'.$this->website.' == '.$this->c[1]['website'].'</span></div>';
+
 		$uname = php_uname();
 		$flag = stripos($uname, 'window') !== false ? false : true;
 		$p .= '<div class="row"><span class="col1">OS</span><span class="col2 '.($flag?'green':'red').'">'.$uname.'</span></div>';
 
 		$flag = version_compare(PHP_VERSION, '5.4.0', '<') ? false : true;
-		$p .= '<div class="row"><span class="col1">Версия PHP</span><span class="col2 '.($flag?'green':'red').'">'.PHP_VERSION.'</span></div>';
+		$p .= '<div class="row"><span class="col1">PHP Version</span><span class="col2 '.($flag?'green':'red').'">'.PHP_VERSION.'</span></div>';
 
 		$flag = stripos($this->sapi_name, 'apache') !== false ? true : false;
 		$p .= '<div class="row"><span class="col1">Type of interface</span><span class="col2 '.($flag?'green':'red').'">'.$this->sapi_name.'</span></div>';
 
-		$flag = $this->website === $this->c[1]['website'] ? true : false;
-		$p .= '<div class="row"><span class="col1">Домен</span><span class="col2 '.($flag?'green':'red').'">'.$this->website.' == '.$this->c[1]['website'].'</span></div>';
-
 		$flag = extension_loaded('openssl') ? true : false;
 		$p .= '<div class="row"><span class="col1">OpenSSL</span><span class="col2 '.($flag?'green':'red').'">'.OPENSSL_VERSION_TEXT.' ['.OPENSSL_VERSION_NUMBER.']</span></div>';
 
-		$flag = $this->curl_ext ? true : false;
-		$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		if ( ! $this->curl_ext) {
+			$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 red">&mdash;</span></div>';
+		}
 
-		$flag = $this->sock_ext ? true : false;
-		$p .= '<div class="row"><span class="col1">Stream Socket</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		if ( ! function_exists('ini_get')) {
+			$p .= '<div class="row"><span class="col1">ini_get()</span><span class="col2 red">&mdash;</span></div>';
+		}
 
-		$flag = $this->fgc_ext ? true : false;
-		$p .= '<div class="row"><span class="col1">File Get Contents</span><span class="col2 '.($flag?'green':'red').'">'.($flag ? 'Да' : 'Нет').'</span></div>';
+		$disable_functions = @ini_get('disable_functions');
+		if ($disable_functions) {
+			$disable_functions = ','.str_replace(' ','',$disable_functions).',';
+			$funcs = array('rename', 'filetype', 'readdir', 'opendir',
+				'file_exists', 'base64_encode', 'ucwords',
+				'preg_match', 'curl_exec', 'curl_init', 'time',
+				'file_get_contents', 'stream_socket_client',
+				'fopen', 'fwrite', 'feof', 'fread', 'session_start',
+				'file_exists', 'filectime', 'date', 'rewind',
+				'ftruncate', 'fgets', 'fseek', 'filesize', 'md5_file',
+				'is_array', 'ini_get', 'function_exists',
+				'extension_loaded', 'version_compare', 'php_uname',
+				'urlencode', 'serialize', 'unlink', 'unserialize',
+				'mkdir', 'move_uploaded_file', 'session_id',
+				'md5', 'preg_replace', 'in_array', 'strtotime',
+				'addslashes', 'getimagesize', 'each', 'reset',
+				'end', 'key', 'preg_match_all', 'array_shift',
+				'preg_quote', 'getallheaders', 'header_remove',
+				'strcmp', 'header', 'headers_list', 'http_response_code',
+				'zlib_encode', 'zlib_decode', 'gzinflate', 'gzencode',
+				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
+				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
+				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
+				'fileperms',);
+			foreach ($funcs AS $func) {
+				$flag1 = function_exists($func) ? true : false;
+				$flag2 = stripos($disable_functions, ','.$func.',') !== false ? true : false;
+				if ( ! $flag1 || $flag2) {
+					$p .= '<div class="row">
+						<span class="col1">'.$func.'()</span>
+						<span class="col2 '.($flag1?'green':'red').'">'.($flag1?'+':'&mdash;').'</span>
+						<span class="col2 '.(!$flag2?'green':'red').'">'.(!$flag2?'+':'&mdash;').'</span>
+					</div>';
+				}
+			}
+		} else {
+			$flag = function_exists('ini_get') ? true : false;
+			$p .= '<div class="row"><span class="col1">ini disable_functions</span><span class="col2 red">&mdash;</span></div>';
+		}
+
+		if ( ! is_writable($this->droot.'/_buran/') || ! is_readable($this->droot.'/_buran/')) {
+			$p .= '<div class="row"><span class="col1 red">&mdash;</span><span class="col2">/_buran/</span></div>';
+		}
+		$queue[] = $this->module_folder.'/';
+		do {
+			$nextfolder = array_shift($queue);
+			if (
+				! is_writable($this->droot.$nextfolder) ||
+				! is_readable($this->droot.$nextfolder)
+			) {
+				$p .= '<div class="row"><span class="col1 red">&mdash;</span><span class="col2">'.$nextfolder.'</span></div>';
+			}
+			if ( ! ($open = opendir($this->droot.$nextfolder))) continue;
+			while ($file = readdir($open)) {
+				if (filetype($this->droot.$nextfolder.$file) == 'link'
+					|| $file == '.' || $file == '..') continue;
+				if (is_dir($this->droot.$nextfolder.$file)) {
+					$queue[] = $nextfolder.$file.'/';
+					continue;
+				}
+				if ( ! is_file($this->droot.$nextfolder.$file)) continue;
+				if (
+					! is_writable($this->droot.$nextfolder.$file) ||
+					! is_readable($this->droot.$nextfolder.$file)
+				) {
+					$nm1 = posix_getpwuid(fileowner($this->droot.$nextfolder.$file));
+					$nm2 = posix_getgrgid(filegroup($this->droot.$nextfolder.$file));
+					$prm = decoct(fileperms($this->droot.$nextfolder.$file) & 0777);
+					$p .= '<div class="row"><span class="col1 red">&mdash;</span><span class="col2">'.$nm1['name'].' | </span><span class="col2">'.$nm2['name'].' | </span><span class="col2">'.$prm.' | </span><span class="col2">'.$nextfolder.$file.'</span></div>';
+				}
+			}
+		} while ($queue[0]);
 
 		$p .= '<br><br><br>';
 		return $p;
@@ -1709,7 +1810,7 @@ window.onkeydown = function(event){
 			}
 		}
 
-		$hash_1_f = $this->droot.$this->module_folder.'.php';
+		$hash_1_f = $this->droot.dirname($this->module_folder).'/'.$this->module_file;
 		if (file_exists($hash_1_f)) $hash_1 = md5_file($hash_1_f);
 
 		$hash_2_f = $this->droot.'/.htaccess';
@@ -1718,6 +1819,7 @@ window.onkeydown = function(event){
 		$res = '[seomoduleversion_'.$this->version.']
 [datetime_'.date('d.m.Y, H:i:s').']
 
+[website_'.$this->c[1]['website'].']
 [modulehash_'.$hash_1.']
 [htaccess_'.$hash_2.']
 [droot_'.$this->droot.']'."\n";
@@ -1991,7 +2093,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/transit.txt') &&
 			file_exists($folder.'/transit_'.$this->domain_h.'.txt')) {
-			$res = rename($folder.'/transit_'.$this->domain_h.'.txt', $folder.'/transit.txt');
+			$res = rename($folder.'/transit_'.$this->domain_h.'.txt',
+				$folder.'/transit.txt');
 			if ($res !== true) {
 				$errors = true;
 				print 'transit file'."\n";
@@ -1999,7 +2102,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/'.$this->domain_h.'/config.txt') &&
 			file_exists($folder.'/config_'.$this->domain_h.'.txt')) {
-			$res = rename($folder.'/config_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/config.txt');
+			$res = rename($folder.'/config_'.$this->domain_h.'.txt',
+				$folder.'/'.$this->domain_h.'/config.txt');
 			if ($res !== true) {
 				$errors = true;
 				print 'config file'."\n";
@@ -2007,7 +2111,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/'.$this->domain_h.'/head.txt') &&
 			file_exists($folder.'/head_'.$this->domain_h.'.txt')) {
-			$res = rename($folder.'/head_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/head.txt');
+			$res = rename($folder.'/head_'.$this->domain_h.'.txt',
+				$folder.'/'.$this->domain_h.'/head.txt');
 			if ($res !== true) {
 				$errors = true;
 				print 'head file'."\n";
@@ -2015,7 +2120,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/'.$this->domain_h.'/body.txt') &&
 			file_exists($folder.'/body_'.$this->domain_h.'.txt')) {
-			$res = rename($folder.'/body_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/body.txt');
+			$res = rename($folder.'/body_'.$this->domain_h.'.txt',
+				$folder.'/'.$this->domain_h.'/body.txt');
 			if ($res !== true) {
 				$errors = true;
 				print 'body file'."\n";
@@ -2023,7 +2129,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/'.$this->domain_h.'/errors.txt') &&
 			file_exists($folder.'/errors_'.$this->domain_h.'.txt')) {
-			$res = rename($folder.'/errors_'.$this->domain_h.'.txt', $folder.'/'.$this->domain_h.'/errors.txt');
+			$res = rename($folder.'/errors_'.$this->domain_h.'.txt',
+				$folder.'/'.$this->domain_h.'/errors.txt');
 			if ($res !== true) {
 				$errors = true;
 				print 'errors file'."\n";
@@ -2031,7 +2138,8 @@ window.onkeydown = function(event){
 		}
 		if ( ! file_exists($folder.'/'.$this->domain_h.'/style.css') &&
 			file_exists($folder.'/style_'.$this->domain_h.'.css')) {
-			$res = rename($folder.'/style_'.$this->domain_h.'.css', $folder.'/'.$this->domain_h.'/style.css');
+			$res = rename($folder.'/style_'.$this->domain_h.'.css',
+				$folder.'/'.$this->domain_h.'/style.css');
 			if ($res !== true) {
 				$errors = true;
 				print 'style file'."\n";
@@ -2076,5 +2184,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// --------------------------------------------------
+// ------------
