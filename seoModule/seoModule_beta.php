@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.7-beta
- * @date 19.06.2019
+ * @date 28.06.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 63000
@@ -405,7 +405,7 @@ class buran_seoModule
 		$this->clear_request();
 		$this->seotext();
 
-		$res = ob_start(array($this,'ob_end',0,0));
+		$res = ob_start(array($this,'ob_end'),0,0);
 		if ($res !== true) {
 			$this->log('[04]');
 		}
