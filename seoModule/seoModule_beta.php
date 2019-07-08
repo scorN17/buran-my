@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.7-beta
- * @date 28.06.2019
+ * @date 08.07.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 63000
@@ -14,6 +14,7 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
 
 } else {
+	error_reporting(0);
 	ini_set('display_errors', 'off');
 
 	if ('list' == $_GET['a']) {
@@ -442,11 +443,9 @@ class buran_seoModule
 
 	function clear_request()
 	{
-		while (preg_match("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-			$this->querystring, $matches) === 1) {
-			$this->querystring
-				= preg_replace("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-					'${4}', $this->querystring);
+		$patt = "/((&|^)(_openstat|utm_.*|yclid|ymclid|gclid|fbclid)=.*)(&|$)/U";
+		while (preg_match($patt, $this->querystring, $matches) === 1) {
+			$this->querystring = preg_replace($patt, '${4}', $this->querystring);
 			if (strpos($this->querystring,'&') === 0) {
 				$this->querystring = substr($this->querystring, 1);
 			}
@@ -587,6 +586,8 @@ class buran_seoModule
 
 	function ob_end($template)
 	{
+		error_reporting(0);
+		
 		$template_orig = $template;
 
 		$http_code = 0;
