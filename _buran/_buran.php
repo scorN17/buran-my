@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.44
- * 06.09.2018
+ * @version 1.47
+ * 08.07.2019
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -301,7 +301,7 @@ mainpage:
 
 	<div>
 		<button class="action" data-act="etalon.files.show">Эталонные файлы</button>
-		<button class="action" data-act="etalon.files.create">Создать эталонные файлы</button>
+		<button class="action" data-act="etalon.files.create" data-get="&auto">Создать эталонные файлы</button>
 	</div>
 
 	<div>
@@ -421,7 +421,7 @@ br {
 
 class BURAN
 {
-	public $version = '1.44';
+	public $version = '1.45';
 
 	public $conf = array(
 		'maxtime'   => 27,
@@ -681,10 +681,18 @@ class BURAN
 				$ii++;
 				if ($ii <= $offset) continue;
 				$this->itemscounter++;
+
+				$fs = filesize($this->droot.$nextfolder.$file);
+
+				if ($fs*1.1 >= $this->conf('files_backup_maxpartsize')) {
+					print '[max_fs_'.$nextfolder.$file.']' .BR;
+					$this->log('max_filesize | '.$nextfolder.$file.' | '.$fs, 'files_backup');
+					continue;
+				}
 				
 				$zip->addFile($this->droot.$nextfolder.$file, 'www.'.$this->domain.$nextfolder.$file);
 				
-				$size += filesize($this->droot.$nextfolder.$file);
+				$size += $fs;
 				
 				if (
 					$this->max() ||
@@ -809,22 +817,29 @@ class BURAN
 
 	function etalonFiles($create=false)
 	{
-		if ($create) {
-			$zip = new ZipArchive();
-			if ( ! $zip) return false;
-		}
-
 		$folder = $this->broot.DS.'etalon'.DS;
 		if ( ! file_exists($folder)) mkdir($folder, 0755, true);
 		$this->htaccess($folder);
 
 		if ($create) {
-			$zipfile = 'etalon_files_'.date('Y-m-d-H-i-s');
+			$zip = new ZipArchive();
+			if ( ! $zip) return false;
+
+			$this->processFile = $folder.'etalon_files_create_process';
+			$offset  = 0;
+			$info    = $this->processFile();
+			if ($info) {
+				$zipfile = $info[0];
+				$offset  = intval($info[1]);
+			} else {
+				$zipfile = 'etalon_files_'.date('Y-m-d-H-i-s');
+			}
 			$zip->open($folder.$zipfile, ZIPARCHIVE::CREATE);
 		}
 
 		$flag_max = false;
 		$queue[] = '/';
+		$ii = 0;
 		do {
 			$nextfolder = array_shift($queue);
 			if( ! ($open = opendir($this->droot.$nextfolder)))
@@ -842,6 +857,12 @@ class BURAN
 				if (strpos($this->conf('etalon_files_ext'),
 					'/'.substr($file,strrpos($file,'.')).'/') === false)
 					continue;
+
+				if ($create) {
+					$ii++;
+					if ($ii <= $offset) continue;
+					$this->itemscounter++;
+				}
 
 				$etalonfolder = $folder.'files'.$nextfolder;
 				$etalonfile = $file.'_0';
@@ -897,12 +918,28 @@ class BURAN
 			if ($flag_max) break;
 		} while ($queue[0]);
 
+		$offset = $ii;
+
 		if ($create) {
 			$zip->close();
+
+			print '[offset_'.$offset.']' .BR;
 		}
 
 		if ($flag_max) {
 			print '[flag_max]' .BR;
+
+			if ($create) {
+				$res = $this->processFile('w', $zipfile."\n".$offset);
+				if ( ! $res) return false;
+
+				if ($this->autoReload) {
+					$this->reloadAction();
+				}
+			}
+
+		} elseif ($create) {
+			$this->deleteFile($this->processFile);
 		}
 
 		return true;
@@ -911,7 +948,7 @@ class BURAN
 
 	function etalonFilesClear()
 	{
-		$folder = DS.'etalon'.DS.'etalon';
+		$folder = DS.'etalon'.DS.'files';
 
 		$flag_max = false;
 		$queue[] = '/';
@@ -1097,14 +1134,14 @@ class BURAN
 		$this->htaccess($folder);
 
 		$this->processFile = $folder.'etalon_list_create_process';
-		$process = false;
-		$offset = 0;
+		$process    = false;
+		$offset     = 0;
 		$etalonfile = false;
-		$info = $this->processFile();
+		$info       = $this->processFile();
 		if ($info) {
 			$etalonfile = $info[0];
-			$offset = intval($info[1]);
-			$process = true;
+			$offset     = intval($info[1]);
+			$process    = true;
 		}
 
 		$files = array();
@@ -1176,6 +1213,8 @@ class BURAN
 			fclose($h);
 		}
 
+		print '[offset_'.$offset.']' .BR;
+
 		if ($flag_max) {
 			print '[flag_max]' .BR;
 
@@ -1211,6 +1250,7 @@ class BURAN
 		print '<script>setTimeout(function(){
 			window.location.reload(true);
 		}, '.$tm.');</script>';
+		print '[auto_reloaded]' .BR;
 	}
 
 	
@@ -1350,6 +1390,15 @@ class BURAN
 			return true;
 		}
 
+		@include($this->droot.'/sites/default/settings.php');
+		if ($drupal_hash_salt && is_array($databases['default']['default'])) {
+			$this->cms      = 'drupal';
+			$this->cms_ver  = '';
+			$this->cms_date = '';
+			$this->cms_name = '';
+			return true;
+		}
+
 		return false;
 	}
 
@@ -1409,6 +1458,14 @@ class BURAN
 			$this->db_user = DB_USER;
 			$this->db_pwd  = DB_PASSWORD;
 			$this->db_name = DB_NAME;
+		}
+
+		if ($this->cms == 'drupal') {
+			@include($this->droot.'/sites/default/settings.php');
+			$this->db_host = $databases['default']['default']['host'];
+			$this->db_user = $databases['default']['default']['username'];
+			$this->db_pwd  = $databases['default']['default']['password'];
+			$this->db_name = $databases['default']['default']['database'];
 		}
 	}
 	
@@ -1475,4 +1532,4 @@ class BURAN
 	}
 }
 // ----------------------------------------------
-// -------------
+// ---------------------------
