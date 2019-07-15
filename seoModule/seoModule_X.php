@@ -1,21 +1,20 @@
 <?php
 /**
  * seoModule
- * @version 5.6
- * @date 20.05.2019
+ * @version 5.7
+ * @date 15.07.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 63000
  */
 
-error_reporting(E_ALL & ~E_NOTICE);
-
-$bsm = new buran_seoModule('5.6');
+$bsm = new buran_seoModule('5.7');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
 
 } else {
+	error_reporting(0);
 	ini_set('display_errors', 'off');
 
 	if ('list' == $_GET['a']) {
@@ -407,7 +406,7 @@ class buran_seoModule
 		$this->clear_request();
 		$this->seotext();
 
-		$res = ob_start(array($this, 'ob_end'));
+		$res = ob_start(array($this,'ob_end'),0,0);
 		if ($res !== true) {
 			$this->log('[04]');
 		}
@@ -444,11 +443,9 @@ class buran_seoModule
 
 	function clear_request()
 	{
-		while (preg_match("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-			$this->querystring, $matches) === 1) {
-			$this->querystring
-				= preg_replace("/((&|^)(_openstat|utm_.*|yclid)=.*)(&|$)/U",
-					'${4}', $this->querystring);
+		$patt = "/((&|^)(_openstat|utm_.*|yclid|ymclid|gclid|fbclid)=.*)(&|$)/U";
+		while (preg_match($patt, $this->querystring, $matches) === 1) {
+			$this->querystring = preg_replace($patt, '${4}', $this->querystring);
 			if (strpos($this->querystring,'&') === 0) {
 				$this->querystring = substr($this->querystring, 1);
 			}
@@ -520,9 +517,9 @@ class buran_seoModule
 			$this->seotext_info['interval'] = intval(($this->seotext_info['interval']+$sr)/2);
 			$this->seotext_info['last'] = time();
 			$this->seotext_info['seotext_exists'] .= '-';
-			if (strlen($this->seotext_info['seotext_exists']) > 200) {
+			if (strlen($this->seotext_info['seotext_exists']) > 100) {
 				$this->seotext_info['seotext_exists']
-					= substr($this->seotext_info['seotext_exists'], 2);
+					= substr($this->seotext_info['seotext_exists'], 4);
 			}
 			$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 		}
@@ -589,6 +586,9 @@ class buran_seoModule
 
 	function ob_end($template)
 	{
+		error_reporting(0);
+		ini_set('display_errors', 'off');
+		
 		$template_orig = $template;
 
 		$http_code = 0;
@@ -1606,7 +1606,7 @@ window.onkeydown = function(event){
 		if ( ! $this->curl_ext) return false;
 		$options = array(
 			CURLOPT_URL            => $url,
-			CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
+			CURLOPT_HEADERFUNCTION => array(&$this,'request_headers'),
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_TIMEOUT        => 10,
@@ -1667,15 +1667,15 @@ window.onkeydown = function(event){
 
 	function alist()
 	{
-		$green = '#089c29';
-		$red   = '#d41717';
+		$green = '#16782b';
+		$red   = '#b52020';
 
 		$p = '<style>
 			.row {display: flex; margin-bottom: 3px;}
 			.col1 {flex: 0 0 150px; text-align: right; margin-right: 12px;}
 			.col2 {flex: 0 0 auto; margin-right: 5px;}
-			.green {color: #089c29;}
-			.red {color: #d41717;}
+			.green {color: #16782b;}
+			.red {color: #b52020;}
 		</style>';
 
 		$p .= '<div class="row"><span class="col1">Module</span><span class="col2">'.$this->module_hash.'</span></div>';
@@ -2006,7 +2006,7 @@ window.onkeydown = function(event){
 			$this->request_headers(false, false, true);
 			// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
 			curl_setopt($curl, CURLOPT_URL, $url);
-			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this, 'request_headers'));
+			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this,'request_headers'));
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			$response = curl_exec($curl);
 			$headers  = implode("\n", $this->curl_request_headers);
@@ -2183,5 +2183,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ------------
+// ------------------------------
