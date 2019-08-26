@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.7
- * @date 15.07.2019
+ * @version 5.8
+ * @date 26.08.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 63000
+ * @size 64000
  */
 
-$bsm = new buran_seoModule('5.7');
+$bsm = new buran_seoModule('5.8');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -401,6 +401,10 @@ class buran_seoModule
 
 		if (strpos($_SERVER['HTTP_USER_AGENT'], $this->useragent) !== false) {
 			return false;
+		}
+
+		if ($this->c[2]['error_handler'] && function_exists('set_error_handler')) {
+			set_error_handler(array($this,'error_handler'),E_ALL & ~E_NOTICE);
 		}
 
 		$this->clear_request();
@@ -829,14 +833,7 @@ class buran_seoModule
 				$i++;
 				$img['attr'] = $img['alt'].' ('.($i==1
 					? $this->charset[5] : $this->charset[6]).')';
-				$img_p = '
-<div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'">
-	<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
-	<div class="sssmb_bck">
-		<div class="sssmb_ln"></div>
-		<div class="sssmb_alt">'.$img['alt'].'</div>
-	</div>
-</div>';
+				$img_p = '<div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'"><img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" /><div class="sssmb_bck"><div class="sssmb_ln"></div></div></div>';
 			}
 			$st['s_text'] = preg_replace("/\[img\]/U", $img_p, $st['s_text'], 1, $cc);
 			if ( ! $cc && $img_p) {
@@ -1065,7 +1062,7 @@ window.onkeydown = function(event){
 
 		$body .= '
 <section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide=='Y'?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" />
+	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" content="'.$st['title'].'" />
 	<div class="sssmb_clr">&nbsp;</div>';
 
 		if ($this->seotext_tp == 'A') {
@@ -1097,14 +1094,15 @@ window.onkeydown = function(event){
 		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
 		<meta itemprop="address" content="'.addslashes($this->c[1]['address']).'" />
 		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-			<img itemprop="url" itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" />
+			<img itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
 			<meta itemprop="width" content="'.$logo_w.'" />
 			<meta itemprop="height" content="'.$logo_h.'" />
 		</div>
 	</div>
 	<p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
 	<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
-	<noindex><p itemprop="headline" itemprop="description">'.$st['title'].'</p></noindex>
+	<!--noindex--><p itemprop="headline">'.$st['title'].'</p><!--/noindex-->
+	<!--noindex--><p itemprop="description">'.$st['description'].'</p><!--/noindex-->
 </div>';
 		}
 
@@ -1344,6 +1342,11 @@ window.onkeydown = function(event){
 				break;
 
 			case 'errors':
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
+			case 'phperrors':
 				$hashfolder = true;
 				$file = $type.'.txt';
 				break;
@@ -1729,10 +1732,11 @@ window.onkeydown = function(event){
 				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
 				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
 				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
-				'fileperms',);
+				'fileperms', 'set_error_handler',);
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
-				$flag2 = stripos($disable_functions, ','.$func.',') !== false ? true : false;
+				$flag2 = stripos($disable_functions,','.$func.',') !== false
+					? true : false;
 				if ( ! $flag1 || $flag2) {
 					$p .= '<div class="row">
 						<span class="col1">'.$func.'()</span>
@@ -1855,6 +1859,14 @@ window.onkeydown = function(event){
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
 		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+
+		if (isset($_GET['phperrors'])) {
+			$data = $this->bsmfile('phperrors');
+			$res .= "\n";
+			$res .= '[phperrors_]'."\n";
+			$res .= $data;
+			$res .= '[_phperrors]'."\n";
+		}
 		return $res;
 	}
 
@@ -1909,6 +1921,16 @@ window.onkeydown = function(event){
 			}
 			fwrite($fh, $data."\n");
 		}
+	}
+
+	function error_handler($errno, $errstr, $errfile, $errline)
+	{
+		$file = $this->bsmfile('phperrors', 'file');
+		$fh = fopen($file, 'ab');
+		if ( ! $fh) return false;
+		$line = date('d.m.Y, H:i:s').' [errno '.$errno.'] '.$errstr.' in '.$errfile.' [line '.$errline.']';
+		fwrite($fh, $line."\n\n");
+		return false;
 	}
 
 	function filetime($file, $type='c')
@@ -2183,4 +2205,9 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------
