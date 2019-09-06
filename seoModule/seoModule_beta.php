@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.7-beta
- * @date 08.07.2019
+ * @version 5.9-beta
+ * @date 06.09.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 63000
+ * @size 64000
  */
 
-$bsm = new buran_seoModule('5.7-beta');
+$bsm = new buran_seoModule('5.9-beta');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -403,6 +403,10 @@ class buran_seoModule
 			return false;
 		}
 
+		if ($this->c[2]['error_handler'] && function_exists('set_error_handler')) {
+			set_error_handler(array($this,'error_handler'),E_ALL & ~E_NOTICE);
+		}
+
 		$this->clear_request();
 		$this->seotext();
 
@@ -517,9 +521,9 @@ class buran_seoModule
 			$this->seotext_info['interval'] = intval(($this->seotext_info['interval']+$sr)/2);
 			$this->seotext_info['last'] = time();
 			$this->seotext_info['seotext_exists'] .= '-';
-			if (strlen($this->seotext_info['seotext_exists']) > 200) {
+			if (strlen($this->seotext_info['seotext_exists']) > 100) {
 				$this->seotext_info['seotext_exists']
-					= substr($this->seotext_info['seotext_exists'], 2);
+					= substr($this->seotext_info['seotext_exists'], 4);
 			}
 			$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 		}
@@ -587,6 +591,11 @@ class buran_seoModule
 	function ob_end($template)
 	{
 		error_reporting(0);
+		ini_set('display_errors', 'off');
+
+		if (headers_sent()) {
+			$this->log('[22]');
+		}
 		
 		$template_orig = $template;
 
@@ -828,14 +837,7 @@ class buran_seoModule
 				$i++;
 				$img['attr'] = $img['alt'].' ('.($i==1
 					? $this->charset[5] : $this->charset[6]).')';
-				$img_p = '
-<div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'">
-	<img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" title="'.$img['attr'].'" />
-	<div class="sssmb_bck">
-		<div class="sssmb_ln"></div>
-		<div class="sssmb_alt">'.$img['alt'].'</div>
-	</div>
-</div>';
+				$img_p = '<div class="sssmb_img '.($i%2===0 ? 'sssmb_img_l' : 'sssmb_img_r').'"><img itemprop="image" src="'.$img['src'].'" alt="'.$img['attr'].'" /><div class="sssmb_bck"><div class="sssmb_ln"></div></div></div>';
 			}
 			$st['s_text'] = preg_replace("/\[img\]/U", $img_p, $st['s_text'], 1, $cc);
 			if ( ! $cc && $img_p) {
@@ -897,6 +899,8 @@ class buran_seoModule
 
 	function articles_parse($alias_start=false, $limit=0)
 	{
+		if ( ! $this->seotext['s_text'] && $limit) return;
+
 		$imgs = $this->module_folder.'/img/';
 		$flag = $alias_start ? true : false;
 		$list = $this->c[3];
@@ -967,6 +971,9 @@ class buran_seoModule
 	{
 		$st = $this->seotext;
 
+		$stext_f = $st['s_text'] ? true : false;
+		$stitle_f = $st['s_title'] ? true : false;
+
 		if ($st['flag_multitext']) {
 			$st['s_text'] = explode('[part]', $st['s_text']);
 			$s_text_single = '';
@@ -981,14 +988,16 @@ class buran_seoModule
 			$st['s_text'] = $s_text_single;
 		}
 
-		$style = $this->module_folder.'/'.$this->domain_h.'/style.css';
-		$body = '<link rel="stylesheet" href="'.$style.'" />';
+		if ($stext_f) {
+			$style = $this->module_folder.'/'.$this->domain_h.'/style.css';
+			$body = '<link rel="stylesheet" href="'.$style.'" />';
 
-		if ($st['before_code']) {
-			$body .= $st['before_code'];
+			if ($st['before_code']) {
+				$body .= $st['before_code'];
+			}
 		}
 
-		if ($this->seotext_hide == 'Y') {
+		if ($stext_f && $this->seotext_hide == 'Y') {
 			$body .= '
 <script>
 	function sssmb_chpoktext(){
@@ -1062,33 +1071,45 @@ window.onkeydown = function(event){
 </script>';
 }
 
-		$body .= '
-<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide=='Y'?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
-	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" />
-	<div class="sssmb_clr">&nbsp;</div>';
-
-		if ($this->seotext_tp == 'A') {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-				'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
-		} else {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-				'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
-				$template, -1, $hcc);
-		}
-
-		if ($hcc >= 2) {
-			$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '', $template);
-			$this->log('[50]');
-		}
-
-		if ($this->seotext_tp == 'A' || ! $hcc || $this->c[2]['starttag_title']) {
-			$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
-		}
-
-		list($logo_w, $logo_h) = getimagesize($this->droot.$this->c[1]['logo']);
-
-		if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_micromarking']) {
+		if ($stext_f) {
 			$body .= '
+<section id="sssmodulebox" class="sssmodulebox turbocontainer '.$this->c[2]['classname'].'" '.($this->seotext_hide=='Y'?'style="display:none;"':'').' itemscope itemtype="http://schema.org/Article">
+	<meta itemscope itemprop="mainEntityOfPage" itemType="https://schema.org/WebPage" itemid="'.$this->c[1]['website'].$this->requesturi.'" content="'.$st['title'].'" />
+	<div class="sssmb_clr">&nbsp;</div>';
+		}
+
+		if ($stitle_f) {
+			if ($stext_f && $this->seotext_tp == 'A') {
+				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
+			} else {
+				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
+					$template, -1, $hcc);
+			}
+
+			if ($hcc >= 2) {
+				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '', $template);
+				$this->log('[50]');
+			}
+
+			if (
+				$stext_f &&
+				(
+					$this->seotext_tp == 'A' ||
+					! $hcc ||
+					$this->c[2]['starttag_title']
+				)
+			) {
+				$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+			}
+		}
+
+		if ($stext_f) {
+			list($logo_w, $logo_h) = getimagesize($this->droot.$this->c[1]['logo']);
+
+			if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_micromarking']) {
+				$body .= '
 <div class="sssmb_cinf">
 	<p itemprop="author">'.$this->charset[7].': '.$this->c[1]['company_name'].'</p>
 	<div itemprop="publisher" itemscope itemtype="https://schema.org/Organization">
@@ -1096,37 +1117,39 @@ window.onkeydown = function(event){
 		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
 		<meta itemprop="address" content="'.addslashes($this->c[1]['address']).'" />
 		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-			<img itemprop="url" itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" />
+			<img itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
 			<meta itemprop="width" content="'.$logo_w.'" />
 			<meta itemprop="height" content="'.$logo_h.'" />
 		</div>
 	</div>
 	<p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
 	<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
-	<noindex><p itemprop="headline" itemprop="description">'.$st['title'].'</p></noindex>
+	<!--noindex--><p itemprop="headline">'.$st['title'].'</p><!--/noindex-->
+	<!--noindex--><p itemprop="description">'.$st['description'].'</p><!--/noindex-->
 </div>';
-		}
+			}
 
-		$body .= '<div class="sssmb_stext" itemprop="articleBody">';
+			$body .= '<div class="sssmb_stext" itemprop="articleBody">';
 
-		$body .= $st['s_text'];
+			$body .= $st['s_text'];
 
-		$body .= '<div class="sssmb_clr">&nbsp;</div></div>';
-		if($this->c[2]['share_code'])
-			$body .= '<div class="yasharebox">'.$this->c[2]['share_code'].'</div>';
-		$body .= '</section>';
+			$body .= '<div class="sssmb_clr">&nbsp;</div></div>';
+			if($this->c[2]['share_code'])
+				$body .= '<div class="yasharebox">'.$this->c[2]['share_code'].'</div>';
+			$body .= '</section>';
 
-		if ($this->seotext_tp == 'A') {
-			$foo = $this->tag_f['p'] == 'a' ? $this->tag_f['t'] : '';
-			$foo .= $body;
-			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-			$template = preg_replace("/".$this->tag_f['m']."/s", $foo, $template, 1);
+			if ($this->seotext_tp == 'A') {
+				$foo = $this->tag_f['p'] == 'a' ? $this->tag_f['t'] : '';
+				$foo .= $body;
+				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
+				$template = preg_replace("/".$this->tag_f['m']."/s", $foo, $template, 1);
 
-		} else {
-			$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
-			$foo .= $body;
-			$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-			$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/s", $foo, $template, 1);
+			} else {
+				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
+				$foo .= $body;
+				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
+				$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/s", $foo, $template, 1);
+			}
 		}
 
 		if ($this->c[2]['city_replace']) {
@@ -1343,6 +1366,11 @@ window.onkeydown = function(event){
 				break;
 
 			case 'errors':
+				$hashfolder = true;
+				$file = $type.'.txt';
+				break;
+
+			case 'phperrors':
 				$hashfolder = true;
 				$file = $type.'.txt';
 				break;
@@ -1605,7 +1633,7 @@ window.onkeydown = function(event){
 		if ( ! $this->curl_ext) return false;
 		$options = array(
 			CURLOPT_URL            => $url,
-			CURLOPT_HEADERFUNCTION => array(&$this, 'request_headers'),
+			CURLOPT_HEADERFUNCTION => array(&$this,'request_headers'),
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_TIMEOUT        => 10,
@@ -1666,15 +1694,15 @@ window.onkeydown = function(event){
 
 	function alist()
 	{
-		$green = '#089c29';
-		$red   = '#d41717';
+		$green = '#16782b';
+		$red   = '#b52020';
 
 		$p = '<style>
 			.row {display: flex; margin-bottom: 3px;}
 			.col1 {flex: 0 0 150px; text-align: right; margin-right: 12px;}
 			.col2 {flex: 0 0 auto; margin-right: 5px;}
-			.green {color: #089c29;}
-			.red {color: #d41717;}
+			.green {color: #16782b;}
+			.red {color: #b52020;}
 		</style>';
 
 		$p .= '<div class="row"><span class="col1">Module</span><span class="col2">'.$this->module_hash.'</span></div>';
@@ -1728,10 +1756,11 @@ window.onkeydown = function(event){
 				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
 				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
 				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
-				'fileperms',);
+				'fileperms', 'set_error_handler','headers_sent',);
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
-				$flag2 = stripos($disable_functions, ','.$func.',') !== false ? true : false;
+				$flag2 = stripos($disable_functions,','.$func.',') !== false
+					? true : false;
 				if ( ! $flag1 || $flag2) {
 					$p .= '<div class="row">
 						<span class="col1">'.$func.'()</span>
@@ -1853,7 +1882,15 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+
+		if (isset($_GET['phperrors'])) {
+			$data = $this->bsmfile('phperrors');
+			$res .= "\n";
+			$res .= '[phperrors_]'."\n";
+			$res .= $data;
+			$res .= '[_phperrors]'."\n";
+		}
 		return $res;
 	}
 
@@ -1908,6 +1945,16 @@ window.onkeydown = function(event){
 			}
 			fwrite($fh, $data."\n");
 		}
+	}
+
+	function error_handler($errno, $errstr, $errfile, $errline)
+	{
+		$file = $this->bsmfile('phperrors', 'file');
+		$fh = fopen($file, 'ab');
+		if ( ! $fh) return false;
+		$line = date('d.m.Y, H:i:s').' [errno '.$errno.'] '.$errstr.' in '.$errfile.' [line '.$errline.']';
+		fwrite($fh, $line."\n\n");
+		return false;
 	}
 
 	function filetime($file, $type='c')
@@ -2005,7 +2052,7 @@ window.onkeydown = function(event){
 			$this->request_headers(false, false, true);
 			// if($referer) curl_setopt($curl, CURLOPT_REFERER, $referer);
 			curl_setopt($curl, CURLOPT_URL, $url);
-			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this, 'request_headers'));
+			curl_setopt($curl, CURLOPT_HEADERFUNCTION, array(&$this,'request_headers'));
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			$response = curl_exec($curl);
 			$headers  = implode("\n", $this->curl_request_headers);
@@ -2183,4 +2230,8 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------
