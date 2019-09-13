@@ -973,6 +973,10 @@ class buran_seoModule
 
 		$stext_f = $st['s_text'] ? true : false;
 		$stitle_f = $st['s_title'] ? true : false;
+		if ($this->c[2]['disable_stext']) {
+			$stext_f = false;
+			$stitle_f = false;
+		}
 
 		if ($st['flag_multitext']) {
 			$st['s_text'] = explode('[part]', $st['s_text']);
@@ -2223,5 +2227,4 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// -----------------------------------------------
+// ------------
