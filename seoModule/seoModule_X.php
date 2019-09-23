@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.81
- * @date 13.09.2019
+ * @version 5.91
+ * @date 23.09.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 64000
  */
 
-$bsm = new buran_seoModule('5.81');
+$bsm = new buran_seoModule('5.91');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -226,8 +226,10 @@ class buran_seoModule
 		if (substr($this->sapi_name,0,3) == 'cgi') {
 			$this->protocol = 'Status:';
 		} else {
-			$this->protocol = $_SERVER['HTTP_X_PROTOCOL']
-				? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL']
+			$this->protocol =
+				isset($_SERVER['HTTP_X_PROTOCOL']) && $_SERVER['HTTP_X_PROTOCOL']
+				? $_SERVER['HTTP_X_PROTOCOL']
+				: (isset($_SERVER['SERVER_PROTOCOL']) && $_SERVER['SERVER_PROTOCOL']
 					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
 		}
 		if (isset($_POST['seomodule_test']) &&
@@ -258,7 +260,7 @@ class buran_seoModule
 
 		$this->accesscode = $this->c[2]['accesscode'];
 
-		if ($this->c[2]['dop_protocol']) {
+		if (isset($this->c[2]['dop_protocol']) && $this->c[2]['dop_protocol']) {
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
@@ -266,14 +268,20 @@ class buran_seoModule
 			$this->requesturi = urldecode($this->requesturi);
 		}
 
-		$this->declension = $this->c[7][$this->c[1]['city']];
+		if (isset($this->c[7][$this->c[1]['city']])) {
+			$this->declension = $this->c[7][$this->c[1]['city']];
+		}
 
-		$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
+		if (isset($this->c[2]['ignore_errors'])) {
+			$this->c[2]['ignore_errors'] = str_replace(' ','',$this->c[2]['ignore_errors']);
+		}
 
 		if (isset($_GET['proxy'])) {
 			$this->c[2]['proxy'] = $_GET['proxy'];
 		}
-		$this->c[2]['proxy'] = str_replace('-', ':', $this->c[2]['proxy']);
+		if (isset($this->c[2]['proxy'])) {
+			$this->c[2]['proxy'] = str_replace('-',':',$this->c[2]['proxy']);
+		}
 
 		$charsetlist = array(
 			'utf-8' => array(
@@ -1083,13 +1091,31 @@ window.onkeydown = function(event){
 		}
 
 		if ($stitle_f) {
+			if ($this->c[16]['bc_1']) {
+				$bc_1 = base64_decode($this->c[16]['bc_1']);
+				$bc_1 = str_replace('[+bsm_pagetitle+]',$st['s_title'],$bc_1);
+				$bc_1 = str_replace('[+bsm_linktoarticles+]',$this->c[1]['articles'],$bc_1);
+
+				$breadcrumbs = true;
+			}
+
 			if ($stext_f && $this->seotext_tp == 'A') {
 				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
 					'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
+
 			} else {
 				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-					'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
+					($breadcrumbs && ! $this->c[2]['bcrumbs_after_h1']
+						? '[+bsm_breadcrumbs+]' : '').
+					'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>'
+					.($breadcrumbs && $this->c[2]['bcrumbs_after_h1']
+						? '[+bsm_breadcrumbs+]' : '')
+					,
 					$template, -1, $hcc);
+			}
+
+			if ($breadcrumbs) {
+				$template = str_replace('[+bsm_breadcrumbs+]', $bc_1, $template);
 			}
 
 			if ($hcc >= 2) {
@@ -1105,7 +1131,7 @@ window.onkeydown = function(event){
 					$this->c[2]['starttag_title']
 				)
 			) {
-				$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+				$body1 .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 			}
 		}
 
@@ -1388,7 +1414,8 @@ window.onkeydown = function(event){
 		}
 
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
-		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
+		if (isset($subfolder) && $subfolder)
+			$folder .= $subfolder; else $folder .= '/';
 
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
@@ -2227,4 +2254,7 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
-// ------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -----------------------
