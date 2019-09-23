@@ -1147,7 +1147,7 @@ window.onkeydown = function(event){
 		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
 		<meta itemprop="address" content="'.addslashes($this->c[1]['address']).'" />
 		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-			<img itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
+			<img itemprop="url image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
 			<meta itemprop="width" content="'.$logo_w.'" />
 			<meta itemprop="height" content="'.$logo_h.'" />
 		</div>
@@ -2257,4 +2257,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// ------------------------
+// --------------------
