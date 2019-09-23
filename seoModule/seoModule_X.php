@@ -1131,7 +1131,7 @@ window.onkeydown = function(event){
 					$this->c[2]['starttag_title']
 				)
 			) {
-				$body1 .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+				$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 			}
 		}
 
@@ -2257,4 +2257,4 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -----------------------
+// ------------------------
