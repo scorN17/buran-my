@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.9-beta
- * @date 06.09.2019
+ * @version 5.92-beta
+ * @date 13.09.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 64000
  */
 
-$bsm = new buran_seoModule('5.9-beta');
+$bsm = new buran_seoModule('5.92-beta');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -226,8 +226,10 @@ class buran_seoModule
 		if (substr($this->sapi_name,0,3) == 'cgi') {
 			$this->protocol = 'Status:';
 		} else {
-			$this->protocol = $_SERVER['HTTP_X_PROTOCOL']
-				? $_SERVER['HTTP_X_PROTOCOL'] : ($_SERVER['SERVER_PROTOCOL']
+			$this->protocol =
+				isset($_SERVER['HTTP_X_PROTOCOL']) && $_SERVER['HTTP_X_PROTOCOL']
+				? $_SERVER['HTTP_X_PROTOCOL']
+				: (isset($_SERVER['SERVER_PROTOCOL']) && $_SERVER['SERVER_PROTOCOL']
 					? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
 		}
 		if (isset($_POST['seomodule_test']) &&
@@ -256,9 +258,11 @@ class buran_seoModule
 
 		$this->c = $this->config();
 
-		$this->accesscode = $this->c[2]['accesscode'];
+		if (isset($this->c[2]['accesscode']) && $this->c[2]['accesscode']) {
+			$this->accesscode = $this->c[2]['accesscode'];
+		}
 
-		if ($this->c[2]['dop_protocol']) {
+		if (isset($this->c[2]['dop_protocol']) && $this->c[2]['dop_protocol']) {
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
@@ -266,14 +270,20 @@ class buran_seoModule
 			$this->requesturi = urldecode($this->requesturi);
 		}
 
-		$this->declension = $this->c[7][$this->c[1]['city']];
+		if (isset($this->c[1]['city']) && isset($this->c[7][$this->c[1]['city']])) {
+			$this->declension = $this->c[7][$this->c[1]['city']];
+		}
 
-		$this->c[2]['ignore_errors'] = str_replace(' ', '', $this->c[2]['ignore_errors']);
+		if (isset($this->c[2]['ignore_errors'])) {
+			$this->c[2]['ignore_errors'] = str_replace(' ','',$this->c[2]['ignore_errors']);
+		}
 
 		if (isset($_GET['proxy'])) {
 			$this->c[2]['proxy'] = $_GET['proxy'];
 		}
-		$this->c[2]['proxy'] = str_replace('-', ':', $this->c[2]['proxy']);
+		if (isset($this->c[2]['proxy'])) {
+			$this->c[2]['proxy'] = str_replace('-',':',$this->c[2]['proxy']);
+		}
 
 		$charsetlist = array(
 			'utf-8' => array(
@@ -973,6 +983,10 @@ class buran_seoModule
 
 		$stext_f = $st['s_text'] ? true : false;
 		$stitle_f = $st['s_title'] ? true : false;
+		if ($this->c[2]['disable_stext']) {
+			$stext_f = false;
+			$stitle_f = false;
+		}
 
 		if ($st['flag_multitext']) {
 			$st['s_text'] = explode('[part]', $st['s_text']);
@@ -1148,7 +1162,7 @@ window.onkeydown = function(event){
 				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
 				$foo .= $body;
 				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-				$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/s", $foo, $template, 1);
+				$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/sU", $foo, $template, 1);
 			}
 		}
 
@@ -1384,7 +1398,8 @@ window.onkeydown = function(event){
 		}
 
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
-		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
+		if (isset($subfolder) && $subfolder)
+			$folder .= $subfolder; else $folder .= '/';
 
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
@@ -2223,15 +2238,4 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------
+// ------------
