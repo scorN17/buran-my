@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.91
- * @date 23.09.2019
+ * @version 5.93
+ * @date 27.09.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 64000
  */
 
-$bsm = new buran_seoModule('5.91');
+$bsm = new buran_seoModule('5.93');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -258,7 +258,9 @@ class buran_seoModule
 
 		$this->c = $this->config();
 
-		$this->accesscode = $this->c[2]['accesscode'];
+		if (isset($this->c[2]['accesscode']) && $this->c[2]['accesscode']) {
+			$this->accesscode = $this->c[2]['accesscode'];
+		}
 
 		if (isset($this->c[2]['dop_protocol']) && $this->c[2]['dop_protocol']) {
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
@@ -268,7 +270,7 @@ class buran_seoModule
 			$this->requesturi = urldecode($this->requesturi);
 		}
 
-		if (isset($this->c[7][$this->c[1]['city']])) {
+		if (isset($this->c[1]['city']) && isset($this->c[7][$this->c[1]['city']])) {
 			$this->declension = $this->c[7][$this->c[1]['city']];
 		}
 
@@ -2255,6 +2257,4 @@ window.onkeydown = function(event){
 }
 // ----------------------------------------------
 // ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// --------------------
+// --------------
