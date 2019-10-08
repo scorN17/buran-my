@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.92-beta
- * @date 13.09.2019
+ * @version 5.95-beta
+ * @date 08.10.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 64000
+ * @size 66000
  */
 
-$bsm = new buran_seoModule('5.92-beta');
+$bsm = new buran_seoModule('5.95-beta');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -266,6 +266,10 @@ class buran_seoModule
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
+		if (isset($this->c[2]['ob_start_flags']) && $this->c[2]['ob_start_flags']) {
+			$this->ob_start_flags = $this->c[2]['ob_start_flags'] ? PHP_OUTPUT_HANDLER_STDFLAGS : 0;
+		}
+
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
 		}
@@ -420,7 +424,7 @@ class buran_seoModule
 		$this->clear_request();
 		$this->seotext();
 
-		$res = ob_start(array($this,'ob_end'),0,0);
+		$res = ob_start(array($this,'ob_end'),0,$this->ob_start_flags);
 		if ($res !== true) {
 			$this->log('[04]');
 		}
@@ -475,21 +479,32 @@ class buran_seoModule
 		}
 		$seotext_alias = false;
 		$seotext_tp    = false;
+		$seotext_tit   = 'd';
+		$seotext_site  = 'd';
 		$seotext_hide  = 'D';
 		$flag = false;
 		foreach ($this->c[3] AS $alias => $prms) {
-			if ($this->requesturi == $prms[0]) {
-				$seotext_alias = $alias;
-				$seotext_tpl   = $prms['tpl'] == 'n' ? false : true;
-				$seotext_tp    = $prms[1] == 'w' ? 'W' : false;
-				$seotext_hide  = $prms[2] == 'h' ? 'Y'
-					: ($prms[2] == 's' ? 'N' : 'D');
-				if ($flag) {
-					$this->log('[13]');
-					break;
-				}
-				$flag = true;
+			if ($this->requesturi != $prms[0]) continue;
+
+			$seotext_alias = $alias;
+			$seotext_tpl   = $prms['tpl']=='n' ? false : true;
+			$seotext_tp    = $prms[1]=='w' ? 'W' : false;
+			$seotext_hide  = $prms[2]=='h' ? 'Y'
+				: ($prms[2]=='s' ? 'N' : 'D');
+
+			if (in_array($prms['tit'],array('n','h1','h2h1'))) {
+				$seotext_tit = $prms['tit'];
 			}
+
+			if (in_array($prms['st'],array('s','sf','f'))) {
+				$seotext_site = $prms['st'];
+			}
+
+			if ($flag) {
+				$this->log('[13]');
+				break;
+			}
+			$flag = true;
 		}
 		if ( ! $seotext_alias) return false;
 		$this->seotext_alias = $seotext_alias;
@@ -519,6 +534,9 @@ class buran_seoModule
 		$this->seotext = $text;
 		$this->seotext_tpl = $seotext_tpl;
 		$this->seotext_date = date('Y-m-d', $this->filetime($text['file']));
+
+		$this->seotext_tit  = $seotext_tit;
+		$this->seotext_site = $seotext_site;
 
 		if ($this->requestmethod != 'HEAD') {
 			$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
@@ -1084,6 +1102,20 @@ window.onkeydown = function(event){
 }
 </script>';
 }
+		if ('d' == $this->seotext_site) {
+			$this->seotext_site = $this->seotext_tp == 'A'
+				? 'f' : 'sf';
+		}
+		if ( ! $stext_f) {
+			$this->seotext_tit = 'n';
+		}
+		if ('d' == $this->seotext_tit) {
+			if ('f' == $this->seotext_site) {
+				$this->seotext_tit = 'h2h1';
+			} else {
+				$this->seotext_tit = 'h1';
+			}
+		}
 
 		if ($stext_f) {
 			$body .= '
@@ -1093,29 +1125,53 @@ window.onkeydown = function(event){
 		}
 
 		if ($stitle_f) {
-			if ($stext_f && $this->seotext_tp == 'A') {
-				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-					'<h2 ${1}>${2}</h2>', $template, -1, $hcc);
-			} else {
-				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
-					'<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>',
-					$template, -1, $hcc);
+			if ($this->c[16]['bc_1'] && $this->seotext_tp == 'S') {
+				$bc_1 = base64_decode($this->c[16]['bc_1']);
+				$bc_1 = str_replace('[+bsm_pagetitle+]',$st['s_title'],$bc_1);
+				$bc_1 = str_replace('[+bsm_linktoarticles+]',$this->c[1]['articles'],$bc_1);
+				$breadcrumbs = true;
 			}
 
-			if ($hcc >= 2) {
+			$h1cc = $h2cc = 1;
+			if ('h1' == $this->seotext_tit) {
+				$rpl = '<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>';
+				if ($breadcrumbs) {
+					if ($this->c[2]['bcrumbs_after_h1']) {
+						$rpl .= '[+bsm_breadcrumbs+]';
+					} else {
+						$rpl = '[+bsm_breadcrumbs+]'.$rpl;
+					}
+				}
+				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					$rpl, $template, -1, $h1cc);
+
+			} elseif ('h2h1' == $this->seotext_tit) {
+				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU",
+					'<h2 ${1}>${2}</h2>', $template, -1, $h2cc);
+			}
+			if (
+				! $h1cc
+				|| 'h2h1' == $this->seotext_tit
+				|| $this->c[2]['starttag_title']
+			) {
+				$tit = '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+				if (
+					$breadcrumbs
+					&& $this->c[2]['starttag_title']
+					&& $this->c[2]['starttag_breadcrumbs']
+				) {
+					if ($this->c[2]['bcrumbs_after_h1']) {
+						$tit .= '[+bsm_breadcrumbs+]';
+					} else {
+						$tit = '[+bsm_breadcrumbs+]'.$tit;
+					}
+				}
+				$body .= $tit;
+			}
+
+			if ($h1cc >= 2 || $h2cc >= 2) {
 				$template = preg_replace("/<h1(.*)>(.*)<\/h1>/isU", '', $template);
 				$this->log('[50]');
-			}
-
-			if (
-				$stext_f &&
-				(
-					$this->seotext_tp == 'A' ||
-					! $hcc ||
-					$this->c[2]['starttag_title']
-				)
-			) {
-				$body .= '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 			}
 		}
 
@@ -1131,7 +1187,7 @@ window.onkeydown = function(event){
 		<meta itemprop="telephone" content="'.$this->c[1]['phone'].'" />
 		<meta itemprop="address" content="'.addslashes($this->c[1]['address']).'" />
 		<div itemprop="logo" itemscope itemtype="https://schema.org/ImageObject">
-			<img itemprop="image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
+			<img itemprop="url image" src="'.$this->website.$this->c[1]['logo'].'" alt="" />
 			<meta itemprop="width" content="'.$logo_w.'" />
 			<meta itemprop="height" content="'.$logo_h.'" />
 		</div>
@@ -1152,18 +1208,31 @@ window.onkeydown = function(event){
 				$body .= '<div class="yasharebox">'.$this->c[2]['share_code'].'</div>';
 			$body .= '</section>';
 
-			if ($this->seotext_tp == 'A') {
+			if ('f' == $this->seotext_site) {
 				$foo = $this->tag_f['p'] == 'a' ? $this->tag_f['t'] : '';
 				$foo .= $body;
 				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-				$template = preg_replace("/".$this->tag_f['m']."/s", $foo, $template, 1);
+				$mask = "/".$this->tag_f['m']."/s";
 
-			} else {
+			} elseif ('sf' == $this->seotext_site) {
 				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
 				$foo .= $body;
 				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-				$template = preg_replace("/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/sU", $foo, $template, 1);
+				$mask = "/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/sU";
+
+			} elseif ('s' == $this->seotext_site) {
+				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
+				$foo .= $body;
+				$foo .= $this->tag_s['p'] == 'b' ? $this->tag_s['t'] : '';
+				$mask = "/".$this->tag_s['m']."/s";
 			}
+			if ($mask) {
+				$template = preg_replace($mask, $foo, $template, 1);
+			}
+		}
+
+		if ($breadcrumbs) {
+			$template = str_replace('[+bsm_breadcrumbs+]',$bc_1,$template);
 		}
 
 		if ($this->c[2]['city_replace']) {
@@ -2238,4 +2307,7 @@ window.onkeydown = function(event){
 	}
 }
 // ----------------------------------------------
-// ------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -------------------------
