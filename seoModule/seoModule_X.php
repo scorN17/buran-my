@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.95
- * @date 09.10.2019
+ * @version 5.96
+ * @date 15.10.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 66666
+ * @size 67777
  */
 
-$bsm = new buran_seoModule('5.95');
+$bsm = new buran_seoModule('5.96');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -181,6 +181,8 @@ class buran_seoModule
 	public $tag_s = false;
 	public $tag_f = false;
 	public $code = array();
+	
+	public $ob_start_flags;
 
 	public $curl_ext;
 	public $sock_ext;
@@ -258,34 +260,33 @@ class buran_seoModule
 
 		$this->c = $this->config();
 
-		if (isset($this->c[2]['accesscode']) && $this->c[2]['accesscode']) {
+		if ($this->c[2]['accesscode']) {
 			$this->accesscode = $this->c[2]['accesscode'];
 		}
 
-		if (isset($this->c[2]['dop_protocol']) && $this->c[2]['dop_protocol']) {
+		if ($this->c[2]['dop_protocol']) {
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
-		if (isset($this->c[2]['ob_start_flags']) && $this->c[2]['ob_start_flags']) {
-			$this->ob_start_flags = $this->c[2]['ob_start_flags'] ? PHP_OUTPUT_HANDLER_STDFLAGS : 0;
-		}
+		$this->ob_start_flags = $this->c[2]['ob_start_flags']
+			? PHP_OUTPUT_HANDLER_STDFLAGS : 0;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
 		}
 
-		if (isset($this->c[1]['city']) && isset($this->c[7][$this->c[1]['city']])) {
+		if (isset($this->c[7][$this->c[1]['city']])) {
 			$this->declension = $this->c[7][$this->c[1]['city']];
 		}
 
-		if (isset($this->c[2]['ignore_errors'])) {
+		if ($this->c[2]['ignore_errors']) {
 			$this->c[2]['ignore_errors'] = str_replace(' ','',$this->c[2]['ignore_errors']);
 		}
 
 		if (isset($_GET['proxy'])) {
 			$this->c[2]['proxy'] = $_GET['proxy'];
 		}
-		if (isset($this->c[2]['proxy'])) {
+		if ($this->c[2]['proxy']) {
 			$this->c[2]['proxy'] = str_replace('-',':',$this->c[2]['proxy']);
 		}
 
@@ -326,28 +327,45 @@ class buran_seoModule
 		$config_default = array(
 			1 => array(
 				'website' => $this->http.$this->www.$this->domain,
+				'city'    => '',
 			),
 
 			2 => array(
-				'module_enabled'   => '0',
-				'include_files'    => '/index.php',
-				'tpl_from_404'     => 1,
-				'transit_requests' => 1,
-				'out_charset'      => 'utf-8',
-				'classname'        => '',
-				'base'             => 'replace_or_add',
-				'canonical'        => 'replace_or_add',
-				'meta'             => 'replace_or_add',
-				'meta_title'       => 'replace_or_add',
-				'meta_description' => 'replace_or_add',
-				'meta_keywords'    => 'replace_or_add',
-				'urldecode'        => 1,
-				'redirect'         => 1,
-				'use_cache'        => 604800,
-				're_linking'       => 2,
-				'template_coding'  => '1',
-				'requets_methods'  => '/GET/HEAD/',
-				'share_code'       => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
+				'module_enabled'       => '0',
+				'accesscode'           => '',
+				'tpl_from_404'         => 1,
+				'include_files'        => '/index.php',
+				'launch_exceptions'    => '',
+				'transit_requests'     => 1,
+				'out_charset'          => 'utf-8',
+				'reverse_requests'     => '',
+				'proxy'                => '',
+				'classname'            => '',
+				'starttag_title'       => '',
+				'starttag_breadcrumbs' => '',
+				'bcrumbs_after_h1'     => '',
+				'use_head'             => '',
+				'use_body'             => '',
+				'template_coding'      => '1',
+				'dop_protocol'         => '',
+				'ob_start_flags'       => '',
+				'base'                 => 'replace_or_add',
+				'canonical'            => 'replace_or_add',
+				'meta'                 => 'replace_or_add',
+				'meta_title'           => 'replace_or_add',
+				'meta_description'     => 'replace_or_add',
+				'meta_keywords'        => 'replace_or_add',
+				'disable_stext'        => '',
+				're_linking'           => 2,
+				'hide_opt'             => '',
+				'urldecode'            => 1,
+				'redirect'             => 1,
+				'ignore_errors'        => '',
+				'city_replace'         => '',
+				'use_cache'            => 604800,
+				'requets_methods'      => '/GET/HEAD/',
+				'error_handler'        => '',
+				'share_code'           => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
 			),
 
 			4 => array(
@@ -417,7 +435,10 @@ class buran_seoModule
 			return false;
 		}
 
-		if ($this->c[2]['error_handler'] && function_exists('set_error_handler')) {
+		if (
+			$this->c[2]['error_handler']
+			&& function_exists('set_error_handler')
+		) {
 			set_error_handler(array($this,'error_handler'),E_ALL & ~E_NOTICE);
 		}
 
@@ -436,7 +457,10 @@ class buran_seoModule
 			return;
 		}
 		$redirect_to = $this->requesturi;
-		if ($this->c[4][$redirect_to]) {
+		if (
+			isset($this->c[4][$redirect_to])
+			&& $this->c[4][$redirect_to]
+		) {
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		foreach ($this->c[4] AS $from => $to) {
@@ -446,7 +470,10 @@ class buran_seoModule
 				$redirect_to = preg_replace($from, $to, $redirect_to);
 			}
 		}
-		if ($this->c[4][$redirect_to]) {
+		if (
+			isset($this->c[4][$redirect_to])
+			&& $this->c[4][$redirect_to]
+		) {
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		if ($redirect_to == $this->requesturi) $redirect_to = false;
@@ -492,11 +519,11 @@ class buran_seoModule
 			$seotext_hide  = $prms[2]=='h' ? 'Y'
 				: ($prms[2]=='s' ? 'N' : 'D');
 
-			if (in_array($prms['tit'],array('n','h1','h2h1'))) {
+			if (isset($prms['tit']) && in_array($prms['tit'],array('n','h1','h2h1'))) {
 				$seotext_tit = $prms['tit'];
 			}
 
-			if (in_array($prms['st'],array('s','sf','f'))) {
+			if (isset($prms['st']) && in_array($prms['st'],array('s','sf','f'))) {
 				$seotext_site = $prms['st'];
 			}
 
@@ -1342,6 +1369,10 @@ window.onkeydown = function(event){
 
 	function bsmfile($type, $act='get', $prm='', $body=false)
 	{
+		$subfolder = '';
+		$hashfolder = false;
+		$base64_e = false;
+		$base64_d = false;
 		$filepath = $act == 'file' ? true : false;
 		$dirpath = $act == 'dir' ? true : false;
 		$set = $act == 'set' ? true : false;
@@ -1467,11 +1498,16 @@ window.onkeydown = function(event){
 		}
 
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
-		if (isset($subfolder) && $subfolder)
-			$folder .= $subfolder; else $folder .= '/';
+		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
 
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
+
+		if ('module' == $type) {
+			$back = $folder.$file.'_'.date('YmdHis');
+			$res = copy($folder.$file, $back.'_'.substr(md5($back),0,4));
+			if ( ! $res) return false;
+		}
 
 		if ('imgs' == $type) {
 			if ( ! file_exists($folder)) {
@@ -1840,7 +1876,7 @@ window.onkeydown = function(event){
 				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
 				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
 				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
-				'fileperms', 'set_error_handler','headers_sent',);
+				'fileperms', 'set_error_handler','headers_sent','copy',);
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
 				$flag2 = stripos($disable_functions,','.$func.',') !== false
@@ -2313,4 +2349,9 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -----------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -----------------------
