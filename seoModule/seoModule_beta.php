@@ -1,21 +1,21 @@
 <?php
 /**
  * seoModule
- * @version 5.95-beta
- * @date 08.10.2019
+ * @version 5.97-beta
+ * @date 05.11.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 66000
+ * @size 67777
  */
 
-$bsm = new buran_seoModule('5.95-beta');
+$bsm = new buran_seoModule('5.97-beta');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
 
 } else {
-	error_reporting(0);
-	ini_set('display_errors', 'off');
+	error_reporting(1);
+	ini_set('display_errors', 'on');
 
 	if ('list' == $_GET['a']) {
 		header('Content-type: text/html; charset=utf-8');
@@ -120,6 +120,20 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 		exit();
 	}
 
+	if ('watch' == $_GET['a']) {
+		session_name('sssm');
+		session_start();
+		$tm = isset($_SESSION['buranseomodule']['watch'][$_GET['u']])
+			? intval($_SESSION['buranseomodule']['watch'][$_GET['u']]) : 0;
+		if (time() - $tm > 60) exit();
+		unset($_SESSION['buranseomodule']['watch'][$_GET['u']]);
+		$alias = preg_replace("/[^a-z0-9_]/", '', $_GET['b']);
+		$info = $bsm->bsmfile('txt_info', 'get', $alias);
+		$info['seotext_js'] .= $_GET['s'] == 'y' ? 'y' : 'n';
+		$bsm->bsmfile('txt_info', 'set', $alias, $info);
+		exit();
+	}
+
 	if ('auth' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
 		$_SESSION['buranseomodule']['auth'] = time();
@@ -181,6 +195,8 @@ class buran_seoModule
 	public $tag_s = false;
 	public $tag_f = false;
 	public $code = array();
+	
+	public $ob_start_flags;
 
 	public $curl_ext;
 	public $sock_ext;
@@ -258,34 +274,33 @@ class buran_seoModule
 
 		$this->c = $this->config();
 
-		if (isset($this->c[2]['accesscode']) && $this->c[2]['accesscode']) {
+		if ($this->c[2]['accesscode']) {
 			$this->accesscode = $this->c[2]['accesscode'];
 		}
 
-		if (isset($this->c[2]['dop_protocol']) && $this->c[2]['dop_protocol']) {
+		if ($this->c[2]['dop_protocol']) {
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
-		if (isset($this->c[2]['ob_start_flags']) && $this->c[2]['ob_start_flags']) {
-			$this->ob_start_flags = $this->c[2]['ob_start_flags'] ? PHP_OUTPUT_HANDLER_STDFLAGS : 0;
-		}
+		$this->ob_start_flags = $this->c[2]['ob_start_flags']
+			? $this->c[2]['ob_start_flags'] : 0;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
 		}
 
-		if (isset($this->c[1]['city']) && isset($this->c[7][$this->c[1]['city']])) {
+		if (isset($this->c[7][$this->c[1]['city']])) {
 			$this->declension = $this->c[7][$this->c[1]['city']];
 		}
 
-		if (isset($this->c[2]['ignore_errors'])) {
+		if ($this->c[2]['ignore_errors']) {
 			$this->c[2]['ignore_errors'] = str_replace(' ','',$this->c[2]['ignore_errors']);
 		}
 
 		if (isset($_GET['proxy'])) {
 			$this->c[2]['proxy'] = $_GET['proxy'];
 		}
-		if (isset($this->c[2]['proxy'])) {
+		if ($this->c[2]['proxy']) {
 			$this->c[2]['proxy'] = str_replace('-',':',$this->c[2]['proxy']);
 		}
 
@@ -326,28 +341,46 @@ class buran_seoModule
 		$config_default = array(
 			1 => array(
 				'website' => $this->http.$this->www.$this->domain,
+				'city'    => '',
 			),
 
 			2 => array(
-				'module_enabled'   => '0',
-				'include_files'    => '/index.php',
-				'tpl_from_404'     => 1,
-				'transit_requests' => 1,
-				'out_charset'      => 'utf-8',
-				'classname'        => '',
-				'base'             => 'replace_or_add',
-				'canonical'        => 'replace_or_add',
-				'meta'             => 'replace_or_add',
-				'meta_title'       => 'replace_or_add',
-				'meta_description' => 'replace_or_add',
-				'meta_keywords'    => 'replace_or_add',
-				'urldecode'        => 1,
-				'redirect'         => 1,
-				'use_cache'        => 604800,
-				're_linking'       => 2,
-				'template_coding'  => '1',
-				'requets_methods'  => '/GET/HEAD/',
-				'share_code'       => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
+				'module_enabled'       => '0',
+				'accesscode'           => '',
+				'counter'              => '',
+				'tpl_from_404'         => 1,
+				'include_files'        => '/index.php',
+				'launch_exceptions'    => '',
+				'transit_requests'     => 1,
+				'out_charset'          => 'utf-8',
+				'reverse_requests'     => '',
+				'proxy'                => '',
+				'classname'            => '',
+				'starttag_title'       => '',
+				'starttag_breadcrumbs' => '',
+				'bcrumbs_after_h1'     => '',
+				'use_head'             => '',
+				'use_body'             => '',
+				'template_coding'      => '1',
+				'dop_protocol'         => '',
+				'ob_start_flags'       => '',
+				'base'                 => 'replace_or_add',
+				'canonical'            => 'replace_or_add',
+				'meta'                 => 'replace_or_add',
+				'meta_title'           => 'replace_or_add',
+				'meta_description'     => 'replace_or_add',
+				'meta_keywords'        => 'replace_or_add',
+				'disable_stext'        => '',
+				're_linking'           => 2,
+				'hide_opt'             => '',
+				'urldecode'            => 1,
+				'redirect'             => 1,
+				'ignore_errors'        => '',
+				'city_replace'         => '',
+				'use_cache'            => 604800,
+				'requets_methods'      => '/GET/HEAD/',
+				'error_handler'        => '',
+				'share_code'           => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
 			),
 
 			4 => array(
@@ -417,7 +450,10 @@ class buran_seoModule
 			return false;
 		}
 
-		if ($this->c[2]['error_handler'] && function_exists('set_error_handler')) {
+		if (
+			$this->c[2]['error_handler']
+			&& function_exists('set_error_handler')
+		) {
 			set_error_handler(array($this,'error_handler'),E_ALL & ~E_NOTICE);
 		}
 
@@ -436,7 +472,10 @@ class buran_seoModule
 			return;
 		}
 		$redirect_to = $this->requesturi;
-		if ($this->c[4][$redirect_to]) {
+		if (
+			isset($this->c[4][$redirect_to])
+			&& $this->c[4][$redirect_to]
+		) {
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		foreach ($this->c[4] AS $from => $to) {
@@ -446,7 +485,10 @@ class buran_seoModule
 				$redirect_to = preg_replace($from, $to, $redirect_to);
 			}
 		}
-		if ($this->c[4][$redirect_to]) {
+		if (
+			isset($this->c[4][$redirect_to])
+			&& $this->c[4][$redirect_to]
+		) {
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		if ($redirect_to == $this->requesturi) $redirect_to = false;
@@ -492,11 +534,11 @@ class buran_seoModule
 			$seotext_hide  = $prms[2]=='h' ? 'Y'
 				: ($prms[2]=='s' ? 'N' : 'D');
 
-			if (in_array($prms['tit'],array('n','h1','h2h1'))) {
+			if (isset($prms['tit']) && in_array($prms['tit'],array('n','h1','h2h1'))) {
 				$seotext_tit = $prms['tit'];
 			}
 
-			if (in_array($prms['st'],array('s','sf','f'))) {
+			if (isset($prms['st']) && in_array($prms['st'],array('s','sf','f'))) {
 				$seotext_site = $prms['st'];
 			}
 
@@ -552,6 +594,10 @@ class buran_seoModule
 			if (strlen($this->seotext_info['seotext_exists']) > 100) {
 				$this->seotext_info['seotext_exists']
 					= substr($this->seotext_info['seotext_exists'], 4);
+			}
+			if (strlen($this->seotext_info['seotext_js']) > 100) {
+				$this->seotext_info['seotext_js']
+					= substr($this->seotext_info['seotext_js'], 4);
 			}
 			$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 		}
@@ -620,6 +666,10 @@ class buran_seoModule
 	{
 		error_reporting(0);
 		ini_set('display_errors', 'off');
+
+		session_write_close();
+		session_name('sssm');
+		session_start();
 
 		if (headers_sent()) {
 			$this->log('[22]');
@@ -767,6 +817,24 @@ class buran_seoModule
 		}
 		
 		$template = $this->template_parse($template);
+		
+		if (
+			time() - $this->seotext_info['check']['meta_robots'] > 60*60*6
+			&& preg_match_all("/\<meta .*\>/isU",$template,$matches)
+			&& is_array($matches)
+		) {
+			$this->seotext_info['check']['meta_robots'] = time();
+			foreach ($matches[0] AS $m) {
+				if (
+					stripos($m,'noindex') !== false
+					|| stripos($m,'nofollow') !== false
+					|| stripos($m,'none') !== false
+				) {
+					$this->log('[51]');
+					break;
+				}
+			}
+		}
 
 		if ( ! $this->seotext['cache'] && $this->c[2]['use_cache']) {
 			$this->cache_save($this->seotext_alias);
@@ -789,6 +857,7 @@ class buran_seoModule
 		if ($this->requestmethod != 'HEAD') {
 			$this->seotext_info['type'] = $this->seotext_tp;
 			$this->seotext_info['seotext_exists'] .= '+';
+			$this->seotext_info['seotext_js'] .= '+';
 			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 		}
 
@@ -1029,13 +1098,35 @@ class buran_seoModule
 			}
 		}
 
+		if (true) {
+			$uid = uniqid();
+			$_SESSION['buranseomodule']['watch'][$uid] = time();
+			$body .= '
+<script>
+document.addEventListener("readystatechange",(event)=>{
+	if (document.readyState != "interactive") return;
+	if ( ! window.XMLHttpRequest) return;
+	var m = new XMLHttpRequest;
+	let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
+	url += "&b='.$this->seotext_alias.'";
+	url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
+	url += "&u='.$uid.'";
+	try {
+		m.open("GET",url,1);
+	} catch (f) {
+		return;
+	}
+	m.send();
+});
+</script>';
+		}
+
 		if ($stext_f && $this->seotext_hide == 'Y') {
 			$body .= '
 <script>
 	function sssmb_chpoktext(){
-		obj= document.getElementById("sssmodulebox");
-		if(obj.style.display=="none") obj.style.display= "";
-		else obj.style.display= "none";
+		let obj = document.getElementById("sssmodulebox");
+		obj.style.display = obj.style.display=="none" ? "" : "none";
 	}
 </script>
 <article onclick="sssmb_chpoktext()">&rarr;</article>';
@@ -1044,16 +1135,14 @@ class buran_seoModule
 		if ($st['flag_tabs']) {
 			$body .= '
 <script>
-document.onreadystatechange = function(){
+document.addEventListener("readystatechange",(event)=>{
 	if (document.readyState != "interactive") return;
 	var tabs = document.getElementById("sssmb_tabs");
 	if ( ! tabs) return;
 	var butts = tabs.getElementsByClassName("sssmbt_butt");
 	Array.prototype.filter.call(butts, function(butt){
 		butt.onclick = function(e){
-			if (butt.classList.contains("sssmbt_butt_a")) {
-				return;
-			}
+			if (butt.classList.contains("sssmbt_butt_a")) return;
 			let tabid = butt.dataset.tabid;
 			tabs.getElementsByClassName("sssmbt_butt_a")[0].classList.remove("sssmbt_butt_a");
 			this.classList.add("sssmbt_butt_a");
@@ -1061,14 +1150,14 @@ document.onreadystatechange = function(){
 			tabs.getElementsByClassName("sssmbt_itm_"+tabid)[0].classList.add("sssmbt_itm_a");
 		};
 	});
-};
+});
 </script>';
 		}
 
 		if ($this->test) {
 			$body .= '
 <script>
-window.onload = function(){
+window.addEventListener("load",(event)=>{
 	var e = document.getElementById("sssmodulebox");
 	var h = e.offsetTop + e.offsetHeight + 1000;
 	if (document.body.offsetHeight > h) {
@@ -1079,29 +1168,10 @@ window.onload = function(){
 		from : "bsm",
 		height : h
 	},"*");
-};
+});
 </script>';
 		}
 
-if (time() - intval($_SESSION['buranseomodule']['auth']) < 60*60*8) {
-	$body .= '
-<script>
-window.onkeydown = function(event){
-	if (event.ctrlKey && event.altKey) {
-		if (event.keyCode === 84) {
-			var url = "http://bunker-yug.ru/seomodule_text.php?bodyonly&padding&a=gettext&idc='.$this->c[1]['bunker_id'].'&alias='.$this->seotext_alias.'";
-			window.open(url, "_blank");
-		} else if (event.keyCode === 80) {
-			var url = "http://bunker-yug.ru/seomodule.php?a=config&idc='.$this->c[1]['bunker_id'].'";
-			window.open(url, "_blank");
-		} else if (event.keyCode === 76) {
-			var url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=info";
-			window.open(url, "_blank");
-		}
-	}
-}
-</script>';
-}
 		if ('d' == $this->seotext_site) {
 			$this->seotext_site = $this->seotext_tp == 'A'
 				? 'f' : 'sf';
@@ -1129,6 +1199,7 @@ window.onkeydown = function(event){
 				$bc_1 = base64_decode($this->c[16]['bc_1']);
 				$bc_1 = str_replace('[+bsm_pagetitle+]',$st['s_title'],$bc_1);
 				$bc_1 = str_replace('[+bsm_linktoarticles+]',$this->c[1]['articles'],$bc_1);
+				$bc_1 = str_replace('[+bsm_pagelink+]',$this->requesturi,$bc_1);
 				$breadcrumbs = true;
 			}
 
@@ -1342,6 +1413,10 @@ window.onkeydown = function(event){
 
 	function bsmfile($type, $act='get', $prm='', $body=false)
 	{
+		$subfolder = '';
+		$hashfolder = false;
+		$base64_e = false;
+		$base64_d = false;
 		$filepath = $act == 'file' ? true : false;
 		$dirpath = $act == 'dir' ? true : false;
 		$set = $act == 'set' ? true : false;
@@ -1467,11 +1542,16 @@ window.onkeydown = function(event){
 		}
 
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
-		if (isset($subfolder) && $subfolder)
-			$folder .= $subfolder; else $folder .= '/';
+		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
 
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
+
+		if ('module' == $type) {
+			$back = $folder.$file.'_'.date('YmdHis');
+			$res = copy($folder.$file, $back.'_'.substr(md5($back),0,4));
+			if ( ! $res) return false;
+		}
 
 		if ('imgs' == $type) {
 			if ( ! file_exists($folder)) {
@@ -1493,7 +1573,7 @@ window.onkeydown = function(event){
 		if ($set) {
 			if ($body === false) {
 				if (file_exists($folder.$file)) {
-					unlink(file_exists($folder.$file));
+					unlink($folder.$file);
 					return true;
 				}
 			}
@@ -1824,13 +1904,15 @@ window.onkeydown = function(event){
 				'file_exists', 'base64_encode', 'ucwords',
 				'preg_match', 'curl_exec', 'curl_init', 'time',
 				'file_get_contents', 'stream_socket_client',
-				'fopen', 'fwrite', 'feof', 'fread', 'session_start',
+				'fopen', 'fwrite', 'feof', 'fread',
+				'session_start', 'session_id', 'session_name',
+				'session_write_close',
 				'file_exists', 'filectime', 'date', 'rewind',
 				'ftruncate', 'fgets', 'fseek', 'filesize', 'md5_file',
 				'is_array', 'ini_get', 'function_exists',
 				'extension_loaded', 'version_compare', 'php_uname',
 				'urlencode', 'serialize', 'unlink', 'unserialize',
-				'mkdir', 'move_uploaded_file', 'session_id',
+				'mkdir', 'move_uploaded_file',
 				'md5', 'preg_replace', 'in_array', 'strtotime',
 				'addslashes', 'getimagesize', 'each', 'reset',
 				'end', 'key', 'preg_match_all', 'array_shift',
@@ -1840,7 +1922,7 @@ window.onkeydown = function(event){
 				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
 				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
 				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
-				'fileperms', 'set_error_handler','headers_sent',);
+				'fileperms', 'set_error_handler','headers_sent','copy',);
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
 				$flag2 = stripos($disable_functions,','.$func.',') !== false
@@ -1948,7 +2030,7 @@ window.onkeydown = function(event){
 				$info = $this->bsmfile('txt_info', 'get', $alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['seotext_exists']."\n";
+				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['seotext_exists'].' : '.$info['seotext_js']."\n";
 			}
 		}
 		$res .= '[_pages]'."\n";
@@ -1966,7 +2048,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 
 		if (isset($_GET['phperrors'])) {
 			$data = $this->bsmfile('phperrors');
@@ -2068,6 +2150,7 @@ window.onkeydown = function(event){
 
 	function auth($get_w)
 	{
+		session_name('sssm');
 		session_start();
 		if (time() - $_SESSION['buranseomodule']['w_auth'][$get_w] < 60*30) {
 			return true;
@@ -2310,4 +2393,12 @@ window.onkeydown = function(event){
 // ----------------------------------------------
 // ----------------------------------------------
 // ----------------------------------------------
-// -------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// -----------------------
