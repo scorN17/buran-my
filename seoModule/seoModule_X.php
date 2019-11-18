@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.96
- * @date 15.10.2019
+ * @version 5.97
+ * @date 18.11.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 67777
+ * @size 69000
  */
 
-$bsm = new buran_seoModule('5.96');
+$bsm = new buran_seoModule('5.97');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -117,6 +117,20 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 	if ('transit_list' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit();
 		print $bsm->bsmfile('transit', 'get');
+		exit();
+	}
+
+	if ('watch' == $_GET['a']) {
+		session_name('sssm');
+		session_start();
+		$tm = isset($_SESSION['buranseomodule']['watch'][$_GET['u']])
+			? intval($_SESSION['buranseomodule']['watch'][$_GET['u']]) : 0;
+		if (time() - $tm > 60) exit();
+		unset($_SESSION['buranseomodule']['watch'][$_GET['u']]);
+		$alias = preg_replace("/[^a-z0-9_]/", '', $_GET['b']);
+		$info = $bsm->bsmfile('txt_info', 'get', $alias);
+		$info['seotext_js'] .= $_GET['s'] == 'y' ? 'y' : 'n';
+		$bsm->bsmfile('txt_info', 'set', $alias, $info);
 		exit();
 	}
 
@@ -269,7 +283,7 @@ class buran_seoModule
 		}
 
 		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? PHP_OUTPUT_HANDLER_STDFLAGS : 0;
+			? $this->c[2]['ob_start_flags'] : 0;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -329,10 +343,10 @@ class buran_seoModule
 				'website' => $this->http.$this->www.$this->domain,
 				'city'    => '',
 			),
-
 			2 => array(
 				'module_enabled'       => '0',
 				'accesscode'           => '',
+				'counter'              => '',
 				'tpl_from_404'         => 1,
 				'include_files'        => '/index.php',
 				'launch_exceptions'    => '',
@@ -367,7 +381,6 @@ class buran_seoModule
 				'error_handler'        => '',
 				'share_code'           => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
 			),
-
 			4 => array(
 				'/index.php'  => '/',
 				'/index.html' => '/',
@@ -515,7 +528,6 @@ class buran_seoModule
 
 			$seotext_alias = $alias;
 			$seotext_tpl   = $prms['tpl']=='n' ? false : true;
-			$seotext_tp    = $prms[1]=='w' ? 'W' : false;
 			$seotext_hide  = $prms[2]=='h' ? 'Y'
 				: ($prms[2]=='s' ? 'N' : 'D');
 
@@ -542,11 +554,10 @@ class buran_seoModule
 		}
 		if ( ! $text) return false;
 
-		if ( ! $text['type']) {
+		if ( ! isset($text['type']) || ! $text['type']) {
 			$text['type'] = $seotext_tp;
 		}
-		$text['type'] = $text['type'] == 'W' ? 'W'
-			: ($text['type'] == 'S' ? 'S' : 'A');
+		$text['type'] = $text['type']=='S' ? 'S' : 'A';
 		$this->seotext_tp = $text['type'];
 
 		$hide_flag = $this->c[2]['hide_opt'] === '1' ? 'Y'
@@ -567,9 +578,16 @@ class buran_seoModule
 
 		if ($this->requestmethod != 'HEAD') {
 			$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
-			if ( ! $this->seotext_info['last']) {
+			if (
+				! $this->seotext_info ||
+				! is_array($this->seotext_info) ||
+				! isset($this->seotext_info['last'])
+			) {
 				$this->seotext_info = array(
-					'last' => time()-(60*60*24),
+					'last'           => time()-(60*60*24),
+					'type'           => '',
+					'interval'       => 0,
+					'seotext_exists' => '',
 				);
 			}
 			$sr = time() - $this->seotext_info['last'];
@@ -579,6 +597,10 @@ class buran_seoModule
 			if (strlen($this->seotext_info['seotext_exists']) > 100) {
 				$this->seotext_info['seotext_exists']
 					= substr($this->seotext_info['seotext_exists'], 4);
+			}
+			if (strlen($this->seotext_info['seotext_js']) > 100) {
+				$this->seotext_info['seotext_js']
+					= substr($this->seotext_info['seotext_js'], 4);
 			}
 			$this->bsmfile('txt_info', 'set', $seotext_alias, $this->seotext_info);
 		}
@@ -595,7 +617,12 @@ class buran_seoModule
 		$ft_t = $this->filetime($file);
 		$ft_c = $this->filetime($this->bsmfile('txt_cache', 'file', $alias));
 
-		if ($use_cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_t) {
+		if (
+			$use_cache &&
+			$ft_c &&
+			time()-$ft_c <= $this->c[2]['use_cache'] &&
+			$ft_c>$ft_t
+		) {
 			$from_cache = true;
 			$this->seotext_cache = true;
 			$text = $this->bsmfile('txt_cache', 'get', $alias);
@@ -605,7 +632,7 @@ class buran_seoModule
 			$text = $this->bsmfile('text_value', 'get', $alias);
 		}
 
-		if ( ! $text['file']) {
+		if ( ! isset($text['file']) || ! $text['file']) {
 			$text['file'] = $file;
 		}
 		if (
@@ -647,6 +674,10 @@ class buran_seoModule
 	{
 		error_reporting(0);
 		ini_set('display_errors', 'off');
+
+		session_write_close();
+		session_name('sssm');
+		session_start();
 
 		if (headers_sent()) {
 			$this->log('[22]');
@@ -747,11 +778,9 @@ class buran_seoModule
 		if ($tags1) {
 			$tags2 = $this->get_tag($template, 'start');
 		}
-		if ( ! $tags1
-			|| (
-				($this->seotext_tp == 'S' || $this->seotext_tp == 'W')
-				&& ! $tags2
-			)
+		if (
+			! $tags1 ||
+			($this->seotext_tp == 'S' && ! $tags2)
 		) {
 			$this->log('[40]');
 			if ($gzip) $template = $this->template_coding($template, 'en');
@@ -794,6 +823,24 @@ class buran_seoModule
 		}
 		
 		$template = $this->template_parse($template);
+		
+		if (
+			time() - $this->seotext_info['check']['meta_robots'] > 60*60*6
+			&& preg_match_all("/\<meta .*\>/isU",$template,$matches)
+			&& is_array($matches)
+		) {
+			$this->seotext_info['check']['meta_robots'] = time();
+			foreach ($matches[0] AS $m) {
+				if (
+					stripos($m,'noindex') !== false
+					|| stripos($m,'nofollow') !== false
+					|| stripos($m,'none') !== false
+				) {
+					$this->log('[51]');
+					break;
+				}
+			}
+		}
 
 		if ( ! $this->seotext['cache'] && $this->c[2]['use_cache']) {
 			$this->cache_save($this->seotext_alias);
@@ -814,8 +861,19 @@ class buran_seoModule
 		}
 
 		if ($this->requestmethod != 'HEAD') {
+			if (
+				$this->seotext_info['type'] &&
+				$this->seotext_info['type'] != $this->seotext_tp
+			) {
+				if ('S' == $this->seotext_tp) {
+					$this->log('[14]');
+				} else {
+					$this->log('[15]');
+				}
+			}
 			$this->seotext_info['type'] = $this->seotext_tp;
 			$this->seotext_info['seotext_exists'] .= '+';
+			$this->seotext_info['seotext_js'] .= '+';
 			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 		}
 
@@ -1056,13 +1114,37 @@ class buran_seoModule
 			}
 		}
 
+		if (true) {
+			$uid = uniqid();
+			$_SESSION['buranseomodule']['watch'][$uid] = time();
+			$body .= '
+<script>
+document.addEventListener("readystatechange",(event)=>{
+	if (document.readyState != "interactive") return;
+	if ( ! window.XMLHttpRequest) return;
+	setTimeout(function(){
+		var m = new XMLHttpRequest;
+		let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
+		url += "&b='.$this->seotext_alias.'";
+		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
+		url += "&u='.$uid.'";
+		try {
+			m.open("GET",url,1);
+		} catch (f) {
+			return;
+		}
+		m.send();
+	},1000);
+});
+</script>';
+		}
+
 		if ($stext_f && $this->seotext_hide == 'Y') {
 			$body .= '
 <script>
 	function sssmb_chpoktext(){
-		obj= document.getElementById("sssmodulebox");
-		if(obj.style.display=="none") obj.style.display= "";
-		else obj.style.display= "none";
+		let obj = document.getElementById("sssmodulebox");
+		obj.style.display = obj.style.display=="none" ? "" : "none";
 	}
 </script>
 <article onclick="sssmb_chpoktext()">&rarr;</article>';
@@ -1071,16 +1153,14 @@ class buran_seoModule
 		if ($st['flag_tabs']) {
 			$body .= '
 <script>
-document.onreadystatechange = function(){
+document.addEventListener("readystatechange",(event)=>{
 	if (document.readyState != "interactive") return;
 	var tabs = document.getElementById("sssmb_tabs");
 	if ( ! tabs) return;
 	var butts = tabs.getElementsByClassName("sssmbt_butt");
 	Array.prototype.filter.call(butts, function(butt){
 		butt.onclick = function(e){
-			if (butt.classList.contains("sssmbt_butt_a")) {
-				return;
-			}
+			if (butt.classList.contains("sssmbt_butt_a")) return;
 			let tabid = butt.dataset.tabid;
 			tabs.getElementsByClassName("sssmbt_butt_a")[0].classList.remove("sssmbt_butt_a");
 			this.classList.add("sssmbt_butt_a");
@@ -1088,14 +1168,14 @@ document.onreadystatechange = function(){
 			tabs.getElementsByClassName("sssmbt_itm_"+tabid)[0].classList.add("sssmbt_itm_a");
 		};
 	});
-};
+});
 </script>';
 		}
 
 		if ($this->test) {
 			$body .= '
 <script>
-window.onload = function(){
+window.addEventListener("load",(event)=>{
 	var e = document.getElementById("sssmodulebox");
 	var h = e.offsetTop + e.offsetHeight + 1000;
 	if (document.body.offsetHeight > h) {
@@ -1106,31 +1186,12 @@ window.onload = function(){
 		from : "bsm",
 		height : h
 	},"*");
-};
+});
 </script>';
 		}
 
-if (time() - intval($_SESSION['buranseomodule']['auth']) < 60*60*8) {
-	$body .= '
-<script>
-window.onkeydown = function(event){
-	if (event.ctrlKey && event.altKey) {
-		if (event.keyCode === 84) {
-			var url = "http://bunker-yug.ru/seomodule_text.php?bodyonly&padding&a=gettext&idc='.$this->c[1]['bunker_id'].'&alias='.$this->seotext_alias.'";
-			window.open(url, "_blank");
-		} else if (event.keyCode === 80) {
-			var url = "http://bunker-yug.ru/seomodule.php?a=config&idc='.$this->c[1]['bunker_id'].'";
-			window.open(url, "_blank");
-		} else if (event.keyCode === 76) {
-			var url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=info";
-			window.open(url, "_blank");
-		}
-	}
-}
-</script>';
-}
 		if ('d' == $this->seotext_site) {
-			$this->seotext_site = $this->seotext_tp == 'A'
+			$this->seotext_site = $this->seotext_tp=='A'
 				? 'f' : 'sf';
 		}
 		if ( ! $stext_f) {
@@ -1156,6 +1217,7 @@ window.onkeydown = function(event){
 				$bc_1 = base64_decode($this->c[16]['bc_1']);
 				$bc_1 = str_replace('[+bsm_pagetitle+]',$st['s_title'],$bc_1);
 				$bc_1 = str_replace('[+bsm_linktoarticles+]',$this->c[1]['articles'],$bc_1);
+				$bc_1 = str_replace('[+bsm_pagelink+]',$this->requesturi,$bc_1);
 				$breadcrumbs = true;
 			}
 
@@ -1500,6 +1562,9 @@ window.onkeydown = function(event){
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
 		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
 
+		if (($dirpath || $filepath) && ! file_exists($folder)) {
+			mkdir($folder, 0755, true);
+		}
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
 
@@ -1529,7 +1594,7 @@ window.onkeydown = function(event){
 		if ($set) {
 			if ($body === false) {
 				if (file_exists($folder.$file)) {
-					unlink(file_exists($folder.$file));
+					unlink($folder.$file);
 					return true;
 				}
 			}
@@ -1860,13 +1925,15 @@ window.onkeydown = function(event){
 				'file_exists', 'base64_encode', 'ucwords',
 				'preg_match', 'curl_exec', 'curl_init', 'time',
 				'file_get_contents', 'stream_socket_client',
-				'fopen', 'fwrite', 'feof', 'fread', 'session_start',
+				'fopen', 'fwrite', 'feof', 'fread',
+				'session_start', 'session_id', 'session_name',
+				'session_write_close',
 				'file_exists', 'filectime', 'date', 'rewind',
 				'ftruncate', 'fgets', 'fseek', 'filesize', 'md5_file',
 				'is_array', 'ini_get', 'function_exists',
 				'extension_loaded', 'version_compare', 'php_uname',
 				'urlencode', 'serialize', 'unlink', 'unserialize',
-				'mkdir', 'move_uploaded_file', 'session_id',
+				'mkdir', 'move_uploaded_file',
 				'md5', 'preg_replace', 'in_array', 'strtotime',
 				'addslashes', 'getimagesize', 'each', 'reset',
 				'end', 'key', 'preg_match_all', 'array_shift',
@@ -1984,7 +2051,7 @@ window.onkeydown = function(event){
 				$info = $this->bsmfile('txt_info', 'get', $alias);
 				$hash = '';
 				if ($text) $hash = md5_file($text['file']);
-				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['seotext_exists']."\n";
+				$res .= $hash.' : '.$alias.' : '.$info['type'].' : '.$info['last'].' : '.$info['interval'].' : '.$info['seotext_exists'].' : '.$info['seotext_js']."\n";
 			}
 		}
 		$res .= '[_pages]'."\n";
@@ -2002,7 +2069,7 @@ window.onkeydown = function(event){
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 
 		if (isset($_GET['phperrors'])) {
 			$data = $this->bsmfile('phperrors');
@@ -2039,7 +2106,7 @@ window.onkeydown = function(event){
 			if (file_exists($file) && filesize($file) >= 1024*64) {
 				$fh = fopen($file, 'c+b');
 				if ($fh) {
-					fseek($fh, -1024*8, SEEK_END);
+					fseek($fh,-1024*8,SEEK_END);
 					$data = '';
 					while ($line = fgets($fh)) $data .= $line;
 					$data .= time() ."\t";
@@ -2069,7 +2136,7 @@ window.onkeydown = function(event){
 
 	function error_handler($errno, $errstr, $errfile, $errline)
 	{
-		$file = $this->bsmfile('phperrors', 'file');
+		$file = $this->bsmfile('phperrors','file');
 		$fh = fopen($file, 'ab');
 		if ( ! $fh) return false;
 		$line = date('d.m.Y, H:i:s').' [errno '.$errno.'] '.$errstr.' in '.$errfile.' [line '.$errline.']';
@@ -2104,6 +2171,7 @@ window.onkeydown = function(event){
 
 	function auth($get_w)
 	{
+		session_name('sssm');
 		session_start();
 		if (time() - $_SESSION['buranseomodule']['w_auth'][$get_w] < 60*30) {
 			return true;
@@ -2116,7 +2184,7 @@ window.onkeydown = function(event){
 
 		if ($this->curl_ext) {
 			$options = array(
-				CURLOPT_URL            => $http.$host.$url,
+				CURLOPT_URL => $http.$host.$url,
 				CURLOPT_RETURNTRANSFER => true,
 			);
 			$curl = curl_init();
@@ -2196,9 +2264,7 @@ window.onkeydown = function(event){
 		return $response;
 	}
 
-	/**
-	 * https://github.com/ralouphie/getallheaders
-	 */
+	//https://github.com/ralouphie/getallheaders
 	function getallheaders_bsm()
 	{
 		$headers = array();
@@ -2323,14 +2389,11 @@ window.onkeydown = function(event){
 					continue;
 				if ( ! is_file($folder.'/img/'.$file))
 					continue;
-
 				if (substr($file, strpos($file, '.')-2, 1) == '_')
 					continue;
-
 				$ext = substr($file, strpos($file, '.')-1);
 				$name = substr($file, 0, strpos($file, '.')-1);
 				$name = $name.'_'.$ext;
-
 				$res = rename($folder.'/img/'.$file, $folder.'/img/'.$name);
 				if ($res !== true) {
 					$errors = true;
@@ -2338,20 +2401,7 @@ window.onkeydown = function(event){
 				}
 			}
 		}
-
 		return $errors ? false : true;
 	}
 }
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -----------------------
+//---------
