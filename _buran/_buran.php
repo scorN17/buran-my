@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 1.47
- * 08.07.2019
+ * @version 1.49
+ * 03.12.2019
  * Delta
  * sergey.it@delta-ltd.ru
  *
@@ -56,6 +56,7 @@ if ( ! $action) goto mainpage;
 
 if ($action == 'update') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$res = $bu->update();
 	if ($res) {
 		print '[ok]' .BR;
@@ -76,6 +77,7 @@ if ($action == 'files.manager') {
 </style>
 	<?php
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$res = $bu->filesManager();
 	if ($res) {
 		print '[ok]' .BR;
@@ -116,6 +118,7 @@ if ($action == 'file.content') {
 
 if ($action == 'file.chmod') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	if ($bu->go) {
 		$res = $bu->chmodFile($bu->droot.$bu->file, $bu->param);
 	} else {
@@ -132,6 +135,7 @@ if ($action == 'file.chmod') {
 
 if ($action == 'file.delete') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	if ($bu->go) {
 		$res = $bu->deleteFile($bu->droot.$bu->file);
 	} else {
@@ -148,6 +152,7 @@ if ($action == 'file.delete') {
 
 if ($action == 'file.rename') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	if ($bu->go) {
 		$res = $bu->renameFile($bu->droot.$bu->file, $bu->param);
 	} else {
@@ -164,6 +169,7 @@ if ($action == 'file.rename') {
 
 if ($action == 'db.dump') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$res = $bu->dbDump();
 	if ($res) {
 		print '[ok]' .BR;
@@ -176,6 +182,7 @@ if ($action == 'db.dump') {
 
 if ($action == 'files.backup') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$res = $bu->filesBackup();
 	if ($res) {
 		print '[ok]' .BR;
@@ -188,6 +195,7 @@ if ($action == 'files.backup') {
 
 if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$create = $action == 'etalon.files.create' ? true : false;
 	$res = $bu->etalonFiles($create);
 	if ($res) {
@@ -209,6 +217,7 @@ if ($action == 'etalon.files.show' || $action == 'etalon.files.create') {
 
 if ($action == 'etalon.list.compare') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	if ( ! $bu->file) {
 		$bu->file = 'etalon_list_0';
 	}
@@ -219,6 +228,7 @@ if ($action == 'etalon.list.compare') {
 
 if ($action == 'etalon.list.create') {
 	print '[start]' .BR;
+	print '[time_'.date('Y-m-d-H-i-s').']' .BR;
 	$res = $bu->etalonListCreate();
 	if ($res) {
 		print '[ok]' .BR;
@@ -421,7 +431,7 @@ br {
 
 class BURAN
 {
-	public $version = '1.45';
+	public $version = '1.49';
 
 	public $conf = array(
 		'maxtime'   => 27,
@@ -434,6 +444,8 @@ class BURAN
 
 		'etalon_files_ext' => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/.tpl/',
 		'etalon_list_ext'  => '/.php/.htaccess/.html/.htm/.js/.inc/.css/.sass/.scss/.less/.tpl/',
+
+		'backup_files_ext_without' => '',
 	);
 
 	public $time_start;
@@ -669,14 +681,21 @@ class BURAN
 					|| $file == '.' || $file == '..'
 					|| $file == '.th'
 					|| $nextfolder.$file == '/_buran/backup'
-					|| $nextfolder.$file == '/_buran/etalon/files')
-					continue;
+					|| $nextfolder.$file == '/_buran/etalon/files'
+				) continue;
 				if (is_dir($this->droot.$nextfolder.$file)) {
 					$queue[] = $nextfolder.$file.'/';
 					continue;
 				}
-				if( ! is_file($this->droot.$nextfolder.$file))
+				if ( ! is_file($this->droot.$nextfolder.$file)) {
 					continue;
+				}
+				$ext = substr($file,strrpos($file,'.'));
+				$ext = strtolower($ext);
+				if (strpos($this->conf('backup_files_ext_without'),
+					'/'.$ext.'/') !== false) {
+					continue;
+				}
 				
 				$ii++;
 				if ($ii <= $offset) continue;
@@ -852,11 +871,15 @@ class BURAN
 					$queue[] = $nextfolder.$file.'/';
 					continue;
 				}
-				if( ! is_file($this->droot.$nextfolder.$file))
+				if ( ! is_file($this->droot.$nextfolder.$file)) {
 					continue;
+				}
+				$ext = substr($file,strrpos($file,'.'));
+				$ext = strtolower($ext);
 				if (strpos($this->conf('etalon_files_ext'),
-					'/'.substr($file,strrpos($file,'.')).'/') === false)
+					'/'.$ext.'/') === false) {
 					continue;
+				}
 
 				if ($create) {
 					$ii++;
@@ -1036,7 +1059,7 @@ class BURAN
 			foreach ($list AS $file => $row) {
 				if (file_exists($this->droot.$file))
 					continue;
-				$list_3 = '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
+				$list_3 .= '<div style="font-size:12px;font-family:arial;padding-bottom:2px;">';
 				$list_3 .= '<span style="text-decoration:none;color:#000;">'.$file.'</span>';
 				$list_3 .= '</div>';
 			}
@@ -1532,4 +1555,9 @@ class BURAN
 	}
 }
 // ----------------------------------------------
-// ---------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------------------
+// ----------------------------------
