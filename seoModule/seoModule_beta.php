@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.97-beta
- * @date 05.11.2019
+ * @version 5.98-b
+ * @date 18.11.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 67777
+ * @size 69000
  */
 
-$bsm = new buran_seoModule('5.97-beta');
+$bsm = new buran_seoModule('5.98-b');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -340,10 +340,16 @@ class buran_seoModule
 	{
 		$config_default = array(
 			1 => array(
-				'website' => $this->http.$this->www.$this->domain,
-				'city'    => '',
+				'website'      => $this->http.$this->www.$this->domain,
+				'articles'     => '',
+				'bunker_id'    => '',
+				'city'         => '',
+				'date_start'   => '',
+				'company_name' => '',
+				'logo'         => '',
+				'phone'        => '',
+				'address'      => '',
 			),
-
 			2 => array(
 				'module_enabled'       => '0',
 				'accesscode'           => '',
@@ -375,6 +381,7 @@ class buran_seoModule
 				'hide_opt'             => '',
 				'urldecode'            => 1,
 				'redirect'             => 1,
+				'domain_redirect'      => 1,
 				'ignore_errors'        => '',
 				'city_replace'         => '',
 				'use_cache'            => 604800,
@@ -382,10 +389,17 @@ class buran_seoModule
 				'error_handler'        => '',
 				'share_code'           => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
 			),
-
 			4 => array(
 				'/index.php'  => '/',
 				'/index.html' => '/',
+			),
+			12 => array(
+				'obrabotka'      => '',
+				'o_canonical'    => '',
+				'o_micromarking' => '',
+			),
+			16 => array(
+				'bc_1' => '',
 			),
 		);
 
@@ -468,9 +482,9 @@ class buran_seoModule
 
 	function redirects()
 	{
-		if ( ! is_array($this->c[4])) {
-			return;
-		}
+		$redirect_ws = $this->c[2]['domain_redirect']
+			? $this->c[1]['website'] : $this->website;
+
 		$redirect_to = $this->requesturi;
 		if (
 			isset($this->c[4][$redirect_to])
@@ -492,11 +506,13 @@ class buran_seoModule
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		if ($redirect_to == $this->requesturi) $redirect_to = false;
-		if ( ! $redirect_to && $this->website !== $this->c[1]['website']) {
+
+		if ( ! $redirect_to && $redirect_ws !== $this->website) {
 			$redirect_to = $this->requesturi;
 		}
+		
 		if ($redirect_to) {
-			header('Location: '.$this->c[1]['website'].$redirect_to, true, 301);
+			header('Location: '.$redirect_ws.$redirect_to, true, 301);
 			exit();
 		}
 	}
@@ -530,7 +546,6 @@ class buran_seoModule
 
 			$seotext_alias = $alias;
 			$seotext_tpl   = $prms['tpl']=='n' ? false : true;
-			$seotext_tp    = $prms[1]=='w' ? 'W' : false;
 			$seotext_hide  = $prms[2]=='h' ? 'Y'
 				: ($prms[2]=='s' ? 'N' : 'D');
 
@@ -557,11 +572,10 @@ class buran_seoModule
 		}
 		if ( ! $text) return false;
 
-		if ( ! $text['type']) {
+		if ( ! isset($text['type']) || ! $text['type']) {
 			$text['type'] = $seotext_tp;
 		}
-		$text['type'] = $text['type'] == 'W' ? 'W'
-			: ($text['type'] == 'S' ? 'S' : 'A');
+		$text['type'] = $text['type']=='S' ? 'S' : 'A';
 		$this->seotext_tp = $text['type'];
 
 		$hide_flag = $this->c[2]['hide_opt'] === '1' ? 'Y'
@@ -582,9 +596,17 @@ class buran_seoModule
 
 		if ($this->requestmethod != 'HEAD') {
 			$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
-			if ( ! $this->seotext_info['last']) {
+			if (
+				! $this->seotext_info ||
+				! is_array($this->seotext_info) ||
+				! isset($this->seotext_info['last'])
+			) {
 				$this->seotext_info = array(
-					'last' => time()-(60*60*24),
+					'last'           => time()-(60*60*24),
+					'type'           => '',
+					'interval'       => 0,
+					'seotext_exists' => '',
+					'seotext_js'     => '',
 				);
 			}
 			$sr = time() - $this->seotext_info['last'];
@@ -614,7 +636,12 @@ class buran_seoModule
 		$ft_t = $this->filetime($file);
 		$ft_c = $this->filetime($this->bsmfile('txt_cache', 'file', $alias));
 
-		if ($use_cache && $ft_c && time()-$ft_c<=$this->c[2]['use_cache'] && $ft_c>$ft_t) {
+		if (
+			$use_cache &&
+			$ft_c &&
+			time()-$ft_c <= $this->c[2]['use_cache'] &&
+			$ft_c>$ft_t
+		) {
 			$from_cache = true;
 			$this->seotext_cache = true;
 			$text = $this->bsmfile('txt_cache', 'get', $alias);
@@ -624,7 +651,7 @@ class buran_seoModule
 			$text = $this->bsmfile('text_value', 'get', $alias);
 		}
 
-		if ( ! $text['file']) {
+		if ( ! isset($text['file']) || ! $text['file']) {
 			$text['file'] = $file;
 		}
 		if (
@@ -770,11 +797,9 @@ class buran_seoModule
 		if ($tags1) {
 			$tags2 = $this->get_tag($template, 'start');
 		}
-		if ( ! $tags1
-			|| (
-				($this->seotext_tp == 'S' || $this->seotext_tp == 'W')
-				&& ! $tags2
-			)
+		if (
+			! $tags1 ||
+			($this->seotext_tp == 'S' && ! $tags2)
 		) {
 			$this->log('[40]');
 			if ($gzip) $template = $this->template_coding($template, 'en');
@@ -855,6 +880,16 @@ class buran_seoModule
 		}
 
 		if ($this->requestmethod != 'HEAD') {
+			if (
+				$this->seotext_info['type'] &&
+				$this->seotext_info['type'] != $this->seotext_tp
+			) {
+				if ('S' == $this->seotext_tp) {
+					$this->log('[14]');
+				} else {
+					$this->log('[15]');
+				}
+			}
 			$this->seotext_info['type'] = $this->seotext_tp;
 			$this->seotext_info['seotext_exists'] .= '+';
 			$this->seotext_info['seotext_js'] .= '+';
@@ -1106,17 +1141,19 @@ class buran_seoModule
 document.addEventListener("readystatechange",(event)=>{
 	if (document.readyState != "interactive") return;
 	if ( ! window.XMLHttpRequest) return;
-	var m = new XMLHttpRequest;
-	let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
-	url += "&b='.$this->seotext_alias.'";
-	url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
-	url += "&u='.$uid.'";
-	try {
-		m.open("GET",url,1);
-	} catch (f) {
-		return;
-	}
-	m.send();
+	setTimeout(function(){
+		var m = new XMLHttpRequest;
+		let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
+		url += "&b='.$this->seotext_alias.'";
+		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
+		url += "&u='.$uid.'";
+		try {
+			m.open("GET",url,1);
+		} catch (f) {
+			return;
+		}
+		m.send();
+	},1000);
 });
 </script>';
 		}
@@ -1173,7 +1210,7 @@ window.addEventListener("load",(event)=>{
 		}
 
 		if ('d' == $this->seotext_site) {
-			$this->seotext_site = $this->seotext_tp == 'A'
+			$this->seotext_site = $this->seotext_tp=='A'
 				? 'f' : 'sf';
 		}
 		if ( ! $stext_f) {
@@ -1544,6 +1581,9 @@ window.addEventListener("load",(event)=>{
 		if ($hashfolder) $folder .= '/'.$this->domain_h;
 		if ($subfolder) $folder .= $subfolder; else $folder .= '/';
 
+		if (($dirpath || $filepath) && ! file_exists($folder)) {
+			mkdir($folder, 0755, true);
+		}
 		if ($dirpath) return $folder;
 		if ($filepath) return $folder.$file;
 
@@ -2048,7 +2088,7 @@ window.addEventListener("load",(event)=>{
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 
 		if (isset($_GET['phperrors'])) {
 			$data = $this->bsmfile('phperrors');
@@ -2085,7 +2125,7 @@ window.addEventListener("load",(event)=>{
 			if (file_exists($file) && filesize($file) >= 1024*64) {
 				$fh = fopen($file, 'c+b');
 				if ($fh) {
-					fseek($fh, -1024*8, SEEK_END);
+					fseek($fh,-1024*8,SEEK_END);
 					$data = '';
 					while ($line = fgets($fh)) $data .= $line;
 					$data .= time() ."\t";
@@ -2115,7 +2155,7 @@ window.addEventListener("load",(event)=>{
 
 	function error_handler($errno, $errstr, $errfile, $errline)
 	{
-		$file = $this->bsmfile('phperrors', 'file');
+		$file = $this->bsmfile('phperrors','file');
 		$fh = fopen($file, 'ab');
 		if ( ! $fh) return false;
 		$line = date('d.m.Y, H:i:s').' [errno '.$errno.'] '.$errstr.' in '.$errfile.' [line '.$errline.']';
@@ -2163,7 +2203,7 @@ window.addEventListener("load",(event)=>{
 
 		if ($this->curl_ext) {
 			$options = array(
-				CURLOPT_URL            => $http.$host.$url,
+				CURLOPT_URL => $http.$host.$url,
 				CURLOPT_RETURNTRANSFER => true,
 			);
 			$curl = curl_init();
@@ -2243,9 +2283,7 @@ window.addEventListener("load",(event)=>{
 		return $response;
 	}
 
-	/**
-	 * https://github.com/ralouphie/getallheaders
-	 */
+	//https://github.com/ralouphie/getallheaders
 	function getallheaders_bsm()
 	{
 		$headers = array();
@@ -2370,14 +2408,11 @@ window.addEventListener("load",(event)=>{
 					continue;
 				if ( ! is_file($folder.'/img/'.$file))
 					continue;
-
 				if (substr($file, strpos($file, '.')-2, 1) == '_')
 					continue;
-
 				$ext = substr($file, strpos($file, '.')-1);
 				$name = substr($file, 0, strpos($file, '.')-1);
 				$name = $name.'_'.$ext;
-
 				$res = rename($folder.'/img/'.$file, $folder.'/img/'.$name);
 				if ($res !== true) {
 					$errors = true;
@@ -2385,20 +2420,7 @@ window.addEventListener("load",(event)=>{
 				}
 			}
 		}
-
 		return $errors ? false : true;
 	}
 }
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// ----------------------------------------------
-// -----------------------
+//---------
