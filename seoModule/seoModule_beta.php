@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.98-b
- * @date 18.11.2019
+ * @date 24.12.2019
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 69000
@@ -1373,7 +1373,7 @@ window.addEventListener("load",(event)=>{
 			}
 			$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $description, $template, 2, $count1);
 			$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $keywords, $template, 2, $count2);
-			$template = preg_replace("/<title>(.*)<\/title>/isU", $title, $template, 2, $count3);
+			$template = preg_replace("/(<title>.*<\/title>)(.*<\/head>)/isU", $title.'${2}', $template, 2, $count3);
 			if ($count1 === 2 || $count2 === 2 || $count3 === 2 ||
 				($c['meta'] == 'replace_or_add' && ! $count3)) {
 				$this->log('[61]');
@@ -1388,7 +1388,7 @@ window.addEventListener("load",(event)=>{
 				$template = preg_replace("/<base (.*)>/iU", '', $template);
 			}
 			if ($c['base'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template, 2, $count);
+				$template = preg_replace("/(<title>)(.*<\/head>)/is", $base."\n\t".'<title>${2}', $template, 2, $count);
 				if ($count !== 1) $this->log('[62]');
 
 			} elseif ($c['base'] == 'replace_if_exists') {
@@ -1409,7 +1409,7 @@ window.addEventListener("load",(event)=>{
 				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
 			}
 			if ($c['canonical'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template, 2, $count);
+				$template = preg_replace("/(<title>)(.*<\/head>)/is", $canonical."\n\t".'<title>${2}', $template, 2, $count);
 				if ($count !== 1) $this->log('[64]');
 
 			} elseif ($c['canonical'] == 'replace_if_exists') {
