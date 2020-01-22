@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.98-b
- * @date 24.12.2019
+ * @date 22.01.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 69000
@@ -735,7 +735,6 @@ class buran_seoModule
 		}
 
 		if (
-			! $template &&
 			$this->requestmethod == 'HEAD' &&
 			$this->module_hash_flag &&
 			$this->seotext &&
