@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 5.98-b
- * @date 22.01.2020
+ * @date 04.04.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 69000
@@ -1301,7 +1301,7 @@ window.addEventListener("load",(event)=>{
 	</div>
 	<p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
 	<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
-	<!--noindex--><p itemprop="headline">'.$st['title'].'</p><!--/noindex-->
+	<!--noindex--><p itemprop="headline">'.$st['s_title'].'</p><!--/noindex-->
 	<!--noindex--><p itemprop="description">'.$st['description'].'</p><!--/noindex-->
 </div>';
 			}
@@ -1841,6 +1841,7 @@ window.addEventListener("load",(event)=>{
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_TIMEOUT        => 10,
 			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_USERAGENT      => 'Buran/',
 		);
 		$follow = true;
 		if ($prms) {
@@ -2191,7 +2192,7 @@ window.addEventListener("load",(event)=>{
 	{
 		session_name('sssm');
 		session_start();
-		if (time() - $_SESSION['buranseomodule']['w_auth'][$get_w] < 60*30) {
+		if (time() - $_SESSION['buranseomodule']['auth'][$get_w] < 60*30) {
 			return true;
 		}
 		$http  = 'http://';
