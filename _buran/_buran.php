@@ -1702,7 +1702,7 @@ class BURAN
 					'info' => $curl_errno,
 				);
 			}
-		}exit('-'.$ww);
+		}
 		if ( ! $ww && $this->sock_ext) {
 			$headers = "GET ".$this->bunker.$url." HTTP/1.0\n";
 			$headers .= "Host: {$bunkerhost}\n\n";
@@ -1817,4 +1817,4 @@ class BURAN
 		return true;
 	}
 }
-// ---------------
+// -----------------------------
