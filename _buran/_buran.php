@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 3.0
- * @date 30.09.2020
+ * @version 3.1
+ * @date 01.10.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2020 DELTA http://delta-ltd.ru/
  * @size 43333
@@ -12,7 +12,7 @@
 error_reporting(0);
 ini_set('display_errors','off');
 
-$bu = new BURAN('3.0');
+$bu = new BURAN('3.1');
 
 $bu->res_ctp = 'json';
 $mres = $bu->auth($_GET['w']);
@@ -166,6 +166,7 @@ class BURAN
 			$uniq = str_replace(array('/','..',' '),'',$uniq);
 			$this->uniq = $uniq;
 		}
+		if ( ! $this->uniq) $this->uniq = date('Y-m-d-H-i-s');
 
 		$userconfig = $this->bufile('config_value','get');
 		if (is_array($userconfig)) {
@@ -176,6 +177,8 @@ class BURAN
 				$this->conf[$key] = array_merge($this->conf[$key],$userconfig[$key]);
 			}
 		}
+
+		header('Access-Control-Allow-Origin: '.$this->bunker);
 
 		$res = ob_start(array($this,'ob_end'));
 	}
@@ -189,7 +192,7 @@ class BURAN
 			'ok'     => 'n',
 		);
 
-		$uniq = $this->uniq ? $this->uniq : date('Y-m-d-H-i-s');
+		$uniq = $this->uniq;
 
 		$dir = $this->conf('backup_dir');
 		$folder = $this->droot.$this->mdir.$dir;
@@ -334,7 +337,7 @@ class BURAN
 		$mode = $mode=='files'
 			? 'files' : ($mode=='list' ? 'list' : 'all');
 
-		$uniq = $this->uniq ? $this->uniq : date('Y-m-d-H-i-s');
+		$uniq = $this->uniq;
 
 		if ($tozip) $tozip = $tozip=='chgs' ? 'chgs' : 'curr';
 		if ( ! $this->zip) $tozip = false;
@@ -772,7 +775,7 @@ class BURAN
 
 		$procfile = '_process';
 
-		$uniq = $this->uniq ? $this->uniq : date('Y-m-d-H-i-s');
+		$uniq = $this->uniq;
 
 		if ('etalon' == $mode) {
 			$dir = $this->conf('etalon_dir').$this->conf('etalon_db_dir');
@@ -949,7 +952,7 @@ class BURAN
 		$folder = $this->droot.$this->mdir.$dir;
 		if ( ! file_exists($folder)) mkdir($folder,0755,true);
 
-		$uniq = $this->uniq ? $this->uniq : date('Y-m-d-H-i-s');
+		$uniq = $this->uniq;
 
 		$statefile = $dir.'/state_chgs_'.$uniq;
 		$state = $this->proccess_state($statefile,false,true);
@@ -1097,6 +1100,7 @@ class BURAN
 		if ($this->conf('debug')) return false;
 
 		if ( ! is_array($this->res)) $this->res = array();
+		$this->res['uniq'] = $this->uniq;
 		$this->res['tm'] = time();
 		$this->res['ok'] = 'y';
 		if (is_array($this->res['mres'])) {
@@ -1817,4 +1821,4 @@ class BURAN
 		return true;
 	}
 }
-// -----------------------------
+// ----------------------
