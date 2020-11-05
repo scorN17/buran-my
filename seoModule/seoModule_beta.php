@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.98-b
+ * @version 5.982-b
  * @date 04.04.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2019 DELTA http://delta-ltd.ru/
  * @size 69000
  */
 
-$bsm = new buran_seoModule('5.98-b');
+$bsm = new buran_seoModule('5.982-b');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -2176,13 +2176,16 @@ window.addEventListener("load",(event)=>{
 
 	function htaccess()
 	{
-		$htaccess  = '<FilesMatch "\.txt$">'. "\n";
-		$htaccess .= 'Order Deny,Allow'. "\n";
-		$htaccess .= 'Deny from all'. "\n";
-		$htaccess .= 'RewriteEngine On'. "\n";
-		$htaccess .= 'RewriteRule ^(.*)$ index.html [L,QSA]'. "\n";
-		$htaccess .= '</FilesMatch>'. "\n";
-		$fh = fopen($this->droot.$this->module_folder.'/.htaccess', 'wb');
+		$htaccess = '
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+	RewriteBase /
+	RewriteCond %{REQUEST_URI} \.txt$
+	RewriteRule . - [R=404,L,NC]
+	RewriteRule \.txt$ /index.php [L,QSA]
+</IfModule>
+';
+		$fh = fopen($this->droot.$this->module_folder.'/.htaccess','wb');
 		if ( ! $fh) return;
 		fwrite($fh, $htaccess);
 		fclose($fh);
