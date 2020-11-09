@@ -1,7 +1,7 @@
 <?php
 /**
  * Buran_0
- * @version 3.34-b
+ * @version 3.35-b
  * @date 06.11.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2020 DELTA http://delta-ltd.ru/
@@ -2113,12 +2113,19 @@ $p .= '</td>
 			'method' => 'update',
 			'ok' => 'n',
 		);
-		$file = preg_replace("/[^a-z0-9\-_]/",'',$file);
-		$file = '/buran/update/buran'.($file?'_'.$file:'');
+
+		if ($file == 'git'){
+			$url = 'https://github.com/scorN17/buran/raw/master/_buran/_buran_3_beta.php';
+		} else {
+			$file = preg_replace("/[^a-z0-9\-_]/",'',$file);
+			$file = '/buran/update/buran'.($file?'_'.$file:'');
+			$url = $this->bunker.$file;
+		}
 		$bunkerhost = substr($this->bunker,strpos($this->bunker,'://')+3);
+
 		if ($this->curl_ext) {
 			$options = array(
-				CURLOPT_URL => $this->bunker.$file,
+				CURLOPT_URL => $url,
 				CURLOPT_RETURNTRANSFER => true,
 			);
 			$curl = curl_init();
@@ -2136,7 +2143,7 @@ $p .= '</td>
 		}
 		if ( ! $code && $this->sock_ext) {
 			$code = '';
-			$headers = "GET ".$this->bunker.$file." HTTP/1.0\n";
+			$headers = "GET ".$url." HTTP/1.0\n";
 			$headers .= "Host: {$bunkerhost}\n\n";
 			$sockres = stream_socket_client($bunkerhost.':80',$errno,$errstr,10);
 			if ($sockres) {
@@ -2150,7 +2157,7 @@ $p .= '</td>
 			}
 		}
 		if ( ! $code && $this->fgc_ext) {
-			$code = file_get_contents($this->bunker.$file);
+			$code = file_get_contents($url);
 		}
 		if ($code) {
 			$fres = $this->bufile('module','set','',$code);
