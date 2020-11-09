@@ -12,7 +12,7 @@
 error_reporting(0);
 ini_set('display_errors','off');
 
-$bu = new BURAN('3.34-b');
+$bu = new BURAN('3.35-b');
 
 $bu->res_ctp = 'json';
 $mres = $bu->auth($_GET['w']);
