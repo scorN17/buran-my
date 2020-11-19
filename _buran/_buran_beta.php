@@ -1,8 +1,8 @@
 <?php
 /**
  * Buran_0
- * @version 3.34-b
- * @date 06.11.2020
+ * @version 3.35-b
+ * @date 19.11.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2020 DELTA http://delta-ltd.ru/
  * @size 56000
@@ -12,7 +12,7 @@
 error_reporting(0);
 ini_set('display_errors','off');
 
-$bu = new BURAN('3.34-b');
+$bu = new BURAN('3.35-b');
 
 $bu->res_ctp = 'json';
 $mres = $bu->auth($_GET['w']);
@@ -2353,7 +2353,6 @@ $p .= '</td>
 		if ( ! $res) return false;
 
 		$htaccess = 'AddDefaultCharset utf-8'."\n";
-		$htaccess .= 'php_value date.timezone Europe/Moscow'."\n";
 		$fh = fopen($this->droot.dirname($this->mdir).'/.htaccess','wb');
 		if ( ! $fh) return false;
 		$res = fwrite($fh,$htaccess);
