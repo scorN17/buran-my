@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.982-b
- * @date 04.04.2020
+ * @version 5.983-b
+ * @date 30.11.2020
  * @author <sergey.it@delta-ltd.ru>
- * @copyright 2019 DELTA http://delta-ltd.ru/
+ * @copyright 2020 DELTA http://delta-ltd.ru/
  * @size 69000
  */
 
-$bsm = new buran_seoModule('5.982-b');
+$bsm = new buran_seoModule('5.983-b');
 
 if (basename($bsm->pageurl) != $bsm->module_file) {
 	$bsm->init();
@@ -85,8 +85,9 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 	}
 
 	if ('reverse' == $_GET['a']) {
-		$bsm->send_reverse_request(true);
-		exit('ok');
+		$res = $bsm->send_reverse_request(true);
+		print $res ? 'ok' : 'er';
+		exit();
 	}
 
 	if ('transit' == $_GET['a']) {
@@ -283,7 +284,7 @@ class buran_seoModule
 		}
 
 		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? $this->c[2]['ob_start_flags'] : 0;
+			? $this->c[2]['ob_start_flags'] : 112;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -369,7 +370,7 @@ class buran_seoModule
 				'use_body'             => '',
 				'template_coding'      => '1',
 				'dop_protocol'         => '',
-				'ob_start_flags'       => '',
+				'ob_start_flags'       => 112,
 				'base'                 => 'replace_or_add',
 				'canonical'            => 'replace_or_add',
 				'meta'                 => 'replace_or_add',
@@ -766,7 +767,7 @@ class buran_seoModule
 		}
 
 		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
-		if ($gzip) $template = $this->template_coding($template, 'de');
+		if ($gzip) $template = $this->template_coding($template,'de');
 		
 		if ( ! $template) {
 			$this->log('[21]');
@@ -780,11 +781,11 @@ class buran_seoModule
 		$template = $this->head_body_parse($template);
 
 		if ( ! $this->module_hash_flag) {
-			if ($gzip) $template = $this->template_coding($template, 'en');
+			if ($gzip) $template = $this->template_coding($template,'en');
 			return $template;
 		}
 		if ( ! $this->seotext) {
-			if ($gzip) $template = $this->template_coding($template, 'en');
+			if ($gzip) $template = $this->template_coding($template,'en');
 			return $template;
 		}
 
@@ -792,17 +793,19 @@ class buran_seoModule
 		$template = $this->meta_parse($template, 'base');
 		$template = $this->meta_parse($template, 'canonical');
 
-		$tags1 = $this->get_tag($template, 'finish');
-		if ($tags1) {
-			$tags2 = $this->get_tag($template, 'start');
-		}
-		if (
-			! $tags1 ||
-			($this->seotext_tp == 'S' && ! $tags2)
-		) {
-			$this->log('[40]');
-			if ($gzip) $template = $this->template_coding($template, 'en');
-			return $template;
+		if ($this->seotext['s_text']) {
+			$tags1 = $this->get_tag($template, 'finish');
+			if ($tags1) {
+				$tags2 = $this->get_tag($template, 'start');
+			}
+			if (
+				! $tags1
+				|| ($this->seotext_tp == 'S' && ! $tags2)
+			) {
+				$this->log('[40]');
+				if ($gzip) $template = $this->template_coding($template,'en');
+				return $template;
+			}
 		}
 
 		if (
@@ -895,7 +898,7 @@ class buran_seoModule
 			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 		}
 
-		if ($gzip) $template = $this->template_coding($template, 'en');
+		if ($gzip) $template = $this->template_coding($template,'en');
 		return $template;
 	}
 
@@ -1132,7 +1135,7 @@ class buran_seoModule
 			}
 		}
 
-		if (true) {
+		if ($stext_f) {
 			$uid = uniqid();
 			$_SESSION['buranseomodule']['watch'][$uid] = time();
 			$body .= '
