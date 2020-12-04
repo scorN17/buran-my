@@ -1,16 +1,16 @@
 <?php
 /**
  * seoModule
- * @version 5.97
- * @date 18.11.2019
+ * @version 5.98
+ * @date 04.12.2020
  * @author <sergey.it@delta-ltd.ru>
- * @copyright 2019 DELTA http://delta-ltd.ru/
- * @size 69000
+ * @copyright 2021 DELTA http://delta-ltd.ru/
+ * @size 77777
  */
 
-$bsm = new buran_seoModule('5.97');
+$bsm = new buran_seoModule('5.98');
 
-if (basename($bsm->pageurl) != $bsm->module_file) {
+if ( ! $bsm->module_mode) {
 	$bsm->init();
 
 } else {
@@ -26,6 +26,14 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 	if ('phpinfo' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit('er');
 		phpinfo();
+		exit();
+	}
+
+	if ('db_data' == $_GET['a']) {
+		if ( ! ($bsm->auth($_GET['w']))) exit();
+		header('Content-Type: application/octet-stream');
+		header('Content-Transfer-Encoding: binary');
+		print $bsm->bsmfile('db_data', 'get');
 		exit();
 	}
 	
@@ -85,8 +93,9 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 	}
 
 	if ('reverse' == $_GET['a']) {
-		$bsm->send_reverse_request(true);
-		exit('ok');
+		$res = $bsm->send_reverse_request(true);
+		print $res ? 'ok' : 'er';
+		exit();
 	}
 
 	if ('transit' == $_GET['a']) {
@@ -131,6 +140,14 @@ if (basename($bsm->pageurl) != $bsm->module_file) {
 		$info = $bsm->bsmfile('txt_info', 'get', $alias);
 		$info['seotext_js'] .= $_GET['s'] == 'y' ? 'y' : 'n';
 		$bsm->bsmfile('txt_info', 'set', $alias, $info);
+
+		if ($bsm->c[2]['reverse_requests']) {
+			$bsm->send_reverse_request();
+		}
+		if ($bsm->c[2]['transit_requests']) {
+			$bsm->transit_list_check();
+		}
+
 		exit();
 	}
 
@@ -186,9 +203,8 @@ class buran_seoModule
 	public $seotext_hide;
 	public $seotext_date;
 	public $seotext_info;
-	public $donor;
 	public $charset;
-	public $useragent;
+	public $module_ua;
 
 	public $template;
 	public $headers;
@@ -208,12 +224,16 @@ class buran_seoModule
 
 	function __construct($version)
 	{
+		$this->mct_start = microtime(true);
+
 		$this->version = $version;
 
-		$this->module_file = 'seoModule.php';
+		$this->module_file   = 'seoModule.php';
 		$this->module_folder = '/_buran/seoModule';
+		$this->module_ua     = 'BuranSeoModule';
 
 		$this->droot = dirname(dirname(__FILE__));
+
 		$this->http  = (
 			(isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == '443') ||
 			(isset($_SERVER['HTTP_PORT']) && $_SERVER['HTTP_PORT']     == '443') ||
@@ -256,6 +276,8 @@ class buran_seoModule
 			$this->test_beforecode = $_POST['before_code'];
 		}
 
+		$this->module_mode = strpos($this->requesturi, dirname($this->module_folder).'/'.$this->module_file) === 0
+			? true : false;
 		$this->module_hash = md5(__FILE__);
 		if (file_exists($this->droot.$this->module_folder.'/'.$this->module_hash)) {
 			$this->module_hash_flag = true;
@@ -270,7 +292,19 @@ class buran_seoModule
 
 		$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 
-		$this->useragent = 'BuranSeoModule';
+
+		$this->useragent = false;
+		if (stripos($_SERVER['HTTP_USER_AGENT'],'google.com/bot') !== false) {
+			$this->useragent = 'google';
+		} elseif (stripos($_SERVER['HTTP_USER_AGENT'],'yandex.com/bots') !== false) {
+			$this->useragent = 'yandex';
+		} elseif (stripos($_SERVER['HTTP_USER_AGENT'],'xenu') !== false) {
+			$this->useragent = 'xenu';
+		} elseif (stripos($_SERVER['HTTP_USER_AGENT'],'screaming frog seo spider') !== false) {
+			$this->useragent = 'sfss';
+		} elseif (stripos($_SERVER['HTTP_USER_AGENT'],'siteanalyzerbot') !== false) {
+			$this->useragent = 'siteanalyzer';
+		}
 
 		$this->c = $this->config();
 
@@ -283,7 +317,7 @@ class buran_seoModule
 		}
 
 		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? $this->c[2]['ob_start_flags'] : 0;
+			? $this->c[2]['ob_start_flags'] : 112;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -334,56 +368,138 @@ class buran_seoModule
 				$this->charset[$key] = base64_decode($txt);
 			}
 		}
+
+		$this->regmask = array(
+			'h1'          => "/<h1(.*)>(.*)<\/h1>/isU",
+			'base'        => "/<base (.*)>/iU",
+			'title'       => "/(<title>(.*)<\/title>)(.*<\/head>)/isU",
+
+			'canonical'   => "/<link (.*)rel=('|\")canonical('|\")(.*)>/iU",
+			'canonical_v' => "/href=('|\")(.*)('|\")/isU",
+
+			'description' => "/<meta [.]*name=('|\")description('|\")(.*)>/isU",
+			'description_v' => "/content=('|\")(.*)('|\")/isU",
+
+			'keywords'    => "/<meta [.]*name=('|\")keywords('|\")(.*)>/isU",
+			'keywords_v'    => "/content=('|\")(.*)('|\")/isU",
+		);
+
+		if (
+			! $this->module_mode
+			&& $this->c[2]['db_data']
+		) $this->bsm_sqlite();
+		if ($this->db_op) {
+			if ($this->useragent) {
+				$ip = $this->db->escapeString($_SERVER['REMOTE_ADDR']);
+				$res = $this->db->querySingle("SELECT id FROM bots
+					WHERE
+						day = '".date('Y-m-d')."'
+						AND bot = '{$this->useragent}'
+						AND ip = '{$ip}'
+					LIMIT 1");
+				if ($res) {
+					$this->db->query("UPDATE bots
+						SET cnt = cnt+1
+						WHERE id = '{$res}'");
+				} elseif ($res !== false) {
+					$this->db->query("INSERT INTO bots
+						(day, bot, ip, cnt)
+						VALUES (
+							'".date('Y-m-d')."',
+							'{$this->useragent}',
+							'{$ip}',
+							'1'
+						)");
+				}
+			}
+
+			$requesturi = $this->db->escapeString($this->requesturi);
+			$referer = $this->db->escapeString($_SERVER['HTTP_REFERER']);
+			$res = $this->db->querySingle("SELECT id FROM url_refr
+				WHERE url='{$requesturi}' AND referer='{$referer}'
+				LIMIT 1");
+			if ($res) {
+				$this->db->query("UPDATE url_refr SET
+						freq = ((freq+(".time()."-lastload))/2),
+						lastload = '".time()."'
+					WHERE id = '{$res}'");
+			} elseif ($res !== false) {
+				$this->db->query("INSERT INTO url_refr
+					(url, referer, freq, lastload)
+					VALUES (
+						'{$requesturi}',
+						'{$referer}',
+						'".(60*60*24)."',
+						'".time()."'
+					)");
+			}
+
+			$this->bsm_sqlite(true);
+		}
 	}
 
 	function config()
 	{
 		$config_default = array(
 			1 => array(
-				'website' => $this->http.$this->www.$this->domain,
-				'city'    => '',
+				'website'      => $this->http.$this->www.$this->domain,
+				'articles'     => '',
+				'bunker_id'    => '',
+				'city'         => '',
+				'date_start'   => '',
+				'company_name' => '',
+				'logo'         => '',
+				'phone'        => '',
+				'address'      => '',
 			),
 			2 => array(
-				'module_enabled'       => '0',
-				'accesscode'           => '',
-				'counter'              => '',
-				'tpl_from_404'         => 1,
-				'include_files'        => '/index.php',
-				'launch_exceptions'    => '',
-				'transit_requests'     => 1,
-				'out_charset'          => 'utf-8',
-				'reverse_requests'     => '',
-				'proxy'                => '',
-				'classname'            => '',
-				'starttag_title'       => '',
-				'starttag_breadcrumbs' => '',
-				'bcrumbs_after_h1'     => '',
-				'use_head'             => '',
-				'use_body'             => '',
-				'template_coding'      => '1',
-				'dop_protocol'         => '',
-				'ob_start_flags'       => '',
-				'base'                 => 'replace_or_add',
-				'canonical'            => 'replace_or_add',
-				'meta'                 => 'replace_or_add',
-				'meta_title'           => 'replace_or_add',
-				'meta_description'     => 'replace_or_add',
-				'meta_keywords'        => 'replace_or_add',
-				'disable_stext'        => '',
-				're_linking'           => 2,
-				'hide_opt'             => '',
-				'urldecode'            => 1,
-				'redirect'             => 1,
-				'ignore_errors'        => '',
-				'city_replace'         => '',
-				'use_cache'            => 604800,
-				'requets_methods'      => '/GET/HEAD/',
-				'error_handler'        => '',
-				'share_code'           => '<script src="//yastatic.net/es5-shims/0.0.2/es5-shims.min.js"></script><script src="//yastatic.net/share2/share.js"></script><div class="ya-share2" data-services="vkontakte,facebook,odnoklassniki,twitter,evernote,viber,whatsapp,skype,telegram" data-counter=""></div>',
+				'module_enabled'                  => '0',
+				'accesscode'                      => '',
+				'include_files'                   => '/index.php',
+				'launch_exceptions'               => '',
+				'transit_requests'                => 1,
+				'db_data'                         => 1,
+				'out_charset'                     => 'utf-8',
+				'reverse_requests'                => '',
+				'proxy'                           => '',
+				'classname'                       => '',
+				'starttag_title'                  => '',
+				'starttag_breadcrumbs'            => '',
+				'bcrumbs_after_h1'                => '',
+				'template_coding'                 => '1',
+				'dop_protocol'                    => '',
+				'ob_start_flags'                  => 112,
+				'base'                            => '0',
+				'canonical'                       => 'replace_or_add',
+				'meta'                            => 'replace_or_add',
+				'meta_neseo'                      => 'add_if_not_exists',
+				'canonical_neseo'                 => 'add_if_not_exists',
+				'disable_stext'                   => '',
+				're_linking'                      => 2,
+				're_linking_without_stext'        => '',
+				'page_without_stit_to_re_linking' => '',
+				'hide_opt'                        => '',
+				'urldecode'                       => 1,
+				'redirect'                        => 1,
+				'domain_redirect'                 => 1,
+				'ignore_errors'                   => '',
+				'city_replace'                    => '',
+				'use_cache'                       => 604800,
+				'requets_methods'                 => '/GET/HEAD/',
+				'error_handler'                   => '',
+				'share_code'                      => '<script>(function(b,d,s,m,k,a){setTimeout(function(){k=d.createElement(s);a=d.getElementsByTagName(s)[0];k.src=m;a.parentNode.insertBefore(k,a);},2000);})(window,document,"script","https://yastatic.net/share2/share.js");</script><div class="ya-share2" data-curtain data-services="vkontakte,facebook,odnoklassniki,messenger,telegram,twitter,viber,whatsapp,moimir,skype,evernote,reddit"></div>',
 			),
 			4 => array(
 				'/index.php'  => '/',
 				'/index.html' => '/',
+			),
+			12 => array(
+				'obrabotka'      => '',
+				'o_canonical'    => '',
+				'o_micromarking' => '',
+			),
+			16 => array(
+				'bc_1' => '',
 			),
 		);
 
@@ -444,7 +560,7 @@ class buran_seoModule
 			$this->redirects();
 		}
 
-		if (strpos($_SERVER['HTTP_USER_AGENT'], $this->useragent) !== false) {
+		if (strpos($_SERVER['HTTP_USER_AGENT'], $this->module_ua) !== false) {
 			return false;
 		}
 
@@ -452,7 +568,7 @@ class buran_seoModule
 			$this->c[2]['error_handler']
 			&& function_exists('set_error_handler')
 		) {
-			set_error_handler(array($this,'error_handler'),E_ALL & ~E_NOTICE);
+			set_error_handler(array($this,'error_handler'), E_ALL & ~E_NOTICE);
 		}
 
 		$this->clear_request();
@@ -466,9 +582,9 @@ class buran_seoModule
 
 	function redirects()
 	{
-		if ( ! is_array($this->c[4])) {
-			return;
-		}
+		$redirect_ws = $this->c[2]['domain_redirect']
+			? $this->c[1]['website'] : $this->website;
+
 		$redirect_to = $this->requesturi;
 		if (
 			isset($this->c[4][$redirect_to])
@@ -490,11 +606,13 @@ class buran_seoModule
 			$redirect_to = $this->c[4][$redirect_to];
 		}
 		if ($redirect_to == $this->requesturi) $redirect_to = false;
-		if ( ! $redirect_to && $this->website !== $this->c[1]['website']) {
+
+		if ( ! $redirect_to && $redirect_ws !== $this->website) {
 			$redirect_to = $this->requesturi;
 		}
+		
 		if ($redirect_to) {
-			header('Location: '.$this->c[1]['website'].$redirect_to, true, 301);
+			header('Location: '.$redirect_ws.$redirect_to, true, 301);
 			exit();
 		}
 	}
@@ -588,6 +706,7 @@ class buran_seoModule
 					'type'           => '',
 					'interval'       => 0,
 					'seotext_exists' => '',
+					'seotext_js'     => '',
 				);
 			}
 			$sr = time() - $this->seotext_info['last'];
@@ -621,7 +740,7 @@ class buran_seoModule
 			$use_cache &&
 			$ft_c &&
 			time()-$ft_c <= $this->c[2]['use_cache'] &&
-			$ft_c>$ft_t
+			$ft_c > $ft_t
 		) {
 			$from_cache = true;
 			$this->seotext_cache = true;
@@ -672,6 +791,10 @@ class buran_seoModule
 
 	function ob_end($template)
 	{
+		if ( ! $this->module_hash_flag) {
+			return false;
+		}
+
 		error_reporting(0);
 		ini_set('display_errors', 'off');
 
@@ -684,133 +807,74 @@ class buran_seoModule
 		}
 		
 		$template_orig = $template;
+		$this->tpl_modified = false;
 
-		$http_code = 0;
-		$http_code_200_exists = false;
+		$this->http_code = 0;
+		$this->http_code_200_exists = false;
 		if (function_exists('http_response_code')) {
-			$http_code = http_response_code();
+			$this->http_code = http_response_code();
 		}
-		if ($http_code != 404) {
+		if ($this->http_code != 404) {
 			$headers_list = headers_list();
 			if (is_array($headers_list)) {
 				foreach ($headers_list AS $row) {
 					if (stripos($row, '404 not found') !== false) {
-						$http_code = 404;
+						$this->http_code = 404;
 					} elseif (stripos($row, '200 ok') !== false) {
-						$http_code = 200;
-						$http_code_200_exists = true;
+						$this->http_code = 200;
+						$this->http_code_200_exists = true;
 					} elseif (
 						stripos($row, 'http/1') !== false ||
 						stripos($row, 'status:') !== false
 					) {
-						$http_code = 1;
+						$this->http_code = 1;
 					}
 				}
 			}
 		}
-		if ( ! $http_code) $http_code = 200;
-
-		if ($http_code != 200 && $http_code != 404) {
-			$this->log('[20]');
-			return false;
-		}
-
-		if (
-			! $template &&
-			$this->requestmethod == 'HEAD' &&
-			$this->module_hash_flag &&
-			$this->seotext &&
-			(
-				! $http_code_200_exists ||
-				$http_code == 404
-			)
-		) {
-			header($this->protocol.' 200 OK');
-			if ($this->protocol_dop) {
-				header($this->protocol_dop.' 200 OK');
+		if ($this->seotext) {
+			if ( ! $this->http_code) {
+				$this->http_code = 200;
 			}
-		}
-
-		if ($http_code == 404 && $this->seotext) {
-			$this->seotext_tp = 'S';
-			$this->seotext['type'] = 'S';
-
-			if ( ! $this->c[2]['tpl_from_404']) {
-				$template_file = $this->bsmfile('template', 'get');
-				if ( ! $template_file) {
-					$template_file = $this->bsmfile('template', 'get', 'global');
-				}
-				if ( ! $template_file) {
-					$this->log('[30]');
-				}
-				$template = $template_file;
+			if ($this->http_code == 404) {
+				$this->seotext_tp = 'S';
+				$this->seotext['type'] = 'S';
+			}
+			if (
+				$this->http_code != 200
+				&& $this->http_code != 404
+			) {
+				$this->log('[20]');
+				$this->save_url_info();
+				return false;
 			}
 		}
 
 		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
-		if ($gzip) $template = $this->template_coding($template, 'de');
+		if ($gzip) $template = $this->template_coding($template,'de');
 		
 		if ( ! $template) {
 			$this->log('[21]');
+			$this->save_url_info();
 			return false;
 		}
-		
-		if (function_exists('header_remove')) {
-			header_remove('Content-Length');
+
+		$res = $this->meta_parse($template);
+		if ($res) {
+			$template = $res;
+			$this->tpl_modified = true;
 		}
 
-		$template = $this->head_body_parse($template);
-
-		if ( ! $this->module_hash_flag) {
-			if ($gzip) $template = $this->template_coding($template, 'en');
-			return $template;
-		}
 		if ( ! $this->seotext) {
-			if ($gzip) $template = $this->template_coding($template, 'en');
-			return $template;
-		}
+			$this->save_url_info($template);
 
-		$template = $this->meta_parse($template, 'tdk');
-		$template = $this->meta_parse($template, 'base');
-		$template = $this->meta_parse($template, 'canonical');
-
-		$tags1 = $this->get_tag($template, 'finish');
-		if ($tags1) {
-			$tags2 = $this->get_tag($template, 'start');
-		}
-		if (
-			! $tags1 ||
-			($this->seotext_tp == 'S' && ! $tags2)
-		) {
-			$this->log('[40]');
-			if ($gzip) $template = $this->template_coding($template, 'en');
-			return $template;
-		}
-
-		if (
-			! $this->c[2]['tpl_from_404'] &&
-			$http_code == 200 &&
-			$this->seotext_tpl &&
-			$tags2
-		) {
-			$headers = function_exists('getallheaders')
-				? getallheaders() : $this->getallheaders_bsm();
-			if (is_array($headers)) {
-				$cookie = false;
-				foreach ($headers AS $key => $row) {
-					if (stripos($key, 'cookie') !== false) $cookie = true;
+			if ($this->tpl_modified) {
+				if (function_exists('header_remove')) {
+					header_remove('Content-Length');
 				}
-				$global_file = $this->bsmfile('template', 'file', 'global');
-				if (
-					! $cookie &&
-					time() - $this->filetime($global_file) > 60*5
-				) {
-					$global = true;
-				}
-			}
-			$res = $this->bsmfile('template', 'set',
-				($global?'global':''), $template_orig);
-			if ( ! $res) $this->log('[31]');
+				if ($gzip) $template = $this->template_coding($template,'en');
+				return $template;
+			} else return false;
 		}
 
 		if ( ! $this->seotext_cache || $this->test) {
@@ -818,15 +882,50 @@ class buran_seoModule
 			if ($this->requesturi == $this->c[1]['articles']) {
 				$this->articles_parse();
 			} elseif ($this->c[2]['re_linking']) {
-				$this->articles_parse($this->seotext_alias, $this->c[2]['re_linking']);
+				$with_stext_only = $this->c[2]['re_linking_without_stext'] ? false : true;
+				$this->articles_parse($this->seotext_alias, $this->c[2]['re_linking'], $with_stext_only);
+			}
+		}
+
+		if ($this->seotext['s_text']) {
+			$tags1 = $this->get_tag($template, 'finish');
+			if ($tags1) {
+				$tags2 = $this->get_tag($template, 'start');
+			}
+			if (
+				! $tags1
+				|| ($this->seotext_tp == 'S' && ! $tags2)
+			) {
+				$this->log('[40]');
+				$this->save_url_info($template);
+				return false;
+			}
+		} else {
+			if ($this->seotext_tp == 'S') {
+				$this->log('[41]');
+				$this->save_url_info($template);
+				return false;
 			}
 		}
 		
 		$template = $this->template_parse($template);
+		$this->tpl_modified = true;
+
+		if ( ! $this->http_code_200_exists || $this->http_code == 404) {
+			$this->http_code = 200;
+			header($this->protocol.' 200 OK');
+			if ($this->protocol_dop) {
+				header($this->protocol_dop.' 200 OK');
+			}
+		}
+
+		if ( ! $this->seotext['cache'] && $this->c[2]['use_cache']) {
+			$this->cache_save($this->seotext_alias);
+		}
 		
 		if (
 			time() - $this->seotext_info['check']['meta_robots'] > 60*60*6
-			&& preg_match_all("/\<meta .*\>/isU",$template,$matches)
+			&& preg_match_all("/\<meta .*\>/isU", $template, $matches)
 			&& is_array($matches)
 		) {
 			$this->seotext_info['check']['meta_robots'] = time();
@@ -839,24 +938,6 @@ class buran_seoModule
 					$this->log('[51]');
 					break;
 				}
-			}
-		}
-
-		if ( ! $this->seotext['cache'] && $this->c[2]['use_cache']) {
-			$this->cache_save($this->seotext_alias);
-		}
-
-		if ($this->c[2]['reverse_requests']) {
-			$this->send_reverse_request();
-		}
-		if ($this->c[2]['transit_requests']) {
-			$this->transit_list_check();
-		}
-
-		if ( ! $http_code_200_exists || $http_code == 404) {
-			header($this->protocol.' 200 OK');
-			if ($this->protocol_dop) {
-				header($this->protocol_dop.' 200 OK');
 			}
 		}
 
@@ -877,7 +958,11 @@ class buran_seoModule
 			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 		}
 
-		if ($gzip) $template = $this->template_coding($template, 'en');
+		if (function_exists('header_remove')) {
+			header_remove('Content-Length');
+		}
+		$this->save_url_info($template);
+		if ($gzip) $template = $this->template_coding($template,'en');
 		return $template;
 	}
 
@@ -1010,9 +1095,12 @@ class buran_seoModule
 		}
 	}
 
-	function articles_parse($alias_start=false, $limit=0)
+	function articles_parse($alias_start=false, $limit=0, $with_stext_only=false)
 	{
-		if ( ! $this->seotext['s_text'] && $limit) return;
+		if (
+			! $this->seotext['s_text']
+			&& $with_stext_only
+		) return;
 
 		$imgs = $this->module_folder.'/img/';
 		$flag = $alias_start ? true : false;
@@ -1032,37 +1120,46 @@ class buran_seoModule
 				}
 				continue;
 			}
-			if ($url != $this->c[1]['articles']) {
-				$counter++;
-				$text = $this->seofile($alias);
-				if ( ! $text) continue;
-				if ( ! $text['a_title']) {
-					$text['a_title'] = $text['s_title'];
-				}
-				if ( ! $text['a_description']) {
-					$text['a_description'] = $text['description'];
-				}
-				for ($k=1; $k<=10; $k++) {
-					$img = $imgs.$alias.'_'.$k;
-					if (file_exists($this->droot.$img.'.jpg')) {
-						$img .= '.jpg'; break;
-					} elseif (file_exists($this->droot.$img.'.png')) {
-						$img .= '.png'; break;
-					}
-					$img = false;
-				}
-				$txt .= '<div class="sssmba_itm">
-					<div class="sssmba_img">';
-				if ($img) $txt .= '<img src="'.$img.'" alt="" />';
-				$txt .= '</div>
-					<div class="sssmba_inf">
-						<div class="sssmba_tit"><a href="'.$url.'">'.$text['a_title'].'</a></div>
-						<div class="sssmba_txt">'.$text['a_description'].'</div>
-					</div>
-				</div>';
+			
+			if ($url == $this->c[1]['articles']) continue;
+
+			$counter++;
+			$text = $this->seofile($alias);
+			if ( ! $text) continue;
+			if (
+				! $this->c[2]['page_without_stit_to_re_linking']
+				&& ! $text['s_title']
+			) {
 				$counter--;
-				$limit--;
+				continue;
 			}
+			if ( ! $text['a_title']) {
+				$text['a_title'] = $text['s_title'] ? $text['s_title'] : $text['title'];
+			}
+			if ( ! $text['a_description']) {
+				$text['a_description'] = $text['description'];
+			}
+			for ($k=1; $k<=10; $k++) {
+				$img = $imgs.$alias.'_'.$k;
+				if (file_exists($this->droot.$img.'.jpg')) {
+					$img .= '.jpg'; break;
+				} elseif (file_exists($this->droot.$img.'.png')) {
+					$img .= '.png'; break;
+				}
+				$img = false;
+			}
+			$txt .= '<div class="sssmba_itm">
+				<div class="sssmba_img">';
+			if ($img) $txt .= '<img itemprop="image" src="'.$img.'" alt="'.$text['a_title'].'" />';
+			$txt .= '</div>
+				<div class="sssmba_inf">
+					<div class="sssmba_tit"><a href="'.$url.'">'.$text['a_title'].'</a></div>
+					<div class="sssmba_txt">'.$text['a_description'].'</div>
+				</div>
+			</div>';
+			$counter--;
+			$limit--;
+
 			if ($alias_start && $limit<=0) break;
 		}
 		if ($txt) {
@@ -1112,31 +1209,6 @@ class buran_seoModule
 			if ($st['before_code']) {
 				$body .= $st['before_code'];
 			}
-		}
-
-		if (true) {
-			$uid = uniqid();
-			$_SESSION['buranseomodule']['watch'][$uid] = time();
-			$body .= '
-<script>
-document.addEventListener("readystatechange",(event)=>{
-	if (document.readyState != "interactive") return;
-	if ( ! window.XMLHttpRequest) return;
-	setTimeout(function(){
-		var m = new XMLHttpRequest;
-		let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
-		url += "&b='.$this->seotext_alias.'";
-		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
-		url += "&u='.$uid.'";
-		try {
-			m.open("GET",url,1);
-		} catch (f) {
-			return;
-		}
-		m.send();
-	},1000);
-});
-</script>';
 		}
 
 		if ($stext_f && $this->seotext_hide == 'Y') {
@@ -1283,7 +1355,7 @@ window.addEventListener("load",(event)=>{
 	</div>
 	<p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
 	<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
-	<!--noindex--><p itemprop="headline">'.$st['title'].'</p><!--/noindex-->
+	<!--noindex--><p itemprop="headline">'.$st['s_title'].'</p><!--/noindex-->
 	<!--noindex--><p itemprop="description">'.$st['description'].'</p><!--/noindex-->
 </div>';
 			}
@@ -1321,7 +1393,7 @@ window.addEventListener("load",(event)=>{
 		}
 
 		if ($breadcrumbs) {
-			$template = str_replace('[+bsm_breadcrumbs+]',$bc_1,$template);
+			$template = str_replace('[+bsm_breadcrumbs+]', $bc_1, $template);
 		}
 
 		if ($this->c[2]['city_replace']) {
@@ -1331,100 +1403,250 @@ window.addEventListener("load",(event)=>{
 			}
 		}
 
+		if (true) {
+			$uid = uniqid();
+			$_SESSION['buranseomodule']['watch'][$uid] = time();
+			$script = '
+<script>
+document.addEventListener("readystatechange",(event)=>{
+	if (document.readyState != "interactive") return;
+	if ( ! window.XMLHttpRequest) return;
+	setTimeout(function(){
+		var m = new XMLHttpRequest;
+		let url = "'.dirname($this->module_folder).'/'.$this->module_file.'?a=watch";
+		url += "&b='.$this->seotext_alias.'";
+		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
+		url += "&u='.$uid.'";
+		try {
+			m.open("GET",url,1);
+		} catch (f) {
+			return;
+		}
+		m.send();
+	},2000);
+});
+</script>
+';
+			$template = preg_replace("/<\/body>/s", $script.'</body>', $template, 1);
+		}
+
 		return $template;
 	}
 
-	function meta_parse($template, $type)
+	function meta_parse($template)
 	{
 		$st = $this->seotext;
 		$c  = $this->c[2];
 
-		if ('tdk' == $type && in_array($c['meta'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$title = '<title>'.$st['title'].'</title>';
-			$description = '<meta name="description" content="'.$st['description'].'" />';
-			$keywords = '<meta name="keywords" content="'.$st['keywords'].'" />';
-			if ($c['meta'] == 'replace_or_add')
-				$title .= "\n\t".$description."\n\t".$keywords."\n";
-			if ($c['meta'] == 'delete' ||
-				$c['meta'] == 'replace_or_add') {
-				if ($c['meta'] == 'delete') $title = '';
-				$description = '';
-				$keywords = '';
+		$regmask = $this->regmask;
+
+		$meta = '';
+
+		if (
+			$st &&
+			in_array($c['meta'], array(
+				'replace_or_add',
+				'delete'
+			))
+		) {
+			$titl = '<title>'.$st['title'].'</title>';
+			$desc = '<meta name="description" content="'.$st['description'].'" />';
+			$keyw = '<meta name="keywords" content="'.$st['keywords'].'" />';
+			if ($c['meta'] == 'replace_or_add') {
+				$meta .= "\n\t".$titl;
+				$meta .= "\n\t".$desc;
+				$meta .= "\n\t".$keyw;
 			}
-			$template = preg_replace("/<meta [.]*name=('|\")description('|\")(.*)>/isU", $description, $template, 2, $count1);
-			$template = preg_replace("/<meta [.]*name=('|\")keywords('|\")(.*)>/isU", $keywords, $template, 2, $count2);
-			$template = preg_replace("/<title>(.*)<\/title>/isU", $title, $template, 2, $count3);
-			if ($count1 === 2 || $count2 === 2 || $count3 === 2 ||
-				($c['meta'] == 'replace_or_add' && ! $count3)) {
+			$template = preg_replace($regmask['description'], '', $template, 2, $count1);
+			$template = preg_replace($regmask['keywords'], '', $template, 2, $count2);
+			$template = preg_replace($regmask['title'], '${3}', $template, 2, $count3);
+			if ($count1 === 2 || $count2 === 2 || $count3 === 2) {
+				$this->log('[61]');
+			}
+
+		} elseif (in_array($c['meta_neseo'], array(
+			'add_if_not_exists',
+			'replace_or_add',
+			'delete'
+		))) {
+			preg_match_all($regmask['h1'], $template, $matches);
+			$h1tit = trim(html_entity_decode($matches[2][0]));
+			if ($h1tit) {
+				$h1tit = $h1tit.', '.$c['company_name'].', '.$c['city'];
+
+				$titl = '<title>'.$h1tit.'</title>';
+				$desc = '<meta name="description" content="'.$h1tit.'" />';
+				$keyw = '<meta name="keywords" content="'.$h1tit.'" />';
+
+				if ($c['meta_neseo'] == 'add_if_not_exists') {
+					preg_match_all($regmask['title'], $template, $matches);
+					if ( ! $matches[1][0]) $meta .= "\n\t".$titl;
+
+					preg_match_all($regmask['description'], $template, $matches);
+					if ( ! $matches[3][0]) $meta .= "\n\t".$desc;
+
+					preg_match_all($regmask['keywords'], $template, $matches);
+					if ( ! $matches[3][0]) $meta .= "\n\t".$keyw;
+
+				} else {
+					if ($c['meta'] == 'replace_or_add') {
+						$meta .= "\n\t".$titl;
+						$meta .= "\n\t".$desc;
+						$meta .= "\n\t".$keyw;
+					}
+					$template = preg_replace($regmask['description'], '', $template, 2, $count1);
+					$template = preg_replace($regmask['keywords'], '', $template, 2, $count2);
+					$template = preg_replace($regmask['title'], '${3}', $template, 2, $count3);
+					if ($count1 === 2 || $count2 === 2 || $count3 === 2) {
+						$this->log('[61]');
+					}
+				}
+			}
+		}
+
+		$canonical = $this->c[1]['website'];
+		if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
+			$canonical .= $this->requesturi;
+		}
+		$canonical = '<link rel="canonical" href="'.$canonical.'" />';
+		if (
+			$st &&
+			in_array($c['canonical'], array(
+				'replace_or_add',
+				'delete'
+			))
+		) {
+			if ($c['meta'] == 'replace_or_add') {
+				$meta .= "\n\t".$canonical;
+			}
+			$template = preg_replace($regmask['canonical'], '', $template);
+
+		} elseif (in_array($c['canonical_neseo'], array(
+			'add_if_not_exists',
+			'replace_or_add',
+			'delete'
+		))) {
+			if ($c['canonical_neseo'] == 'add_if_not_exists') {
+				preg_match_all($regmask['canonical'], $template, $matches);
+				if ( ! $matches[4][0]) $meta .= "\n\t".$canonical;
+
+			} else {
+				if ($c['meta'] == 'replace_or_add') {
+					$meta .= "\n\t".$canonical;
+				}
+				$template = preg_replace($regmask['canonical'], '', $template);
+			}
+		}
+
+		if (in_array($c['base'], array(
+			'replace_or_add',
+			'delete'
+		))) {
+			$base = '<base href="'.$this->c[1]['website'].'/" />';
+			if ($c['meta'] == 'replace_or_add') {
+				$meta .= "\n\t".$base;
+			}
+			$template = preg_replace($regmask['base'], '', $template);
+		}
+
+		if ($meta) {
+			$meta .= "\n";
+			$template = preg_replace("/<head>/isU", '<head>'.$meta, $template, 1, $count);
+			if ($count) {
+				return $template;
+			} else {
 				$this->log('[61]');
 			}
 		}
-
-		if ('base' == $type && in_array($c['base'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$base = '<base href="'.$this->c[1]['website'].'/" />';
-			if ($c['base'] == 'replace_or_add' ||
-				$c['base'] == 'delete') {
-				$template = preg_replace("/<base (.*)>/iU", '', $template);
-			}
-			if ($c['base'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $base."\n\t".'<title>', $template, 2, $count);
-				if ($count !== 1) $this->log('[62]');
-
-			} elseif ($c['base'] == 'replace_if_exists') {
-				$template = preg_replace("/<base (.*)>/iU", $base, $template, 2, $count);
-				if ($count === 2) $this->log('[62.2]');
-			}
-		}
-
-		if ('canonical' == $type && in_array($c['canonical'],
-			array('replace_or_add', 'replace_if_exists', 'delete'))) {
-			$canonical = $this->c[1]['website'];
-			if ( ! $this->c[12]['obrabotka'] || ! $this->c[12]['o_canonical']) {
-				$canonical .= $this->requesturi;
-			}
-			$canonical = '<link rel="canonical" href="'.$canonical.'" />';
-			if ($c['canonical'] == 'replace_or_add' ||
-				$c['canonical'] == 'delete') {
-				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", '', $template);
-			}
-			if ($c['canonical'] == 'replace_or_add') {
-				$template = preg_replace("/<title>/i", $canonical."\n\t".'<title>', $template, 2, $count);
-				if ($count !== 1) $this->log('[64]');
-
-			} elseif ($c['canonical'] == 'replace_if_exists') {
-				$template = preg_replace("/<link (.*)rel=('|\")canonical('|\")(.*)>/iU", $canonical, $template, 2, $count);
-				if ($count === 2) $this->log('[64.2]');
-			}
-		}
-
-		return $template;
+		return false;
 	}
 
-	function head_body_parse($template)
+	function save_url_info($template=false)
 	{
-		if ($this->c[2]['use_head']) {
-			$code = $this->bsmfile('head', 'get');
-			if ($code) {
-				$code = "\n".'<!--bsm_head_code-->'."\n".$code."\n".'</head>';
-				$template = preg_replace("/<\/head>/i", $code, $template, 1, $count);
-				if ( ! $count) $this->log('[70]');
-			} else {
-				$this->log('[72]');
+		if ($this->module_mode) return;
+		if ( ! $this->c[2]['db_data']) return;
+
+		$this->bsm_sqlite();
+		if ( ! $this->db_op) return false;
+
+		$requesturi = $this->db->escapeString($this->requesturi);
+		$loadtime = round((microtime(true)-$this->mct_start),3);
+
+		$memory = memory_get_peak_usage(true);
+		$memory = round($memory/1024/1024,2);
+
+		if ($template) {
+			$size = strlen($template);
+			$size = round($size/1024,2);
+
+			preg_match_all($this->regmask['h1'], $template, $matches);
+			$h1tit = trim(html_entity_decode($matches[2][0]));
+
+			preg_match_all($this->regmask['title'], $template, $matches);
+			$m_titl = trim(html_entity_decode($matches[2][0]));
+
+			preg_match_all($this->regmask['description'], $template, $matches);
+			if ($matches[0][0]) {
+				preg_match_all($this->regmask['description_v'], $matches[0][0], $matches);
+				$m_desc = trim(html_entity_decode($matches[2][0]));
 			}
-		}
-		if ($this->c[2]['use_body']) {
-			$code = $this->bsmfile('body', 'get');
-			if ($code) {
-				$code = "\n".'<!--bsm_body_code-->'."\n".$code."\n".'</body>';
-				$template = preg_replace("/<\/body>/i", $code, $template, 1, $count);
-				if ( ! $count) $this->log('[71]');
-			} else {
-				$this->log('[73]');
+
+			preg_match_all($this->regmask['keywords'], $template, $matches);
+			if ($matches[0][0]) {
+				preg_match_all($this->regmask['keywords_v'], $matches[0][0], $matches);
+				$m_keyw = trim(html_entity_decode($matches[2][0]));
 			}
+
+			preg_match_all($this->regmask['canonical'], $template, $matches);
+			if ($matches[0][0]) {
+				preg_match_all($this->regmask['canonical_v'], $matches[0][0], $matches);
+				$m_cancl = trim(html_entity_decode($matches[2][0]));
+			}
+
+			$h1tit = $this->db->escapeString($h1tit);
+			$m_titl = $this->db->escapeString($m_titl);
+			$m_desc = $this->db->escapeString($m_desc);
+			$m_keyw = $this->db->escapeString($m_keyw);
+			$m_cancl = $this->db->escapeString($m_cancl);
 		}
-		return $template;
+
+		$res = $this->db->querySingle("SELECT id FROM url
+			WHERE url='{$requesturi}' LIMIT 1");
+		if ($res) {
+			$this->db->query("UPDATE url SET
+					resp_code = '".$this->http_code."',
+					h1 = '{$h1tit}',
+					m_titl = '{$m_titl}',
+					m_desc = '{$m_desc}',
+					m_keyw = '{$m_keyw}',
+					m_cancl = '{$m_cancl}',
+					size = '{$size}',
+					loadtime = '{$loadtime}',
+					memory = '{$memory}',
+					freq = ((freq+(".time()."-lastload))/2),
+					lastload = '".time()."'
+				WHERE id = '{$res}'");
+		} elseif ($res !== false) {
+			$this->db->query("INSERT INTO url
+				(url, resp_code, h1, m_titl, m_desc, m_keyw, m_cancl, size, loadtime, memory, freq, lastload)
+				VALUES (
+					'{$requesturi}',
+					'".$this->http_code."',
+					'{$h1tit}',
+					'{$m_titl}',
+					'{$m_desc}',
+					'{$m_keyw}',
+					'{$m_cancl}',
+					'{$size}',
+					'{$loadtime}',
+					'{$memory}',
+					'".(60*60*24)."',
+					'".time()."'
+				)");
+		}
+
+		$this->bsm_sqlite(true);
+		return true;
 	}
 
 // ------------------------------------------------------------------
@@ -1495,13 +1717,6 @@ window.addEventListener("load",(event)=>{
 				$file = 'txt_'.$prm.'.txt';
 				break;
 
-			case 'head':
-			case 'body':
-				$base64_e = $get ? true : false;
-				$hashfolder = true;
-				$file = $type.'.txt';
-				break;
-
 			case 'style':
 				$base64_d = $set ? true : false;
 				$hashfolder = true;
@@ -1530,17 +1745,6 @@ window.addEventListener("load",(event)=>{
 				$file = $type.'.txt';
 				break;
 
-			case 'template':
-				$hashfolder = true;
-				$subfolder = '/tpl/';
-				if ($prm == 'global') {
-					$file = '_global.txt';
-				} else {
-					$file = session_id() ? session_id() : $_SERVER['REMOTE_ADDR'];
-					$file = md5($file).'.txt';
-				}
-				break;
-
 			case 'errors':
 				$hashfolder = true;
 				$file = $type.'.txt';
@@ -1549,6 +1753,11 @@ window.addEventListener("load",(event)=>{
 			case 'phperrors':
 				$hashfolder = true;
 				$file = $type.'.txt';
+				break;
+
+			case 'db_data':
+				$hashfolder = true;
+				$file = 'data.db';
 				break;
 
 			case 'test':
@@ -1823,6 +2032,7 @@ window.addEventListener("load",(event)=>{
 			CURLOPT_FRESH_CONNECT  => true,
 			CURLOPT_TIMEOUT        => 10,
 			CURLOPT_FOLLOWLOCATION => true,
+			CURLOPT_USERAGENT      => 'Buran/',
 		);
 		$follow = true;
 		if ($prms) {
@@ -2031,11 +2241,15 @@ window.addEventListener("load",(event)=>{
 		$hash_2_f = $this->droot.'/.htaccess';
 		if (file_exists($hash_2_f)) $hash_2 = md5_file($hash_2_f);
 
+		$hash_3_f = $this->bsmfile('config', 'file');
+		if (file_exists($hash_3_f)) $hash_3 = md5_file($hash_3_f);
+
 		$res = '[seomoduleversion_'.$this->version.']
 [datetime_'.date('d.m.Y, H:i:s').']
 
 [website_'.$this->c[1]['website'].']
 [modulehash_'.$hash_1.']
+[confighash_'.$hash_3.']
 [htaccess_'.$hash_2.']
 [droot_'.$this->droot.']'."\n";
 		$res .= "\n";
@@ -2069,7 +2283,7 @@ window.addEventListener("load",(event)=>{
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[30] Файл шаблона не прочитан\n[31] Файл шаблона не записан\n[40] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Пустой шаблон\n[22] Заголовки уже отправлены\n[31] Файл шаблона не записан\n[40] Тег не найден\n[41] S-страница без текста\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
 
 		if (isset($_GET['phperrors'])) {
 			$data = $this->bsmfile('phperrors');
@@ -2157,13 +2371,16 @@ window.addEventListener("load",(event)=>{
 
 	function htaccess()
 	{
-		$htaccess  = '<FilesMatch "\.txt$">'. "\n";
-		$htaccess .= 'Order Deny,Allow'. "\n";
-		$htaccess .= 'Deny from all'. "\n";
-		$htaccess .= 'RewriteEngine On'. "\n";
-		$htaccess .= 'RewriteRule ^(.*)$ index.html [L,QSA]'. "\n";
-		$htaccess .= '</FilesMatch>'. "\n";
-		$fh = fopen($this->droot.$this->module_folder.'/.htaccess', 'wb');
+		$htaccess = '
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+	RewriteBase /
+	RewriteCond %{REQUEST_URI} \.txt$
+	RewriteRule . - [R=404,L,NC]
+	RewriteRule \.txt$ /index.php [L,QSA]
+</IfModule>
+';
+		$fh = fopen($this->droot.$this->module_folder.'/.htaccess','wb');
 		if ( ! $fh) return;
 		fwrite($fh, $htaccess);
 		fclose($fh);
@@ -2173,7 +2390,7 @@ window.addEventListener("load",(event)=>{
 	{
 		session_name('sssm');
 		session_start();
-		if (time() - $_SESSION['buranseomodule']['w_auth'][$get_w] < 60*30) {
+		if (time() - $_SESSION['buranseomodule']['auth'][$get_w] < 60*30) {
 			return true;
 		}
 		$http  = 'http://';
@@ -2298,6 +2515,91 @@ window.addEventListener("load",(event)=>{
 		return $headers;
 	}
 
+	function bsm_sqlite($close=false)
+	{
+		$dbfile = $this->droot.$this->module_folder.'/'.$this->domain_h.'/data.db';
+		$this->db_file = $dbfile;
+		$dbfile_ext = file_exists($dbfile);
+
+		if (
+			$close
+			&& $this->db_op
+			&& $this->db
+			&& ($this->db instanceof SQLite3)
+		) {
+			$this->db->close();
+			$this->db_op = false;
+			return true;
+		}
+
+		if ($dbfile_ext) {
+
+			$this->db = new SQLite3($dbfile);
+			$res = $this->db->querySingle("SELECT id FROM bots LIMIT 1");
+			$this->db_ok = $res !== false && ! $this->db->lastErrorCode() ? true : false;
+			$this->db_op = $this->db_ok;
+
+			$dbfiletm = $this->filetime($dbfile);
+			if ( ! $this->db_op && time() - $dbfiletm > 60) {
+				/*$fh = fopen($this->db_file.'.log', 'ab');
+				if ($fh) {
+					$log = $this->mct_start.' | '.$this->requesturi.' | id='.$res.' | er='.$this->db->lastErrorCode().' | ert='.$this->db->lastErrorMsg()."\n";
+					$res = fwrite($fh, $log);
+					fclose($fh);
+				}*/
+				unlink($dbfile);
+			}
+		}
+
+		if ( ! file_exists($dbfile)) {
+			$this->db = new SQLite3($dbfile);
+			$this->db_ok = ! $this->db->lastErrorCode() ? true : false;
+			$this->db_op = $this->db_ok;
+
+			if ($this->db_op) {
+				$this->db->exec("BEGIN TRANSACTION");
+				$this->db->exec("CREATE TABLE 'url' (
+					'id' INTEGER PRIMARY KEY AUTOINCREMENT,
+					'url' TEXT,
+					'resp_code' INTEGER,
+					'h1' TEXT,
+					'm_titl' TEXT,
+					'm_desc' TEXT,
+					'm_keyw' TEXT,
+					'm_cancl' TEXT,
+					'size' REAL,
+					'loadtime' REAL,
+					'memory' REAL,
+					'freq' INTEGER,
+					'lastload' INTEGER
+				)");
+				$this->db->exec("CREATE TABLE 'url_refr' (
+					'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+					'url' TEXT,
+					'referer' TEXT,
+					'freq' INTEGER,
+					'lastload' INTEGER
+				)");
+				$this->db->exec("CREATE TABLE 'bots' (
+					'id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+					'day' TEXT,
+					'bot' TEXT,
+					'ip' INTEGER,
+					'cnt' INTEGER
+				)");
+				$this->db->exec("CREATE UNIQUE INDEX 'ind_url' ON 'url' ('url')");
+				$this->db->exec("CREATE UNIQUE INDEX 'ind_url_referer' ON 'url_refr' ('url', 'referer')");
+				$this->db->exec("CREATE UNIQUE INDEX 'ind_day_bot_ip' ON 'bots' ('day', 'bot', 'ip')");
+				$res = $this->db->exec("COMMIT");
+
+				$this->db_ok = $res !== false && ! $this->db->lastErrorCode() ? true : false;
+				$this->db_op = $this->db_ok;
+			}
+		}
+
+		return $this->db_ok;
+	}
+
 	function upgrade()
 	{
 		$folder = $this->droot.$this->module_folder;
@@ -2404,4 +2706,13 @@ window.addEventListener("load",(event)=>{
 		return $errors ? false : true;
 	}
 }
-//---------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//------
