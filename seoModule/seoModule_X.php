@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.98
- * @date 04.12.2020
+ * @version 5.99
+ * @date 08.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 77777
  */
 
-$bsm = new buran_seoModule('5.98');
+$bsm = new buran_seoModule('5.99');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -292,6 +292,8 @@ class buran_seoModule
 
 		$this->fgc_ext = function_exists('file_get_contents') ? true : false;
 
+		$this->sqlite3_ext = extension_loaded('sqlite3') &&
+			class_exists('SQLite3') ? true : false;
 
 		$this->useragent = false;
 		if (stripos($_SERVER['HTTP_USER_AGENT'],'google.com/bot') !== false) {
@@ -2124,6 +2126,10 @@ document.addEventListener("readystatechange",(event)=>{
 			$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 red">&mdash;</span></div>';
 		}
 
+		if ( ! $this->sqlite3_ext) {
+			$p .= '<div class="row"><span class="col1">SQLite3</span><span class="col2 red">&mdash;</span></div>';
+		}
+
 		if ( ! function_exists('ini_get')) {
 			$p .= '<div class="row"><span class="col1">ini_get()</span><span class="col2 red">&mdash;</span></div>';
 		}
@@ -2517,6 +2523,11 @@ document.addEventListener("readystatechange",(event)=>{
 
 	function bsm_sqlite($close=false)
 	{
+		if ( ! $this->sqlite3_ext) {
+			$this->db_ok = $this->db_op = false;
+			return false;
+		}
+
 		$dbfile = $this->droot.$this->module_folder.'/'.$this->domain_h.'/data.db';
 		$this->db_file = $dbfile;
 		$dbfile_ext = file_exists($dbfile);
@@ -2708,11 +2719,4 @@ document.addEventListener("readystatechange",(event)=>{
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//------
+//------------------------
