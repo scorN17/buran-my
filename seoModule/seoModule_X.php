@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 5.99
- * @date 08.12.2020
+ * @version 6.0
+ * @date 09.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
- * @size 77777
+ * @size 78888
  */
 
-$bsm = new buran_seoModule('5.99');
+$bsm = new buran_seoModule('6.0');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -130,8 +130,17 @@ if ( ! $bsm->module_mode) {
 	}
 
 	if ('watch' == $_GET['a']) {
-		session_name('sssm');
+		$sessnm = $bsm->ws_info['session_name'];
+		if ($sessnm) session_name($sessnm);
 		session_start();
+
+		if ($bsm->c[2]['reverse_requests']) {
+			$bsm->send_reverse_request();
+		}
+		if ($bsm->c[2]['transit_requests']) {
+			$bsm->transit_list_check();
+		}
+		
 		$tm = isset($_SESSION['buranseomodule']['watch'][$_GET['u']])
 			? intval($_SESSION['buranseomodule']['watch'][$_GET['u']]) : 0;
 		if (time() - $tm > 60) exit();
@@ -140,13 +149,6 @@ if ( ! $bsm->module_mode) {
 		$info = $bsm->bsmfile('txt_info', 'get', $alias);
 		$info['seotext_js'] .= $_GET['s'] == 'y' ? 'y' : 'n';
 		$bsm->bsmfile('txt_info', 'set', $alias, $info);
-
-		if ($bsm->c[2]['reverse_requests']) {
-			$bsm->send_reverse_request();
-		}
-		if ($bsm->c[2]['transit_requests']) {
-			$bsm->transit_list_check();
-		}
 
 		exit();
 	}
@@ -211,6 +213,8 @@ class buran_seoModule
 	public $tag_s = false;
 	public $tag_f = false;
 	public $code = array();
+	
+	public $db_op = false;
 	
 	public $ob_start_flags;
 
@@ -308,6 +312,9 @@ class buran_seoModule
 			$this->useragent = 'siteanalyzer';
 		}
 
+		$this->ws_info = $this->bsmfile('ws_info', 'get');
+		if ( ! $this->ws_info) $this->ws_info = array();
+
 		$this->c = $this->config();
 
 		if ($this->c[2]['accesscode']) {
@@ -319,7 +326,7 @@ class buran_seoModule
 		}
 
 		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? $this->c[2]['ob_start_flags'] : 112;
+			? $this->c[2]['ob_start_flags'] : PHP_OUTPUT_HANDLER_STDFLAGS;
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -372,18 +379,20 @@ class buran_seoModule
 		}
 
 		$this->regmask = array(
-			'h1'          => "/<h1(.*)>(.*)<\/h1>/isU",
-			'base'        => "/<base (.*)>/iU",
-			'title'       => "/(<title>(.*)<\/title>)(.*<\/head>)/isU",
+			'head' => "/<head(.*)>/isU",
+
+			'h1'    => "/<h1(.*)>(.*)<\/h1>/isU",
+			'base'  => "/<base (.*)>/iU",
+			'title' => "/(<title>(.*)<\/title>)(.*<\/head>)/isU",
 
 			'canonical'   => "/<link (.*)rel=('|\")canonical('|\")(.*)>/iU",
 			'canonical_v' => "/href=('|\")(.*)('|\")/isU",
 
-			'description' => "/<meta [.]*name=('|\")description('|\")(.*)>/isU",
+			'description'   => "/<meta [.]*name=('|\")description('|\")(.*)>/isU",
 			'description_v' => "/content=('|\")(.*)('|\")/isU",
 
-			'keywords'    => "/<meta [.]*name=('|\")keywords('|\")(.*)>/isU",
-			'keywords_v'    => "/content=('|\")(.*)('|\")/isU",
+			'keywords'   => "/<meta [.]*name=('|\")keywords('|\")(.*)>/isU",
+			'keywords_v' => "/content=('|\")(.*)('|\")/isU",
 		);
 
 		if (
@@ -416,7 +425,7 @@ class buran_seoModule
 			}
 
 			$requesturi = $this->db->escapeString($this->requesturi);
-			$referer = $this->db->escapeString($_SERVER['HTTP_REFERER']);
+			$referer = isset($_SERVER['HTTP_REFERER']) ? $this->db->escapeString($_SERVER['HTTP_REFERER']) : '';
 			$res = $this->db->querySingle("SELECT id FROM url_refr
 				WHERE url='{$requesturi}' AND referer='{$referer}'
 				LIMIT 1");
@@ -470,7 +479,7 @@ class buran_seoModule
 				'bcrumbs_after_h1'                => '',
 				'template_coding'                 => '1',
 				'dop_protocol'                    => '',
-				'ob_start_flags'                  => 112,
+				'ob_start_flags'                  => PHP_OUTPUT_HANDLER_STDFLAGS,
 				'base'                            => '0',
 				'canonical'                       => 'replace_or_add',
 				'meta'                            => 'replace_or_add',
@@ -551,7 +560,6 @@ class buran_seoModule
 					$path = trim($path);
 					if ( ! $path) continue;
 					if (stripos($this->requesturi, $path) === 0) {
-						$this->log('[08]');
 						return false;
 					}
 				}
@@ -800,9 +808,9 @@ class buran_seoModule
 		error_reporting(0);
 		ini_set('display_errors', 'off');
 
-		session_write_close();
-		session_name('sssm');
-		session_start();
+		$sessid = session_id();
+		if ( ! $sessid) session_start();
+		$this->ws_info['session_name'] = session_name();
 
 		if (headers_sent()) {
 			$this->log('[22]');
@@ -959,6 +967,8 @@ class buran_seoModule
 			$this->seotext_info['seotext_js'] .= '+';
 			$this->bsmfile('txt_info', 'set', $this->seotext_alias, $this->seotext_info);
 		}
+
+		$this->bsmfile('ws_info', 'set', 0, $this->ws_info);
 
 		if (function_exists('header_remove')) {
 			header_remove('Content-Length');
@@ -1420,10 +1430,11 @@ document.addEventListener("readystatechange",(event)=>{
 		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
 		url += "&u='.$uid.'";
 		try {
-			m.open("GET",url,1);
+			m.open("GET",url,false);
 		} catch (f) {
 			return;
 		}
+		m.withCredentials = true;
 		m.send();
 	},2000);
 });
@@ -1438,7 +1449,6 @@ document.addEventListener("readystatechange",(event)=>{
 	function meta_parse($template)
 	{
 		$st = $this->seotext;
-		$c  = $this->c[2];
 
 		$regmask = $this->regmask;
 
@@ -1446,7 +1456,7 @@ document.addEventListener("readystatechange",(event)=>{
 
 		if (
 			$st &&
-			in_array($c['meta'], array(
+			in_array($this->c[2]['meta'], array(
 				'replace_or_add',
 				'delete'
 			))
@@ -1454,7 +1464,7 @@ document.addEventListener("readystatechange",(event)=>{
 			$titl = '<title>'.$st['title'].'</title>';
 			$desc = '<meta name="description" content="'.$st['description'].'" />';
 			$keyw = '<meta name="keywords" content="'.$st['keywords'].'" />';
-			if ($c['meta'] == 'replace_or_add') {
+			if ($this->c[2]['meta'] == 'replace_or_add') {
 				$meta .= "\n\t".$titl;
 				$meta .= "\n\t".$desc;
 				$meta .= "\n\t".$keyw;
@@ -1466,21 +1476,21 @@ document.addEventListener("readystatechange",(event)=>{
 				$this->log('[61]');
 			}
 
-		} elseif (in_array($c['meta_neseo'], array(
+		} elseif (in_array($this->c[2]['meta_neseo'], array(
 			'add_if_not_exists',
 			'replace_or_add',
 			'delete'
 		))) {
 			preg_match_all($regmask['h1'], $template, $matches);
-			$h1tit = trim(html_entity_decode($matches[2][0]));
+			$h1tit = htmlspecialchars(trim(strip_tags(html_entity_decode($matches[2][0]))));
 			if ($h1tit) {
-				$h1tit = $h1tit.', '.$c['company_name'].', '.$c['city'];
+				$h1tit = $h1tit.', '.$this->c[1]['company_name'].', '.$this->c[1]['city'];
 
 				$titl = '<title>'.$h1tit.'</title>';
 				$desc = '<meta name="description" content="'.$h1tit.'" />';
 				$keyw = '<meta name="keywords" content="'.$h1tit.'" />';
 
-				if ($c['meta_neseo'] == 'add_if_not_exists') {
+				if ($this->c[2]['meta_neseo'] == 'add_if_not_exists') {
 					preg_match_all($regmask['title'], $template, $matches);
 					if ( ! $matches[1][0]) $meta .= "\n\t".$titl;
 
@@ -1491,7 +1501,7 @@ document.addEventListener("readystatechange",(event)=>{
 					if ( ! $matches[3][0]) $meta .= "\n\t".$keyw;
 
 				} else {
-					if ($c['meta'] == 'replace_or_add') {
+					if ($this->c[2]['meta'] == 'replace_or_add') {
 						$meta .= "\n\t".$titl;
 						$meta .= "\n\t".$desc;
 						$meta .= "\n\t".$keyw;
@@ -1513,39 +1523,39 @@ document.addEventListener("readystatechange",(event)=>{
 		$canonical = '<link rel="canonical" href="'.$canonical.'" />';
 		if (
 			$st &&
-			in_array($c['canonical'], array(
+			in_array($this->c[2]['canonical'], array(
 				'replace_or_add',
 				'delete'
 			))
 		) {
-			if ($c['meta'] == 'replace_or_add') {
+			if ($this->c[2]['meta'] == 'replace_or_add') {
 				$meta .= "\n\t".$canonical;
 			}
 			$template = preg_replace($regmask['canonical'], '', $template);
 
-		} elseif (in_array($c['canonical_neseo'], array(
+		} elseif (in_array($this->c[2]['canonical_neseo'], array(
 			'add_if_not_exists',
 			'replace_or_add',
 			'delete'
 		))) {
-			if ($c['canonical_neseo'] == 'add_if_not_exists') {
+			if ($this->c[2]['canonical_neseo'] == 'add_if_not_exists') {
 				preg_match_all($regmask['canonical'], $template, $matches);
 				if ( ! $matches[4][0]) $meta .= "\n\t".$canonical;
 
 			} else {
-				if ($c['meta'] == 'replace_or_add') {
+				if ($this->c[2]['meta'] == 'replace_or_add') {
 					$meta .= "\n\t".$canonical;
 				}
 				$template = preg_replace($regmask['canonical'], '', $template);
 			}
 		}
 
-		if (in_array($c['base'], array(
+		if (in_array($this->c[2]['base'], array(
 			'replace_or_add',
 			'delete'
 		))) {
 			$base = '<base href="'.$this->c[1]['website'].'/" />';
-			if ($c['meta'] == 'replace_or_add') {
+			if ($this->c[2]['meta'] == 'replace_or_add') {
 				$meta .= "\n\t".$base;
 			}
 			$template = preg_replace($regmask['base'], '', $template);
@@ -1553,7 +1563,7 @@ document.addEventListener("readystatechange",(event)=>{
 
 		if ($meta) {
 			$meta .= "\n";
-			$template = preg_replace("/<head>/isU", '<head>'.$meta, $template, 1, $count);
+			$template = preg_replace($regmask['head'], '<head${1}>'.$meta, $template, 1, $count);
 			if ($count) {
 				return $template;
 			} else {
@@ -1582,7 +1592,7 @@ document.addEventListener("readystatechange",(event)=>{
 			$size = round($size/1024,2);
 
 			preg_match_all($this->regmask['h1'], $template, $matches);
-			$h1tit = trim(html_entity_decode($matches[2][0]));
+			$h1tit = trim(strip_tags(html_entity_decode($matches[2][0])));
 
 			preg_match_all($this->regmask['title'], $template, $matches);
 			$m_titl = trim(html_entity_decode($matches[2][0]));
@@ -1690,6 +1700,13 @@ document.addEventListener("readystatechange",(event)=>{
 				$base64_e = true;
 				$hashfolder = true;
 				$file = 'config.txt';
+				break;
+
+			case 'ws_info':
+				$serialize = true;
+				$base64_e = true;
+				$hashfolder = true;
+				$file = $type.'.txt';
 				break;
 
 			case 'text':
@@ -2394,8 +2411,8 @@ document.addEventListener("readystatechange",(event)=>{
 
 	function auth($get_w)
 	{
-		session_name('sssm');
-		session_start();
+		$sessid = session_id();
+		if ( ! $sessid) session_start();
 		if (time() - $_SESSION['buranseomodule']['auth'][$get_w] < 60*30) {
 			return true;
 		}
@@ -2719,4 +2736,12 @@ document.addEventListener("readystatechange",(event)=>{
 }
 //-----------------------------------------------
 //-----------------------------------------------
-//------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//------------------------------------------
