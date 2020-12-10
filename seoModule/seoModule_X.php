@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.0
- * @date 09.12.2020
+ * @version 6.1
+ * @date 10.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 78888
  */
 
-$bsm = new buran_seoModule('6.0');
+$bsm = new buran_seoModule('6.1');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -143,14 +143,14 @@ if ( ! $bsm->module_mode) {
 		
 		$tm = isset($_SESSION['buranseomodule']['watch'][$_GET['u']])
 			? intval($_SESSION['buranseomodule']['watch'][$_GET['u']]) : 0;
-		if (time() - $tm > 60) exit();
+		if (time() - $tm > 60) exit('er');
 		unset($_SESSION['buranseomodule']['watch'][$_GET['u']]);
 		$alias = preg_replace("/[^a-z0-9_]/", '', $_GET['b']);
 		$info = $bsm->bsmfile('txt_info', 'get', $alias);
 		$info['seotext_js'] .= $_GET['s'] == 'y' ? 'y' : 'n';
 		$bsm->bsmfile('txt_info', 'set', $alias, $info);
 
-		exit();
+		exit('ok-'.$_GET['s']);
 	}
 
 	if ('auth' == $_GET['a']) {
@@ -382,10 +382,10 @@ class buran_seoModule
 			'head' => "/<head(.*)>/isU",
 
 			'h1'    => "/<h1(.*)>(.*)<\/h1>/isU",
-			'base'  => "/<base (.*)>/iU",
+			'base'  => "/<base (.*)>/isU",
 			'title' => "/(<title>(.*)<\/title>)(.*<\/head>)/isU",
 
-			'canonical'   => "/<link (.*)rel=('|\")canonical('|\")(.*)>/iU",
+			'canonical'   => "/<link [.]*rel=('|\")canonical('|\")(.*)>/isU",
 			'canonical_v' => "/href=('|\")(.*)('|\")/isU",
 
 			'description'   => "/<meta [.]*name=('|\")description('|\")(.*)>/isU",
@@ -1195,7 +1195,10 @@ class buran_seoModule
 
 		$stext_f = $st['s_text'] ? true : false;
 		$stitle_f = $st['s_title'] ? true : false;
-		if ($this->c[2]['disable_stext']) {
+		if (
+			$this->c[2]['disable_stext']
+			&& $this->seotext_tp == 'A'
+		) {
 			$stext_f = false;
 			$stitle_f = false;
 		}
@@ -2743,5 +2746,4 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//------------------------------------------
+//--------------------------------
