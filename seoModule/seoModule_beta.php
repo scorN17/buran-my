@@ -2,7 +2,7 @@
 /**
  * seoModule
  * @version 6.23-m-f
- * @date 24.12.2020
+ * @date 25.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 80000
@@ -525,6 +525,17 @@ class buran_seoModule
 			16 => array(
 				'bc_1' => '',
 			),
+			17 => array(
+				'deflt' => array(
+					'tpl' => 'deflt',
+					'enbl' => 1,
+					'sites' => array(
+						'aftr' => array(
+							'seo-text' => 'seo-text',
+						),
+					),
+				),
+			),
 		);
 
 		$config = $this->bsmfile('config_value', 'get');
@@ -729,16 +740,6 @@ class buran_seoModule
 				|| $this->page_tpl['cut_cntn']
 			)
 		) $this->seotext_site = 'sf';
-		/*if ( ! $this->seotext['s_text']) {
-			$this->seotext_tit = 'n';
-		}
-		if ('d' == $this->seotext_tit) {
-			if ('f' == $this->seotext_site) {
-				$this->seotext_tit = 'h2h1';
-			} else {
-				$this->seotext_tit = 'h1';
-			}
-		}*/
 
 		if (
 			isset($this->page_tpl['sites']['befr'])
@@ -763,27 +764,6 @@ class buran_seoModule
 				return false;
 			}
 		}
-
-		/*if ($this->seotext['s_text']) {
-			$tags1 = $this->get_tag($template, 'finish');
-			if ($tags1) {
-				$tags2 = $this->get_tag($template, 'start');
-			}
-			if (
-				! $tags1
-				|| ($this->seotext_tp == 'S' && ! $tags2)
-			) {
-				$this->log('[40]');
-				$this->save_url_info($template);
-				return false;
-			}
-		} else {
-			if ($this->seotext_tp == 'S') {
-				$this->log('[41]');
-				$this->save_url_info($template);
-				return false;
-			}
-		}*/
 		
 		$template = $this->stext_parse($template);
 		$this->tpl_modified = true;
@@ -1102,9 +1082,6 @@ class buran_seoModule
 			$st['before_code'] = $this->test_beforecode;
 		}
 
-		$st['flag_multitext'] = strpos($st['s_text'], '[part]') !== false
-			? true : false;
-
 		$st['s_text'] = str_replace('<p>[img]</p>', '[img]', $st['s_text']);
 		$st['s_text'] = str_replace('<p>[col]</p>', '[col]', $st['s_text']);
 		$st['s_text'] = str_replace('<p>[part]</p>', '[part]', $st['s_text']);
@@ -1279,13 +1256,18 @@ class buran_seoModule
 
 	function template_init()
 	{
-		$tpl = $this->c[17];
+		$tpls = $this->c[17];
 
-		$tpl = isset($tpl[$this->seotext_tpl]) && $tpl[$this->seotext_tpl]['tpl'] == $this->seotext_tpl ? $tpl[$this->seotext_tpl] : false;
+		$tpl = isset($tpls[$this->seotext_tpl]) && $tpls[$this->seotext_tpl]['tpl'] == $this->seotext_tpl ? $tpls[$this->seotext_tpl] : false;
 		if ( ! $tpl) {
 			$this->log('[23]');
-			return false;
+
+			$this->seotext_tpl = 'deflt';
+			$tpl = isset($tpls[$this->seotext_tpl]) && $tpls[$this->seotext_tpl]['tpl'] == $this->seotext_tpl ? $tpls[$this->seotext_tpl] : false;
+
+			if ( ! $tpl) return false;
 		}
+
 		if (
 			! $tpl['enbl']
 			|| ! is_array($tpl['sites'])
@@ -1305,15 +1287,22 @@ class buran_seoModule
 				}
 				$file = explode('--',$itm,2);
 				if ( ! $file[1]) $file[1] = 'index';
+				$itmdir = $this->bsmfile('tpl', 'dir');
+				$itmdir .= $file[0].'/';
+				$itmdir = str_replace($this->droot, '', $itmdir);
 				$file = $file[0].'/'.$file[1].'.php';
 				$itmpath = $this->bsmfile('tpl', 'file', $file);
 				if (
 					file_exists($itmpath)
 					&& is_readable($itmpath)
 				) {
+					define('BSM_TPL',$tpl['tpl']);
+					define('BSM_TPL_PATH',$itmdir);
+
 					ob_start();
 					@include_once($itmpath);
 					$code = ob_get_clean();
+					$code = "\n".trim($code)."\n";
 
 					$tpl['sites'][$site][$itm] = $itmpath;
 					$tpl['code'][$site] .= $code;
@@ -1342,20 +1331,6 @@ class buran_seoModule
 
 		if ( ! $seotext_in) return;
 
-		if ($st['flag_multitext']) {
-			$st['s_text'] = explode('[part]', $st['s_text']);
-			$s_text_single = '';
-			foreach ($st['s_text'] AS $key => $row) {
-				$row = trim($row);
-				$foo = "<!--bsm_start_".($key+1)."-->(.*)";
-				$foo .= "<!--bsm_finish_".($key+1)."-->";
-				$template = preg_replace("/".$foo."/s", $row,
-					$template, 1, $matches);
-				if ( ! $matches) $s_text_single .= $row;
-			}
-			$st['s_text'] = $s_text_single;
-		}
-
 		$style = $this->module_folder.'/'.$this->domain_h.'/style.css';
 		$seotext = '<link rel="stylesheet" href="'.$style.'" />';
 
@@ -1373,6 +1348,17 @@ class buran_seoModule
 	<div class="sssmb_clr">&nbsp;</div>';
 
 		if ($st['s_title']) {
+			if ( ! $st['s_text']) {
+				$this->seotext_tit = 'n';
+			}
+			if ('d' == $this->seotext_tit) {
+				if ('sf' == $this->seotext_site) {
+					$this->seotext_tit = 'h1';
+				} else {
+					$this->seotext_tit = 'h2h1';
+				}
+			}
+
 			if ($this->c[16]['bc_1'] && $this->seotext_tp == 'S') {
 				$bc_1 = base64_decode($this->c[16]['bc_1']);
 				$bc_1 = str_replace('[+bsm_pagetitle+]',$st['s_title'],$bc_1);
@@ -1511,8 +1497,6 @@ document.addEventListener("readystatechange",(event)=>{
 	{
 		$tpl     = &$this->page_tpl;
 		$regmask = $this->regmask;
-
-		$this->bsmfile('test','set',1,serialize($tpl));
 
 		if ($this->test) {
 			$tpl['code']['body'] .= '
@@ -1938,6 +1922,7 @@ document.addEventListener("readystatechange",(event)=>{
 
 			case 'test':
 				$file = $type.$prm.'.txt';
+				if (is_array($body)) $body = serialize($body);
 				break;
 
 			default:
@@ -2326,7 +2311,7 @@ document.addEventListener("readystatechange",(event)=>{
 				'fopen', 'fwrite', 'feof', 'fread',
 				'session_start', 'session_id', 'session_name',
 				'session_write_close',
-				'file_exists', 'filectime', 'date', 'rewind',
+				'filectime', 'date', 'rewind',
 				'ftruncate', 'fgets', 'fseek', 'filesize', 'md5_file',
 				'is_array', 'ini_get', 'function_exists',
 				'extension_loaded', 'version_compare', 'php_uname',
@@ -2338,10 +2323,14 @@ document.addEventListener("readystatechange",(event)=>{
 				'preg_quote', 'getallheaders', 'header_remove',
 				'strcmp', 'header', 'headers_list', 'http_response_code',
 				'zlib_encode', 'zlib_decode', 'gzinflate', 'gzencode',
-				'ob_start', 'php_sapi_name', 'parse_url', 'dirname',
+				'ob_start', 'ob_get_clean', 'php_sapi_name', 'parse_url',
+				'dirname', 'basename',
 				'error_reporting', 'ini_set', 'is_writable', 'is_readable',
 				'fileowner', 'filegroup', 'posix_getpwuid', 'posix_getgrgid',
-				'fileperms', 'set_error_handler','headers_sent','copy',);
+				'fileperms', 'set_error_handler', 'headers_sent', 'copy',
+				'class_exists', 'base64_encode', 'base64_decode',
+				'htmlspecialchars', 'html_entity_decode',
+				'memory_get_peak_usage', 'strip_tags', );
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
 				$flag2 = stripos($disable_functions,','.$func.',') !== false
@@ -2354,7 +2343,7 @@ document.addEventListener("readystatechange",(event)=>{
 					</div>';
 				}
 			}
-		} else {
+		} elseif ($disable_functions === false) {
 			$flag = function_exists('ini_get') ? true : false;
 			$p .= '<div class="row"><span class="col1">ini disable_functions</span><span class="col2 red">&mdash;</span></div>';
 		}
