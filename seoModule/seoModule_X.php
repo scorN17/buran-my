@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.34
+ * @version 6.35
  * @date 29.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 85000
  */
 
-$bsm = new buran_seoModule('6.34');
+$bsm = new buran_seoModule('6.35');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -2573,6 +2573,8 @@ document.addEventListener("readystatechange",(event)=>{
 		}
 		$fh = $this->logs_files[$type];
 		if ( ! $fh) {
+			$dir = $this->bsmfile('errors', 'dir');
+			if ( ! file_exists($dir)) return false;
 			$file = $this->bsmfile('errors', 'file');
 			if ($clear) {
 				$fh = fopen($file, 'wb');
@@ -2987,6 +2989,4 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-------
+//---------------------
