@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.3
+ * @version 6.34
  * @date 29.12.2020
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 85000
  */
 
-$bsm = new buran_seoModule('6.3');
+$bsm = new buran_seoModule('6.34');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -532,8 +532,11 @@ class buran_seoModule
 			),
 			17 => array(
 				'deflt' => array(
-					'tpl' => 'deflt',
-					'enbl' => 1,
+					'tpl'   => 'deflt',
+					'enbl'  => 1,
+					'sites' => array(),
+					'repls' => array(),
+					'code'  => array(),
 				),
 			),
 		);
@@ -828,20 +831,18 @@ class buran_seoModule
 		if (function_exists('http_response_code')) {
 			$http_code = http_response_code();
 		}
-		if ($http_code != 200 && $http_code != 404) {
-			$headers_list = headers_list();
-			if (is_array($headers_list)) {
-				foreach ($headers_list AS $row) {
-					if (stripos($row, '404 not found') !== false) {
-						$http_code = 404;
-					} elseif (stripos($row, '200 ok') !== false) {
-						$http_code = 200;
-					} elseif (
-						stripos($row, 'http/1') !== false ||
-						stripos($row, 'status:') !== false
-					) {
-						$http_code = 1;
-					}
+		$headers_list = headers_list();
+		if (is_array($headers_list)) {
+			foreach ($headers_list AS $row) {
+				if (stripos($row, '404 not found') !== false) {
+					$http_code = 404;
+				} elseif (stripos($row, '200 ok') !== false) {
+					$http_code = 200;
+				} elseif (
+					stripos($row, 'http/1') !== false ||
+					stripos($row, 'status:') !== false
+				) {
+					$http_code = 1;
 				}
 			}
 		}
@@ -950,7 +951,7 @@ class buran_seoModule
 		}
 		if ( ! $text) return false;
 
-		$text['type'] = $text['type']=='S' ? 'S' : 'A';
+		$text['type'] = isset($text['type']) && $text['type']=='S' ? 'S' : 'A';
 
 		$this->seotext = $text;
 
@@ -1295,45 +1296,47 @@ class buran_seoModule
 		$seo_text_ext = false;
 
 		$ext = false;
-		foreach ($tpl['sites'] AS $site => $rows) {
-			if ( ! is_array($rows)) continue;
-			if ( ! in_array($site,array('head','befr','aftr','body'))) continue;
-			foreach ($rows AS $itm) {
-				if ('seo-text' == $itm) {
-					if ($this->seotext) {
-						$tpl['repls'][$site][] = $seo_text_snipt;
-						$tpl['sites'][$site][$itm] = $seo_text_snipt;
-						$tpl['code'][$site] .= "\n\n".$seo_text_snipt."\n\n";
-						$seo_text_ext = true;
-						$ext = true;
+		if (is_array($tpl['sites'])) {
+			foreach ($tpl['sites'] AS $site => $rows) {
+				if ( ! is_array($rows)) continue;
+				if ( ! in_array($site,array('head','befr','aftr','body'))) continue;
+				foreach ($rows AS $itm) {
+					if ('seo-text' == $itm) {
+						if ($this->seotext) {
+							$tpl['repls'][$site][] = $seo_text_snipt;
+							$tpl['sites'][$site][$itm] = $seo_text_snipt;
+							$tpl['code'][$site] .= "\n\n".$seo_text_snipt."\n\n";
+							$seo_text_ext = true;
+							$ext = true;
+						}
+						continue;
 					}
-					continue;
-				}
-				$file = explode('--',$itm,2);
-				if ( ! $file[1]) $file[1] = 'index';
-				$itmdir = $this->bsmfile('tpl', 'dir');
-				$itmdir .= $file[0].'/';
-				$itmdir = str_replace($this->droot, '', $itmdir);
-				$file = $file[0].'/'.$file[1].'.php';
-				$itmpath = $this->bsmfile('tpl', 'file', $file);
-				if (
-					file_exists($itmpath)
-					&& is_readable($itmpath)
-				) {
-					define('BSM_TPL',$tpl['tpl']);
-					define('BSM_TPL_PATH',$itmdir);
+					$file = explode('--',$itm,2);
+					if ( ! $file[1]) $file[1] = 'index';
+					$itmdir = $this->bsmfile('tpl', 'dir');
+					$itmdir .= $file[0].'/';
+					$itmdir = str_replace($this->droot, '', $itmdir);
+					$file = $file[0].'/'.$file[1].'.php';
+					$itmpath = $this->bsmfile('tpl', 'file', $file);
+					if (
+						file_exists($itmpath)
+						&& is_readable($itmpath)
+					) {
+						define('BSM_TPL',$tpl['tpl']);
+						define('BSM_TPL_PATH',$itmdir);
 
-					ob_start();
-					@include_once($itmpath);
-					$code = ob_get_clean();
-					$code = "\n".trim($code)."\n";
+						ob_start();
+						@include_once($itmpath);
+						$code = ob_get_clean();
+						$code = "\n".trim($code)."\n";
 
-					$tpl['sites'][$site][$itm] = $itmpath;
-					$tpl['code'][$site] .= $code;
-					$ext = true;
+						$tpl['sites'][$site][$itm] = $itmpath;
+						$tpl['code'][$site] .= $code;
+						$ext = true;
 
-				} else {
-					unset($tpl['sites'][$site][$itm]);
+					} else {
+						unset($tpl['sites'][$site][$itm]);
+					}
 				}
 			}
 		}
@@ -1341,6 +1344,7 @@ class buran_seoModule
 		if ($this->seotext && ! $seo_text_ext) {
 			$tpl['repls']['aftr'][] = $seo_text_snipt;
 			$tpl['sites']['aftr']['seo-text'] = $seo_text_snipt;
+			if ( ! isset($tpl['code']['aftr'])) $tpl['code']['aftr'] = '';
 			$tpl['code']['aftr'] .= "\n\n".$seo_text_snipt."\n\n";
 			$ext = true;
 		}
@@ -1404,9 +1408,9 @@ class buran_seoModule
 				$rpl = '<h1 ${1} itemprop="name">'.$st['s_title'].'</h1>';
 				if ($breadcrumbs) {
 					if ($this->c[2]['bcrumbs_after_h1']) {
-						$rpl .= '[+bsm_breadcrumbs+]';
+						$rpl .= $bc_1;
 					} else {
-						$rpl = '[+bsm_breadcrumbs+]'.$rpl;
+						$rpl = $bc_1.$rpl;
 					}
 				}
 				$template = preg_replace($regmask['h1'],
@@ -1428,9 +1432,9 @@ class buran_seoModule
 					&& $this->c[2]['starttag_breadcrumbs']
 				) {
 					if ($this->c[2]['bcrumbs_after_h1']) {
-						$tit .= '[+bsm_breadcrumbs+]';
+						$tit .= $bc_1;
 					} else {
-						$tit = '[+bsm_breadcrumbs+]'.$tit;
+						$tit = $bc_1.$tit;
 					}
 				}
 				$seotext .= $tit;
@@ -1875,6 +1879,7 @@ document.addEventListener("readystatechange",(event)=>{
 		$set = $act == 'set' ? true : false;
 		$get = in_array($act, array('set', 'file', 'dir'))
 			? false : true;
+		$append = false;
 
 		if ($get) $body = '';
 
@@ -1988,6 +1993,7 @@ document.addEventListener("readystatechange",(event)=>{
 
 			case 'test':
 				$file = $type.$prm.'.txt';
+				$append = true;
 				if (is_array($body)) $body = serialize($body);
 				break;
 
@@ -2047,7 +2053,7 @@ document.addEventListener("readystatechange",(event)=>{
 			if ($base64_e) $body = base64_encode($body);
 			if ($base64_d) $body = base64_decode($body);
 
-			$fh = fopen($folder.$file, 'wb');
+			$fh = fopen($folder.$file, ($append ? 'ab' : 'wb'));
 			if ( ! $fh) return false;
 			$res = fwrite($fh, $body);
 			if ($res === false) return false;
@@ -2983,7 +2989,4 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//------------------------------
+//-------
