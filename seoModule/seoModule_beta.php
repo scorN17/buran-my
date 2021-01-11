@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.361-beta
- * @date 04.01.2021
+ * @version 6.362-beta
+ * @date 11.01.2021
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 85000
  */
 
-$bsm = new buran_seoModule('6.361-beta');
+$bsm = new buran_seoModule('6.362-beta');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -210,7 +210,9 @@ class buran_seoModule
 	public $seotext_tp;
 	public $seotext_tpl;
 	public $seotext_hide;
+	public $seotext_blog;
 	public $seotext_date;
+	public $seotext_moddate;
 	public $seotext_info;
 	public $seotext_tit;
 	public $seotext_site;
@@ -368,7 +370,31 @@ class buran_seoModule
 				/*5*/ 'рисунок',
 				/*6*/ 'фото',
 				/*7*/ 'Автор',
+				'fdate' => array(
+					'm2' => array(
+						'01' => 'января',   '02' => 'февраля',
+						'03' => 'марта',    '04' => 'апреля',
+						'05' => 'мая',      '06' => 'июня',
+						'07' => 'июля',     '08' => 'августа',
+						'09' => 'сентября', '10' => 'октября',
+						'11' => 'ноября',   '12' => 'декабря',
+					),
+					'm3' => array(
+						'01' => 'янв', '02' => 'фев',
+						'03' => 'мар', '04' => 'апр',
+						'05' => 'мая', '06' => 'июн',
+						'07' => 'июл', '08' => 'авг',
+						'09' => 'сен', '10' => 'окт',
+						'11' => 'ноя', '12' => 'дек',
+					),
+					'N2' => array(
+						'1' => 'пн', '2' => 'вт', '3' => 'ср',
+						'4' => 'чт', '5' => 'пт', '6' => 'сб',
+						'7' => 'вс',
+					),
+				),
 			),
+
 			'cp1251' => array(
 				/*0*/ '0fLg8vzo',
 				/*1*/ 'wvHlIPHy4PL86A==',
@@ -378,15 +404,40 @@ class buran_seoModule
 				/*5*/ '8Ojx8+3u6g==',
 				/*6*/ '9O7y7g==',
 				/*7*/ 'wOLy7vA=',
+				'fdate' => array(
+					'm2' => array(
+						'01' => '/+3i4PD/',     '02' => '9OXi8ODr/w==',
+						'03' => '7ODw8uA=',     '04' => '4O/w5ev/',
+						'05' => '7OD/',         '06' => '6P7t/w==',
+						'07' => '6P7r/w==',     '08' => '4OLj8/Hy4A==',
+						'09' => '8eXt8v/h8P8=', '10' => '7ury/+Hw/w==',
+						'11' => '7e7/4fD/',     '12' => '5OXq4OHw/w==',
+					),
+					'm3' => array(
+	                    '01' => '/+3i', '02' => '9OXi',
+	                    '03' => '7ODw', '04' => '4O/w',
+	                    '05' => '7OD/', '06' => '6P7t',
+	                    '07' => '6P7r', '08' => '4OLj',
+	                    '09' => '8eXt', '10' => '7ury',
+	                    '11' => '7e7/', '12' => '5OXq',
+					),
+					'N2' => array(
+						'1' => '7+0=', '2' => '4vI=', '3' => '8fA=',
+						'4' => '9/I=', '5' => '7/I=', '6' => '8eE=',
+						'7' => '4vE=',
+					),
+				),
 			),
 		);
+
+		function bsm_array_walk_recursive_fnc(&$v, $k) {
+			$v = base64_decode($v);
+		}
 		$this->charset = $charsetlist[$this->c[2]['out_charset']][0]
 			? $charsetlist[$this->c[2]['out_charset']]
 			: $charsetlist['utf-8'];
 		if ($this->c[2]['out_charset'] != 'utf-8' && is_array($this->charset)) {
-			foreach ($this->charset AS $key => $txt) {
-				$this->charset[$key] = base64_decode($txt);
-			}
+			array_walk_recursive($this->charset, 'bsm_array_walk_recursive_fnc');
 		}
 
 		$this->regmask = array(
@@ -723,8 +774,11 @@ class buran_seoModule
 				if ($this->requesturi == $this->c[1]['articles']) {
 					$this->articles_parse();
 
-				} elseif ($this->requesturi == $this->c[1]['blog']) {
-					$this->seotext['s_text'] = '==';
+				} elseif (
+					$this->c[2]['blog_enbl']
+					&& $this->requesturi == $this->c[1]['blog']
+				) {
+					$this->articles_parse(0, 0, 0, true);
 
 				} elseif ($this->c[2]['re_linking']) {
 					$with_stext_only = $this->c[2]['re_linking_without_stext'] ? false : true;
@@ -903,10 +957,18 @@ class buran_seoModule
 		$seotext_tit   = 'd';
 		$seotext_site  = 'd';
 		$seotext_hide  = 'D';
+		$seotext_blog  = false;
+		$seotext_date  = 0;
 
 		$flag = false;
 		foreach ($this->c[3] AS $alias => $prms) {
-			if ($this->requesturi != $prms[0]) continue;
+			if (
+				$this->requesturi != $prms[0]
+				|| (
+					! $this->c[2]['blog_enbl']
+					&& $prms['blog'] == 'y'
+				)
+			) continue;
 
 			$seotext_alias = $alias;
 
@@ -923,6 +985,10 @@ class buran_seoModule
 			if (isset($prms['st']) && $prms['st'] == 'sf') {
 				$seotext_site = 'sf';
 			}
+
+			$seotext_blog = $prms['blog'] == 'y' ? true : false;
+
+			$seotext_date = intval($prms['date']);
 
 			if ($flag) {
 				$this->log('[13]');
@@ -959,10 +1025,12 @@ class buran_seoModule
 			: ($seotext_hide == 'N' ? 'N' : $hide_flag);
 		$this->seotext_hide = $hide_flag;
 
-		$this->seotext_date = date('Y-m-d', $this->filetime($text['file']));
+		$this->seotext_moddate = date('Y-m-d', $this->filetime($text['file']));
 
 		$this->seotext_tit  = $seotext_tit;
 		$this->seotext_site = $seotext_site;
+		$this->seotext_blog = $seotext_blog;
+		$this->seotext_date = $seotext_date;
 
 		$this->seotext_info = $this->bsmfile('txt_info', 'get', $seotext_alias);
 		if ( ! $this->onlyheaders) {
@@ -1188,7 +1256,7 @@ class buran_seoModule
 		}
 	}
 
-	function articles_parse($alias_start=false, $limit=0, $with_stext_only=false)
+	function articles_parse($alias_start=false, $limit=0, $with_stext_only=false, $blog=false)
 	{
 		if (
 			! $this->seotext['s_text']
@@ -1214,7 +1282,13 @@ class buran_seoModule
 				continue;
 			}
 			
-			if ($url == $this->c[1]['articles']) continue;
+			if (
+				$url == $this->c[1]['articles']
+				|| ( ! $blog && $row['value']['blog'] == 'y')
+
+				|| $url == $this->c[1]['blog']
+				|| ($blog && $row['value']['blog'] != 'y')
+			) continue;
 
 			$counter++;
 			$text = $this->seofile($alias);
@@ -1241,21 +1315,40 @@ class buran_seoModule
 				}
 				$img = false;
 			}
-			$txt .= '<div class="sssmba_itm">
-				<div class="sssmba_img">';
-			if ($img) $txt .= '<img itemprop="image" src="'.$img.'" alt="'.$text['a_title'].'" />';
-			$txt .= '</div>
-				<div class="sssmba_inf">
-					<div class="sssmba_tit"><a href="'.$url.'">'.$text['a_title'].'</a></div>
-					<div class="sssmba_txt">'.$text['a_description'].'</div>
-				</div>
-			</div>';
+			$txt .= '<div class="sssmba_itm">';
+
+			if ($blog) $txt .= '<a href="'.$url.'">';
+
+			$txt .= '<div class="sssmba_img"
+				style="'.($blog ? 'background-image:url(\''.$img.'\');' : '').'"
+			>';
+			if ($img && ! $blog) $txt .= '<img itemprop="image" src="'.$img.'" alt="'.$text['a_title'].'" />';
+			$txt .= '</div>';
+
+			$txt .= '<div class="sssmba_inf">';
+			if ($blog) {
+				$fdate = date('d',$row['value']['date']).' '.$this->bsm_fdate('m3','m',$row['value']['date']).' '.date('Y',$row['value']['date']);
+				$txt .= '<div class="sssmba_dt">'.$fdate.'</div>';
+				$txt .= '<div class="sssmba_tit"><span>'.$text['a_title'].'</span></div>';
+			} else {
+				$txt .= '<div class="sssmba_tit"><a href="'.$url.'">'.$text['a_title'].'</a></div>';
+			}
+			$txt .= '<div class="sssmba_txt">'.$text['a_description'].'</div>';
+
+			$txt .= '</div>';
+
+			if ($blog) $txt .= '<div class="sssmba_lnk">Подробнее</div>';
+
+			if ($blog) $txt .= '</a>';
+
+			$txt .= '</div>';
 			$counter--;
 			$limit--;
 
 			if ($alias_start && $limit<=0) break;
 		}
 		if ($txt) {
+			if ($blog) $txt = $txt.$txt.$txt;
 			if ($alias_start) {
 				$tit  = $this->charset[0];
 				$link = $this->charset[1];
@@ -1264,7 +1357,10 @@ class buran_seoModule
 					<div class="col rght"><a href="'.$this->c[1]['articles'].'">'.$link.'</a></div>
 				</div>'.$txt;
 			}
-			$txt = '<div class="sssmb_clr"></div><div class="sssmb_articles">'.$txt.'</div>';
+			$txt = '<div class="sssmb_clr"></div>
+				<div class="sssmb_'.($blog ? 'blog' : 'articles').'">
+					'.$txt.'
+				</div>';
 			$this->seotext['s_text'] .= $txt;
 		}
 		if ($counter) $this->log('[12]');
@@ -1459,7 +1555,7 @@ class buran_seoModule
 	</div>
 </div>
 <p>'.$this->charset[2].' '.$this->charset[3].': <time itemprop="datePublished">'.date('Y-m-d',strtotime($this->c[1]['date_start'])).'</time></p>
-<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_date.'</time></p>
+<p>'.$this->charset[2].' '.$this->charset[4].': <time itemprop="dateModified">'.$this->seotext_moddate.'</time></p>
 <!--noindex--><p itemprop="headline">'.$st['s_title'].'</p><!--/noindex-->
 <!--noindex--><p itemprop="description">'.$st['description'].'</p><!--/noindex-->
 </div>';
@@ -2242,32 +2338,34 @@ document.addEventListener("readystatechange",(event)=>{
 		$list = $this->bsmfile('transit_list', 'get');
 		if ( ! $list || ! is_array($list)) return false;
 
-		$page = false;
+		$cnt = 0;
 		foreach ($list AS $key => $row) {
 			if (
-				$row['dt'] || ! $row['id'] || ! $row['id']
+				$row['try'] || $row['dt']
+				|| ! $row['id'] || ! $row['idc']
 				|| ! $row['ws'] || ! $row['url']
 			) continue;
-			$page_id = $key;
-			$page    = $row;
-			break;
+			$cnt++;
+
+			$list[$key]['try'] = time();
+			$this->bsmfile('transit_list', 'set', '', $list);
+
+			$reqres = $this->request(
+				$row['ws'].$row['url'],
+				array(
+					'nobody' => true,
+					'follow' => false,
+				)
+			);
+			$list[$key]['dt']       = time();
+			$list[$key]['error']    = $reqres['errno'];
+			$list[$key]['httpcode'] = $reqres['info']['http_code'];
+			$list[$key]['delay']    = $reqres['info']['total_time'];
+
+			$this->bsmfile('transit_list', 'set', '', $list);
+
+			if ($cnt >= 2) break;
 		}
-		if ( ! $page) return false;
-
-		$reqres = $this->request(
-			$page['ws'].$page['url'],
-			array(
-				'nobody' => true,
-				'follow' => false,
-			)
-		);
-		$list[$page_id]['error']    = $reqres['errno'];
-		$list[$page_id]['httpcode'] = $reqres['info']['http_code'];
-		$list[$page_id]['delay']    = $reqres['info']['total_time'];
-		$list[$page_id]['dt']       = time();
-
-		$res = $this->bsmfile('transit_list', 'set', '', $list);
-		return $res;
 	}
 
 	function request($url, $prms=false, $headers=false, $post=false)
@@ -2413,7 +2511,7 @@ document.addEventListener("readystatechange",(event)=>{
 				'fileperms', 'set_error_handler', 'headers_sent', 'copy',
 				'class_exists', 'base64_encode', 'base64_decode',
 				'htmlspecialchars', 'html_entity_decode',
-				'memory_get_peak_usage', 'strip_tags', );
+				'memory_get_peak_usage', 'strip_tags', 'array_walk_recursive',);
 			foreach ($funcs AS $func) {
 				$flag1 = function_exists($func) ? true : false;
 				$flag2 = stripos($disable_functions,','.$func.',') !== false
@@ -2794,6 +2892,19 @@ document.addEventListener("readystatechange",(event)=>{
 			}
 		}
 		return $headers;
+	}
+
+	function bsm_fdate($t, $f=false, $d=false, $k=false)
+	{
+		if ( ! $f) $f = 'd.m.Y';
+		if ( ! $d) $d = time();
+		$datef_t = $this->charset['fdate'][$t];
+		$date = date($f,$d);
+		if ( ! isset($datef_t)) {
+			return $date;
+		}
+		if ($k) return $datef_t[$k];
+		return $datef_t[$date];
 	}
 
 	function bsm_sqlite($close=false)
