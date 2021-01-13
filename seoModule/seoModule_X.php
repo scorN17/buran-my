@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.36
- * @date 12.01.2021
+ * @version 6.37
+ * @date 13.01.2021
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
- * @size 90999
+ * @size 91000
  */
 
-$bsm = new buran_seoModule('6.36');
+$bsm = new buran_seoModule('6.37');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -1781,10 +1781,10 @@ document.addEventListener("readystatechange",(event)=>{
 		}
 
 		if ($this->c[2]['city_replace']) {
-			$template = preg_replace("/\[hide\](.*?)\[hide\]/U", '', $template, -1, $count);
+			$template = preg_replace("/\[hide\](.*)\[hide\]/U", '', $template, -1, $count);
 			if ($count) $tpl_modified = true;
 			foreach ($this->declension AS $key => $decl) {
-				$template = preg_replace("/\[city_{$key}\](.*?)\[city\]/U", $decl, $template, -1, $count);
+				$template = preg_replace("/\[city_{$key}\](.*)\[city\]/U", $decl, $template, -1, $count);
 				if ($count) $tpl_modified = true;
 			}
 		}
@@ -3166,4 +3166,4 @@ document.addEventListener("readystatechange",(event)=>{
 //-----------------------------------------------
 //-----------------------------------------------
 //-----------------------------------------------
-//--------------
+//-----------------
