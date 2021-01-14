@@ -1490,8 +1490,6 @@ class buran_seoModule
 		}
 
 		if ($st['flag_multitext']) {
-			$this->bsmfile('test','set',1,$tpl);
-
 			$st['s_text'] = explode('[part]', $st['s_text']);
 			$stext_last = array_pop($st['s_text']);
 			$stext_common = '';
