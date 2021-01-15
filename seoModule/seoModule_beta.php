@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.38-beta
- * @date 14.01.2021
+ * @version 6.383-beta
+ * @date 15.01.2021
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 91000
  */
 
-$bsm = new buran_seoModule('6.38-beta');
+$bsm = new buran_seoModule('6.383-beta');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -466,59 +466,6 @@ class buran_seoModule
 			'robots' => "/<meta [.]*name=('|\")robots('|\")(.*)>/isU",
 			'robots_v' => "/content=('|\")(.*)('|\")/isU",
 		);
-
-		if (
-			! $this->module_mode
-			&& $this->c[2]['db_data']
-		) $this->bsm_sqlite();
-		if ($this->db_op) {
-			if ($this->useragent) {
-				$ip = $this->db->escapeString($_SERVER['REMOTE_ADDR']);
-				$res = $this->db->querySingle("SELECT id FROM bots
-					WHERE
-						day = '".date('Y-m-d')."'
-						AND bot = '{$this->useragent}'
-						AND ip = '{$ip}'
-					LIMIT 1");
-				if ($res) {
-					$this->db->query("UPDATE bots
-						SET cnt = cnt+1
-						WHERE id = '{$res}'");
-				} elseif ($res !== false) {
-					$this->db->query("INSERT INTO bots
-						(day, bot, ip, cnt)
-						VALUES (
-							'".date('Y-m-d')."',
-							'{$this->useragent}',
-							'{$ip}',
-							'1'
-						)");
-				}
-			}
-
-			$requesturi = $this->db->escapeString($this->requesturi);
-			$referer = isset($_SERVER['HTTP_REFERER']) ? $this->db->escapeString($_SERVER['HTTP_REFERER']) : '';
-			$res = $this->db->querySingle("SELECT id FROM url_refr
-				WHERE url='{$requesturi}' AND referer='{$referer}'
-				LIMIT 1");
-			if ($res) {
-				$this->db->query("UPDATE url_refr SET
-						freq = ((freq+(".time()."-lastload))/2),
-						lastload = '".time()."'
-					WHERE id = '{$res}'");
-			} elseif ($res !== false) {
-				$this->db->query("INSERT INTO url_refr
-					(url, referer, freq, lastload)
-					VALUES (
-						'{$requesturi}',
-						'{$referer}',
-						'".(60*60*24)."',
-						'".time()."'
-					)");
-			}
-
-			$this->bsm_sqlite(true);
-		}
 	}
 
 	function config()
@@ -651,17 +598,19 @@ class buran_seoModule
 			}
 		}
 
-		$this->clear_request();
-
-		if ($this->c[2]['redirect']) {
-			$this->redirects();
-		}
-
 		if (
 			$this->c[2]['error_handler']
 			&& function_exists('set_error_handler')
 		) {
 			set_error_handler(array($this,'error_handler'), E_ALL & ~E_NOTICE);
+		}
+
+		$this->clear_request();
+
+		$this->save_request_info('refr');
+
+		if ($this->c[2]['redirect']) {
+			$this->redirects();
 		}
 
 		$this->seotext();
@@ -713,7 +662,7 @@ class buran_seoModule
 			&& $this->http_code != 404
 		) {
 			if ($this->seotext) $this->log('[20]');
-			$this->save_url_info();
+			$this->save_request_info();
 			return false;
 		}
 
@@ -751,7 +700,7 @@ class buran_seoModule
 
 		if ( ! $template) {
 			$this->log('[21]');
-			$this->save_url_info();
+			$this->save_request_info();
 			return false;
 		}
 
@@ -763,6 +712,8 @@ class buran_seoModule
 			if ($this->seotext) $this->log('[25]');
 			return false;
 		}
+
+		$this->save_tpls_blocks($template);
 
 		$res = $this->meta_parse($template);
 		if ($res !== false) {
@@ -867,7 +818,7 @@ class buran_seoModule
 
 		$this->bsmfile('ws_info', 'set', 0, $this->ws_info);
 
-		$this->save_url_info($template);
+		$this->save_request_info('url', $template);
 
 		if ($this->tpl_modified) {
 			if (function_exists('header_remove')) {
@@ -892,8 +843,8 @@ class buran_seoModule
 				} elseif (stripos($row, '200 ok') !== false) {
 					$http_code = 200;
 				} elseif (
-					stripos($row, 'http/1') !== false ||
-					stripos($row, 'status:') !== false
+					stripos($row, 'http/1') === 0 ||
+					stripos($row, 'status:') === 0
 				) {
 					$http_code = 1;
 				}
@@ -1502,7 +1453,7 @@ class buran_seoModule
 					$row = trim($row);
 
 					if ($row) {
-						$stext_p = '<div class="sssmodulebox sssmodulebox_part sssmodulebox_part_'.($key+1).' '.$this->c[2]['classname'].'"
+						$stext_p = '<div class="sssmodulebox turbocontainer sssmodulebox_part sssmodulebox_part_'.($key+1).' '.$this->c[2]['classname'].'"
 							'.($this->seotext_hide=='Y'?'style="display:none;"':'').'
 						>
 							<div class="sssmb_clr">&nbsp;</div>
@@ -1954,16 +1905,67 @@ document.addEventListener("readystatechange",(event)=>{
 		return false;
 	}
 
-	function save_url_info($template=false)
+	function save_request_info($mode='url', $template=false)
 	{
 		if (
 			$this->module_mode
-			|| $this->onlyheaders
 			|| ! $this->c[2]['db_data']
 		) return;
 
 		$this->bsm_sqlite();
 		if ( ! $this->db_op) return false;
+
+		if ('refr' == $mode) {
+			if ($this->useragent) {
+				$ip = $this->db->escapeString($_SERVER['REMOTE_ADDR']);
+				$res = $this->db->querySingle("SELECT id FROM bots
+					WHERE
+						day = '".date('Y-m-d')."'
+						AND bot = '{$this->useragent}'
+						AND ip = '{$ip}'
+					LIMIT 1");
+				if ($res) {
+					$this->db->query("UPDATE bots
+						SET cnt = cnt+1
+						WHERE id = '{$res}'");
+				} elseif ($res !== false) {
+					$this->db->query("INSERT INTO bots
+						(day, bot, ip, cnt)
+						VALUES (
+							'".date('Y-m-d')."',
+							'{$this->useragent}',
+							'{$ip}',
+							'1'
+						)");
+				}
+			}
+
+			$requesturi = $this->db->escapeString($this->requesturi);
+			$referer = isset($_SERVER['HTTP_REFERER']) ? $this->db->escapeString($_SERVER['HTTP_REFERER']) : '';
+			$res = $this->db->querySingle("SELECT id FROM url_refr
+				WHERE url='{$requesturi}' AND referer='{$referer}'
+				LIMIT 1");
+			if ($res) {
+				$this->db->query("UPDATE url_refr SET
+						freq = ((freq+(".time()."-lastload))/2),
+						lastload = '".time()."'
+					WHERE id = '{$res}'");
+			} elseif ($res !== false) {
+				$this->db->query("INSERT INTO url_refr
+					(url, referer, freq, lastload)
+					VALUES (
+						'{$requesturi}',
+						'{$referer}',
+						'".(60*60*24)."',
+						'".time()."'
+					)");
+			}
+
+			$this->bsm_sqlite(true);
+			return true;
+		}
+
+		if ($this->onlyheaders) return;
 
 		$requesturi = $this->db->escapeString($this->requesturi);
 		$loadtime = round((microtime(true)-$this->mct_start),3);
@@ -2043,6 +2045,37 @@ document.addEventListener("readystatechange",(event)=>{
 
 		$this->bsm_sqlite(true);
 		return true;
+	}
+
+	function save_tpls_blocks($template)
+	{
+		if ( ! strpos($template, '<!--(seomodule-tpl/')) return;
+
+		$res = preg_match_all("/<!--\(seomodule-tpl\/([a-z0-9\-]*)\)-->(.*)<!--\(seomodule-tpl\/[a-z0-9\-]*\)-->/sU", $template, $matches);
+		if ( ! $res) return;
+
+		foreach ($matches[1] AS $key => $itm) {
+			$code = "\n".trim($matches[2][$key])."\n";
+
+			$file = explode('--',$itm,2);
+			if ( ! $file[1]) $file[1] = 'index';
+			$itmdir = $this->bsmfile('tpl', 'dir');
+			$itmdir .= $file[0].'/';
+			$file = $file[0].'/'.$file[1].'.php';
+			$itmpath = $this->bsmfile('tpl', 'file', $file);
+
+			$ft = $this->filetime($itmpath);
+			if (time() - $ft < 60*60) continue;
+
+			if ( ! file_exists($itmdir)) {
+				mkdir($itmdir, 0755, true);
+			}
+			$fh = fopen($itmpath,'wb');
+			if ($fh) {
+				fwrite($fh,$code);
+				fclose($fh);
+			}
+		}
 	}
 
 // ------------------------------------------------------------------
