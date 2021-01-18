@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.383-beta
- * @date 15.01.2021
+ * @version 6.384-beta
+ * @date 18.01.2021
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 91000
  */
 
-$bsm = new buran_seoModule('6.383-beta');
+$bsm = new buran_seoModule('6.384-beta');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -498,6 +498,7 @@ class buran_seoModule
 				'starttag_title'                  => '',
 				'starttag_breadcrumbs'            => '',
 				'bcrumbs_after_h1'                => '',
+				'use_curr_h1tag'                  => '',
 				'template_coding'                 => '1',
 				'dop_protocol'                    => '',
 				'ob_start_flags'                  => PHP_OUTPUT_HANDLER_STDFLAGS,
@@ -936,7 +937,7 @@ class buran_seoModule
 			$seotext_tpl = preg_replace("/[^a-z0-9\-]/",'',$prms['tpl']);
 			if ( ! $seotext_tpl || $seotext_tpl==='y') $seotext_tpl = 'deflt';
 
-			if (isset($prms['tit']) && in_array($prms['tit'],array('n','h1','h2h1'))) {
+			if (isset($prms['tit']) && in_array($prms['tit'],array('n','sh1','h1','h2h1'))) {
 				$seotext_tit = $prms['tit'];
 			}
 
@@ -1494,7 +1495,11 @@ class buran_seoModule
 			}
 			if ('d' == $this->seotext_tit) {
 				if ('sf' == $this->seotext_site) {
-					$this->seotext_tit = 'h1';
+					if ($this->c[2]['use_curr_h1tag']) {
+						$this->seotext_tit = 'h1';
+					} else {
+						$this->seotext_tit = 'sh1';
+					}
 				} else {
 					$this->seotext_tit = 'h2h1';
 				}
@@ -1513,6 +1518,10 @@ class buran_seoModule
 				$template = preg_replace($regmask['h1'], $rpl, $template, -1, $h1cc);
 				if ($h1cc) $tpl_modified = true;
 
+			} elseif ('sh1' == $this->seotext_tit) {
+				$template = preg_replace($regmask['h1'], '', $template, -1, $h1cc);
+				if ($h1cc) $tpl_modified = true;
+
 			} elseif ('h2h1' == $this->seotext_tit) {
 				$template = preg_replace($regmask['h1'],
 					'<h2 ${1}>${2}</h2>', $template, -1, $h2cc);
@@ -1520,10 +1529,11 @@ class buran_seoModule
 			}
 			if (
 				! $h1cc
+				|| 'sh1' == $this->seotext_tit
 				|| 'h2h1' == $this->seotext_tit
 				|| $this->c[2]['starttag_title']
 			) {
-				$tit = '<div class="sssmb_h1"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
+				$tit = '<div class="sssmb_h1 sssmb_h1_'.$this->seotext_tit.'"><h1 itemprop="name">'.$st['s_title'].'</h1></div>';
 				if (
 					$breadcrumbs
 					&& $this->c[2]['starttag_title']
@@ -3225,17 +3235,3 @@ document.addEventListener("readystatechange",(event)=>{
 	}
 }
 //-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------------------------------------
-//-----------------
