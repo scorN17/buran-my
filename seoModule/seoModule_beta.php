@@ -1,14 +1,14 @@
 <?php
 /**
  * seoModule
- * @version 6.384-beta
+ * @version 6.386-beta
  * @date 18.01.2021
  * @author <sergey.it@delta-ltd.ru>
  * @copyright 2021 DELTA http://delta-ltd.ru/
  * @size 91000
  */
 
-$bsm = new buran_seoModule('6.384-beta');
+$bsm = new buran_seoModule('6.386-beta');
 
 if ( ! $bsm->module_mode) {
 	$bsm->init();
@@ -223,9 +223,9 @@ class buran_seoModule
 
 	public $template;
 	public $headers;
-	public $tag_s = false;
-	public $tag_f = false;
 	public $code = array();
+	public $tags = false;
+	public $oldtags = false;
 	
 	public $db_op = false;
 	
@@ -359,6 +359,27 @@ class buran_seoModule
 		if ($this->c[2]['proxy']) {
 			$this->c[2]['proxy'] = str_replace('-',':',$this->c[2]['proxy']);
 		}
+
+		$tags = isset($this->c[6]['common']) && is_array($this->c[6]['common'])
+			? $this->c[6]['common'] : false;
+		if ( ! $tags) {
+			if (
+				isset($this->c[6]['start'])
+				&& is_array($this->c[6]['start'])
+			) {
+				$tags['cntn-1'] = array_shift($this->c[6]['start']);
+				$tags['cntn-1']['cntn'] = 'y';
+			}
+			if (
+				isset($this->c[6]['finish'])
+				&& is_array($this->c[6]['finish'])
+			) {
+				$tags['cntn-2'] = array_shift($this->c[6]['finish']);
+				$tags['cntn-2']['cntn'] = 'y';
+			}
+			$this->oldtags = true;
+		}
+		$this->tags = $tags;
 
 		$charsetlist = array(
 			'utf-8' => array(
@@ -526,6 +547,9 @@ class buran_seoModule
 				'/index.php'  => '/',
 				'/index.html' => '/',
 			),
+			6 => array(
+				'common' => array(),
+			),
 			12 => array(
 				'obrabotka'      => '',
 				'o_canonical'    => '',
@@ -536,11 +560,16 @@ class buran_seoModule
 			),
 			17 => array(
 				'deflt' => array(
-					'tpl'   => 'deflt',
-					'enbl'  => 1,
-					'sites' => array(),
-					'repls' => array(),
-					'code'  => array(),
+					'tpl'      => 'deflt',
+					'enbl'     => 1,
+					'sites'    => array(),
+					'repls'    => array(),
+					'code'     => array(),
+					'intag'    => array(),
+					'cntn_tag' => array(
+						's' => false,
+						'f' => false,
+					),
 				),
 			),
 		);
@@ -561,6 +590,7 @@ class buran_seoModule
 		} else {
 			$this->log('[03]');
 		}
+
 		return $config_default;
 	}
 
@@ -1089,32 +1119,6 @@ class buran_seoModule
 		return $template;
 	}
 
-	function get_tag($template, $type='finish')
-	{
-		$list = $this->c[6][$type];
-		if ( ! is_array($list)) {
-			return false;
-		}
-		foreach ($list AS $row) {
-			$tag = preg_quote($row[1],"/");
-			$tag = str_replace("\n", '\n', $tag);
-			$tag = str_replace("\r", '', $tag);
-			$tag = str_replace("\t", '\t', $tag);
-			$res = preg_match("/".$tag."/s", $template);
-			if ($res === 1) {
-				$foo = array(
-					'p' => $row[0],
-					't' => $row[1],
-					'm' => $tag,
-				);
-				if ($type == 'start')  $this->tag_s = $foo;
-				if ($type == 'finish') $this->tag_f = $foo;
-				return true;
-			}
-		}
-		return false;
-	}
-
 	function text_parse()
 	{
 		$st = &$this->seotext;
@@ -1360,23 +1364,54 @@ class buran_seoModule
 		$seo_text_snipt = '<!--[[seomodule-stext-'.time().'-xxx]]-->';
 		$seo_text_ext = false;
 
+		$lasttag = false;
 		$ext = false;
 		if (is_array($tpl['sites'])) {
 			foreach ($tpl['sites'] AS $site => $rows) {
 				if ( ! is_array($rows)) continue;
-				if ( ! in_array($site,array('head','befr','aftr','body'))) continue;
-				foreach ($rows AS $key => $itm) {
-					if (strpos($itm,'seo-text') === 0) {
-						if ($this->seotext) {
-							$tmp = str_replace('-xxx','-'.$itm,$seo_text_snipt);
-							$tpl['repls'][$site][] = $tmp;
-							$tpl['sites'][$site][$itm] = $tmp;
-							$tpl['code'][$site] .= $tmp;
-							$seo_text_ext = true;
-							$ext = true;
+				if (
+					! in_array($site,array('head','body'))
+					&& strpos($site,'tag--') !== 0
+				) continue;
+
+				if (strpos($site,'tag--') === 0) {
+					$lasttag = $site;
+
+					$tagnm = substr($site,5);
+					if (
+						isset($this->tags[$tagnm])
+						&& $this->tags[$tagnm]['cntn'] == 'y'
+					) {
+						if ( ! $tpl['cntn_tag']['s']) {
+							$tpl['cntn_tag']['s'] = $site;
+							$tpl['cut-content--sf'][$site] = true;
+						} elseif ( ! $tpl['cntn_tag']['f']) {
+							$tpl['cntn_tag']['f'] = $site;
 						}
+					}
+				}
+
+				$tpl['code'][$site] = '';
+
+				foreach ($rows AS $key => $itm) {
+
+					if (strpos($itm,'cut-content') === 0) {
+						$tpl[$itm][$site] = true;
 						continue;
 					}
+
+					if (strpos($itm,'seo-text') === 0) {
+						if ( ! $this->seotext) continue;
+						$tmp = str_replace('-xxx','-'.$itm,$seo_text_snipt);
+						$tpl['repls'][$site][] = $tmp;
+						$tpl['sites'][$site][$itm] = $tmp;
+						$tpl['code'][$site] .= $tmp;
+						$tpl['intag'][$itm] = $site;
+						if ($itm == 'seo-text') $seo_text_ext = true;
+						$ext = true;
+						continue;
+					}
+
 					$file = explode('--',$itm,2);
 					if ( ! $file[1]) $file[1] = 'index';
 					$itmdir = $this->bsmfile('tpl', 'dir');
@@ -1408,14 +1443,39 @@ class buran_seoModule
 		}
 
 		if ($this->seotext && ! $seo_text_ext) {
-			$tpl['repls']['aftr'][] = $seo_text_snipt;
-			$tpl['sites']['aftr']['seo-text'] = $seo_text_snipt;
-			if ( ! isset($tpl['code']['aftr'])) $tpl['code']['aftr'] = '';
-			$tpl['code']['aftr'] .= $seo_text_snipt;
+
+			if ($this->oldtags) {
+				$tag = 'tag--cntn-1';
+				if ( ! isset($tpl['code'][$tag])) $tpl['code'][$tag] = '';
+				$tpl['cntn_tag']['s'] = $tag;
+				$tpl['cut-content--sf'][$tag] = true;
+
+			} else {
+				if (
+					$tpl['cntn_tag']['s']
+					&& ! $tpl['cntn_tag']['f']
+				) {
+					$tpl['cntn_tag']['f'] = $tpl['cntn_tag']['s'];
+					unset($tpl['cntn_tag']['s']);
+					$tpl['cut-content--sf'][$site] = false;
+				}
+			}
+
+			$tag = $tpl['cntn_tag']['f'] ? $tpl['cntn_tag']['f'] : $lasttag;
+			if ( ! $tag) $tag = 'tag--cntn-2';
+			$tpl['repls'][$tag][] = $seo_text_snipt;
+			$tpl['sites'][$tag]['seo-text'] = $seo_text_snipt;
+			if ( ! isset($tpl['code'][$tag])) $tpl['code'][$tag] = '';
+			$tpl['code'][$tag] .= $seo_text_snipt;
+			$tpl['intag']['seo-text'] = $tag;
+			$tpl['cntn_tag']['f'] = $tag;
+			$seo_text_ext = true;
 			$ext = true;
 		}
 
 		if ( ! $ext) return false;
+
+		//$this->bsmfile('test','set',1,$tpl); //TODO
 
 		$this->page_tpl = $tpl;
 
@@ -1432,9 +1492,7 @@ class buran_seoModule
 
 		$bc_tag = '[+bsm_breadcrumbs+]';
 
-		$seotext_in = $tpl['sites']['befr']['seo-text'] ? 'befr'
-			: ($tpl['sites']['aftr']['seo-text'] ? 'aftr' : false);
-
+		$seotext_in = $tpl['intag']['seo-text'];
 		if ( ! $seotext_in || ! $st['s_text']) return false;
 
 		if ($this->c[16]['bc_1'] && $this->seotext_tp == 'S') {
@@ -1447,8 +1505,7 @@ class buran_seoModule
 			$stext_common = '';
 			foreach ($st['s_text'] AS $key => $row) {
 				$seotext_part = 'seo-text--part-'.($key+1);
-				$seotext_part_in = $tpl['sites']['befr'][$seotext_part] ? 'befr'
-					: ($tpl['sites']['aftr'][$seotext_part] ? 'aftr' : false);
+				$seotext_part_in = $tpl['intag'][$seotext_part];
 
 				if ($seotext_part_in) {
 					$row = trim($row);
@@ -1685,85 +1742,91 @@ document.addEventListener("readystatechange",(event)=>{
 ';
 		}
 
-		if ($tpl['code']['head']) {
-			if (is_array($tpl['repls']['head'])) {
-				foreach ($tpl['repls']['head'] AS $row) {
-					$tpl['code']['head'] = str_replace($row, '', $tpl['code']['head']);
+		if (isset($tpl['code']) && is_array($tpl['code'])) {
+
+			$lasttag = $lastcode = $cut_content = false;
+			foreach ($tpl['code'] AS $site => $code) {
+
+				if (is_array($tpl['repls'][$site])) {
+					foreach ($tpl['repls'][$site] AS $repl) {
+						$tpl['code'][$site] = str_replace($repl, '', $tpl['code'][$site]);
+					}
 				}
-			}
-			$template = preg_replace($regmask['head_end'], $tpl['code']['head']."\n".'</head${1}>', $template, 1, $count);
-			if ( ! $count) $this->log('[70]');
-			else $tpl_modified = true;
-		}
 
-		if ($tpl['code']['body']) {
-			if (is_array($tpl['repls']['body'])) {
-				foreach ($tpl['repls']['body'] AS $row) {
-					$tpl['code']['body'] = str_replace($row, '', $tpl['code']['body']);
+				if ($site=='head' || $site=='body') {
+					if ( ! $code) continue;
+					if ('head' == $site) $mask = $regmask['head_end'];
+					elseif ('body' == $site) $mask = $regmask['body_end'];
+					$template = preg_replace($mask, $code."\n".'</head${1}>', $template, 1, $count);
+					if ( ! $count) $this->log('[70]');
+					else $tpl_modified = true;
+					continue;
+
+				} elseif (strpos($site, 'tag--') === 0) {
+					$tagnm = substr($site, 5);
+					$tag = isset($this->tags[$tagnm]) && is_array($this->tags[$tagnm])
+						? $this->tags[$tagnm] : false;
+					if ( ! $tag) {
+						$lasttag = $lastcode = $cut_content = false;
+						$this->log('[42]');
+						continue;
+					}
+					$tagmask = preg_quote($tag[1],"/");
+					$tagmask = str_replace("\n", '\n', $tagmask);
+					$tagmask = str_replace("\r", '', $tagmask);
+					$tagmask = str_replace("\t", '\t', $tagmask);
+					$res = preg_match("/".$tagmask."/s", $template);
+
+					$currtag = array(
+						'p' => $tag[0],
+						't' => $tag[1],
+						'm' => $tagmask,
+						's' => $res,
+					);
+
+					if (
+						$tpl['cut-content'][$site]
+						|| (
+							$tpl['cut-content--sf'][$site]
+							&& 'sf' == $this->seotext_site
+						)
+					) $cut_content_innext = true;
+					else $cut_content_innext = false;
+
+					if ($lasttag && $cut_content) {
+						if ($currtag['s'] === 1 && $lasttag['s'] === 1) {
+							$foo = $lasttag['p'] == 'a' ? $lasttag['t'] : '';
+							$foo .= $lastcode . $code;
+							$foo .= $currtag['p'] == 'b' ? $currtag['t'] : '';
+							$mask = "/".$lasttag['m']."(.*)".$currtag['m']."/sU";
+
+							$template = preg_replace($mask, $foo, $template, 1, $count);
+							if ($count) $tpl_modified = true;
+
+						} else $this->log('[43]');
+
+					} elseif (
+						! $cut_content_innext
+						&& ($code || $currtag['p'] == 'r')
+					) {
+						if ($currtag['s'] === 1) {
+							$foo = $currtag['p'] == 'a' ? $currtag['t'] : '';
+							$foo .= $code;
+							$foo .= $currtag['p'] == 'b' ? $currtag['t'] : '';
+							$mask = "/".$currtag['m']."/s";
+
+							$template = preg_replace($mask, $foo, $template, 1, $count);
+							if ($count) $tpl_modified = true;
+
+						} else $this->log('[43]');
+					}
+
+					if ($currtag['s'] === 1) {
+						$lasttag = $currtag;
+						$lastcode = $code;
+						$cut_content = $cut_content_innext;
+					} else $lasttag = $lastcode = $cut_content = false;
 				}
-			}
-			$template = preg_replace($regmask['body_end'], $tpl['code']['body']."\n".'</body${1}>', $template, 1, $count);
-			if ( ! $count) $this->log('[71]');
-			else $tpl_modified = true;
-		}
-
-		if ($tpl['code']['befr'] && is_array($tpl['repls']['befr'])) {
-			foreach ($tpl['repls']['befr'] AS $row) {
-				$tpl['code']['befr'] = str_replace($row, '', $tpl['code']['befr']);
-			}
-		}
-		if ($tpl['code']['aftr'] && is_array($tpl['repls']['aftr'])) {
-			foreach ($tpl['repls']['aftr'] AS $row) {
-				$tpl['code']['aftr'] = str_replace($row, '', $tpl['code']['aftr']);
-			}
-		}
-
-		if (
-			$tpl['code']['befr']
-			|| $this->seotext_site == 'sf'
-		) {
-			$tags2 = $this->get_tag($template, 'start');
-			if ( ! $tags2) $this->log('[42]');
-		}
-
-		if (
-			$tpl['code']['aftr']
-			|| $this->seotext_site == 'sf'
-		) {
-			$tags1 = $this->get_tag($template, 'finish');
-			if ( ! $tags1) $this->log('[43]');
-		}
-
-		if ('sf' == $this->seotext_site) {
-			if (
-				$tags2 && $tags1
-				&& ($tpl['code']['aftr'] || $tpl['code']['befr'])
-			) {
-				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
-				$foo .= $tpl['code']['befr'].$tpl['code']['aftr'];
-				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-				$mask = "/".$this->tag_s['m']."(.*)".$this->tag_f['m']."/sU";
-				$template = preg_replace($mask, $foo, $template, 1, $count);
-				if ($count) $tpl_modified = true;
-			}
-
-		} else {
-			if ($tags2 && $tpl['code']['befr']) {
-				$foo = $this->tag_s['p'] == 'a' ? $this->tag_s['t'] : '';
-				$foo .= $tpl['code']['befr'];
-				$foo .= $this->tag_s['p'] == 'b' ? $this->tag_s['t'] : '';
-				$mask = "/".$this->tag_s['m']."/s";
-				$template = preg_replace($mask, $foo, $template, 1, $count);
-				if ($count) $tpl_modified = true;
-			}
-
-			if ($tags1 && $tpl['code']['aftr']) {
-				$foo = $this->tag_f['p'] == 'a' ? $this->tag_f['t'] : '';
-				$foo .= $tpl['code']['aftr'];
-				$foo .= $this->tag_f['p'] == 'b' ? $this->tag_f['t'] : '';
-				$mask = "/".$this->tag_f['m']."/s";
-				$template = preg_replace($mask, $foo, $template, 1, $count);
-				if ($count) $tpl_modified = true;
 			}
 		}
 
@@ -2766,7 +2829,7 @@ document.addEventListener("readystatechange",(event)=>{
 		}
 		$res .= '[_errors]'."\n";
 		$res .= "\n";
-		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Нет кода страницы\n[22] Заголовки уже отправлены\n[23] Шаблон не определен\n[24] Итоговый ответ не 200\n[25] Нет Html Head Body\n[31] Файл шаблона не записан\n[41] S-страница без текста\n[42] Старт-тег не найден\n[43] Финиш-тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head не добавлен\n[71] Body не добавлен\n[72] Head не прочитан\n[73] Body не прочитан\n[_errinfo]\n";
+		$res .= "[errinfo_]\n[01] Основная ошибка запуска модуля\n[02] Нет файла контрольной суммы\n[03] Нет файла конфигурации или неверного формата\n[04] Не удалось включить буферизацию вывода\n[05] Файл с подключением модуля не прочитан\n[06] Модуль не подключен в файл\n[07] Команда деактивации модуля\n[08] Модуль отключен по этому пути\n[10] Файл с текстом не прочитан или неверного формата\n[12] В блоке статей не хватает записей\n[13] Несколько статей на одной странице\n[14] Страница стала S\n[15] Страница стала A\n[20] Другой код ответа (200, 404)\n[21] Нет кода страницы\n[22] Заголовки уже отправлены\n[23] Шаблон не определен\n[24] Итоговый ответ не 200\n[25] Нет Html Head Body\n[31] Файл шаблона не записан\n[41] S-страница без текста\n[42] Тег не задан\n[43] Тег не найден\n[50] Много H1\n[51] Meta Robots\n[61] Проблема с Meta\n[62] Проблема с Base\n[64] Проблема с Canonical\n[70] Head или Body не добавлен\n[_errinfo]\n";
 
 		if (isset($_GET['phperrors'])) {
 			$data = $this->bsmfile('phperrors');
